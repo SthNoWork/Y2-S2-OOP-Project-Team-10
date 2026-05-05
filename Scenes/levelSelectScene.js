@@ -10,17 +10,7 @@ class LevelSelectScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor("#808080");
 
     // Back button
-    const backButton = this.add
-      .text(20, 20, "Back", {
-        fontFamily: "Arial, sans-serif",
-        fontSize: "20px",
-        color: "#000000",
-      })
-      .setInteractive({ useHandCursor: true });
-
-    backButton.on("pointerdown", () => {
-      window.showHomeScreen();
-    });
+    addBackButton(this, () => window.showHomeScreen());
 
     // Title
     this.add
@@ -50,7 +40,13 @@ class LevelSelectScene extends Phaser.Scene {
       const isUnlocked = level === 1;
 
       const box = this.add
-        .rectangle(x + btnW / 2, y + btnH / 2, btnW, btnH, isUnlocked ? 0xffffff : 0xaaaaaa)
+        .rectangle(
+          x + btnW / 2,
+          y + btnH / 2,
+          btnW,
+          btnH,
+          isUnlocked ? 0xffffff : 0xaaaaaa,
+        )
         .setInteractive({ useHandCursor: isUnlocked });
 
       this.add
@@ -63,7 +59,7 @@ class LevelSelectScene extends Phaser.Scene {
 
       if (isUnlocked) {
         box.on("pointerdown", () => {
-          this.scene.start("GameScene");
+          window.startScene("GameScene");
         });
       }
     }

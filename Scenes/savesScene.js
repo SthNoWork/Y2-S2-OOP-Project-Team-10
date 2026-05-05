@@ -6,16 +6,6 @@ class SavesScene extends Phaser.Scene {
   create() {
     this.cameras.main.setBackgroundColor("#808080");
 
-    const backButton = this.add
-      .text(20, 20, "Back", {
-        fontFamily: "Arial, sans-serif",
-        fontSize: "20px",
-        color: "#000000",
-      })
-      .setInteractive({ useHandCursor: true });
-
-    backButton.on("pointerdown", () => {
-      window.showHomeScreen();
-    });
+    addBackButton(this, () => window.showHomeScreen());
   }
 }
