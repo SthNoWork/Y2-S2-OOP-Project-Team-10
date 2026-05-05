@@ -23,46 +23,52 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 12px;
+        gap: 3vh;
       }
 
       .title {
         margin: 0;
         text-align: center;
+        font-size: 6vh;
       }
 
       .button-container {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 10px;
+        gap: 2vh;
       }
 
       button {
-        min-width: 120px;
+        min-width: 25vw;
+        min-height: 8vh;
+        font-size: 3vh;
       }
 
       .profile-panel {
         position: fixed;
-        right: 20px;
-        bottom: 20px;
+        right: 2%;
+        bottom: 2%;
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 1.5vw;
         z-index: 999;
       }
 
       .profile-panel button {
-        width: 48px;
-        height: 48px;
-        min-width: 48px;
+        width: 6vh;
+        height: 6vh;
+        min-width: 0;
+        min-height: 0;
+        max-width: 6vh;
+        max-height: 6vh;
         border-radius: 50%;
-        border: 1px solid #000;
+        border: 0.1vh solid #000;
         padding: 0;
       }
 
       .profile-panel .profile-name {
-        font-size: 14px;
+        font-size: 2vh;
       }
 
       .profile-panel .profile-name span {
@@ -83,6 +89,14 @@
         display: block;
         background: #808080;
       }
+
+      #loading-overlay {
+        display: none;
+        position: absolute;
+        inset: 0;
+        background: #808080;
+        z-index: 10;
+      }
     </style>
   </head>
   <body>
@@ -100,7 +114,9 @@
       <div class="profile-name">Logged in as <span>Name</span></div>
     </div>
 
-    <div id="game-container"></div>
+    <div id="game-container">
+      <div id="loading-overlay"></div>
+    </div>
 
     <script src="phaser.js"></script>
     <script src="Scenes/bootScene.js"></script>
@@ -115,56 +131,59 @@
 
       const homeScreen = document.getElementById("home-screen");
       const gameContainer = document.getElementById("game-container");
+      const loadingOverlay = document.getElementById("loading-overlay");
       const profilePanel = document.getElementById("profile-panel");
       const profileBtn = document.getElementById("profile-btn");
       const PROFILE_PANEL_HIDDEN_SCENES = new Set(["GameScene"]);
 
       function addBackButton(scene, onClick) {
+        const fontSize = Math.max(12, Math.round(scene.scale.height * 0.04));
+        const x = Math.round(scene.scale.width * 0.02);
+        const y = Math.round(scene.scale.height * 0.02);
+
         return scene.add
-          .text(20, 20, "Back", {
+          .text(x, y, "Back", {
             fontFamily: "Arial, sans-serif",
-            fontSize: "20px",
+            fontSize: `${fontSize}px`,
             color: "#000000",
           })
-          .setInteractive({ useHandCursor: true })
+          .setInteractive()
+          .setOrigin(0, 0)
+          .setDepth(1000)
           .on("pointerdown", () => {
             onClick();
           });
       }
 
-      function stopActiveScenes() {
-        if (!game) {
-          return;
+      function destroyGame() {
+        if (game) {
+          game.destroy(true);
+          game = null;
         }
-
-        game.scene
-          .getScenes(true)
-          .forEach((s) => game.scene.stop(s.sys.settings.key));
       }
 
       window.showHomeScreen = function () {
-        stopActiveScenes();
+        destroyGame();
         gameContainer.style.display = "none";
         homeScreen.style.display = "flex";
         profilePanel.style.display = "flex";
       };
 
       window.startScene = function (sceneKey) {
+        destroyGame();
+
         homeScreen.style.display = "none";
         gameContainer.style.display = "block";
+        loadingOverlay.style.display = "block";
         profilePanel.style.display = PROFILE_PANEL_HIDDEN_SCENES.has(sceneKey)
           ? "none"
           : "flex";
 
-        if (!game) {
-          game = new Phaser.Game(config);
-          game.events.once("ready", () => game.scene.start(sceneKey));
-          return;
-        }
-
-        // stop every active scene then start the one we want fresh
-        stopActiveScenes();
-        game.scene.start(sceneKey);
+        game = new Phaser.Game(config);
+        game.events.once("ready", () => {
+          game.scene.start(sceneKey);
+          loadingOverlay.style.display = "none";
+        });
       };
 
       document

@@ -1,10 +1,11 @@
-const GAME_WIDTH = 800;
-const GAME_HEIGHT = 600;
+const GAME_WIDTH = window.innerWidth; // was 800
+const GAME_HEIGHT = window.innerHeight; // was 600
 
-const ARENA_X = 50;
-const ARENA_Y = 50;
-const ARENA_W = GAME_WIDTH - 100;
-const ARENA_H = GAME_HEIGHT - 100;
+// DELETE these 4 lines entirely:
+// const ARENA_X = 50;
+// const ARENA_Y = 50;
+// const ARENA_W = GAME_WIDTH - 100;
+// const ARENA_H = GAME_HEIGHT - 100;
 
 const config = {
   type: Phaser.AUTO,
@@ -13,7 +14,7 @@ const config = {
   parent: "game-container",
   backgroundColor: "#808080",
   scale: {
-    mode: Phaser.Scale.FIT,
+    mode: Phaser.Scale.EXPAND, // was Phaser.Scale.FIT
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   physics: {
@@ -21,13 +22,7 @@ const config = {
     matter: {
       gravity: { y: 1 },
       debug: false,
-      setBounds: {
-        x: ARENA_X,
-        y: ARENA_Y,
-        width: ARENA_W,
-        height: ARENA_H,
-        thickness: 32,
-      },
+      // DELETE the setBounds block entirely
     },
   },
   scene: [

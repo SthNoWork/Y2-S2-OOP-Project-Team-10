@@ -4,36 +4,31 @@ class GameScene extends Phaser.Scene {
   }
 
   create() {
+    const W = this.scale.width;
+    const H = this.scale.height;
+
+    const ARENA_X = W * 0.05;
+    const ARENA_Y = H * 0.075;
+    const ARENA_W = W * 0.9;
+    const ARENA_H = H * 0.9;
+
     this.cameras.main.setBackgroundColor("#808080");
+    this.matter.world.setBounds(ARENA_X, ARENA_Y, ARENA_W, ARENA_H, 32);
 
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.children.removeAll(true);
-      if (this.matter?.world) {
-        this.matter.world.destroy();
-      }
-    });
-
-    // Visible arena border
     this.add
       .graphics()
       .lineStyle(2, 0xffffff, 1)
       .strokeRect(ARENA_X, ARENA_Y, ARENA_W, ARENA_H);
 
-    // 1. Create the visible rectangle
     const visual = this.add.rectangle(
       ARENA_X + ARENA_W / 2,
       ARENA_Y + ARENA_H / 2,
-      200,
-      100,
-      0x0000ff, // blue
+      W * 0.1,
+      H * 0.1,
+      0x0000ff,
     );
+    this.matter.add.gameObject(visual, { restitution: 0.5 });
 
-    // 2. Give it a Matter.js physics body
-    const rectangle = this.matter.add.gameObject(visual, {
-      restitution: 0.5,
-    });
-
-    // Back button
     addBackButton(this, () => window.startScene("LevelSelectScene"));
   }
 }

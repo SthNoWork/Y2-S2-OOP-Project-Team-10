@@ -9,27 +9,25 @@ class LevelSelectScene extends Phaser.Scene {
 
     this.cameras.main.setBackgroundColor("#808080");
 
-    // Back button
     addBackButton(this, () => window.showHomeScreen());
 
-    // Title
     this.add
-      .text(W / 2, H / 2 - 120, "Select Level", {
+      .text(W * 0.5, H * 0.25, "Select Level", {
+        // was H/2 - 120
         fontFamily: "Arial, sans-serif",
         fontSize: "28px",
         color: "#000000",
       })
       .setOrigin(0.5);
 
-    // Level grid: 5 cols x 2 rows = 10 buttons
     const cols = 5;
-    const btnW = 100;
-    const btnH = 50;
-    const padX = 20;
-    const padY = 20;
+    const btnW = W * 0.11;
+    const btnH = H * 0.09;
+    const padX = W * 0.025;
+    const padY = H * 0.04;
     const totalW = cols * btnW + (cols - 1) * padX;
     const startX = (W - totalW) / 2;
-    const startY = H / 2 - btnH;
+    const startY = H * 0.45;
 
     for (let i = 0; i < 10; i++) {
       const col = i % cols;
@@ -58,9 +56,7 @@ class LevelSelectScene extends Phaser.Scene {
         .setOrigin(0.5);
 
       if (isUnlocked) {
-        box.on("pointerdown", () => {
-          window.startScene("GameScene");
-        });
+        box.on("pointerdown", () => window.startScene("GameScene"));
       }
     }
   }
