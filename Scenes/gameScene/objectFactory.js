@@ -1,10 +1,16 @@
-// Initialize config object
+// ========================================
+// OBJECT FACTORY: Centralized config and creation for bombs, planes, and UI
+// ========================================
+// Configs drive behavior; factories instantiate and attach properties.
+
 window.GameSceneObjectConfig = window.GameSceneObjectConfig || {};
 window.GameSceneObjectFactory = {};
 
-// ----------------------------
-// Bomb: config + factory
-// ----------------------------
+// ========================================
+// BOMB_FACTORY
+// ========================================
+
+// Bomb config: visual size, physics, and damage/blast parameters.
 window.GameSceneObjectConfig.bomb = {
   useImage: false,
   imageKey: '',
@@ -15,11 +21,12 @@ window.GameSceneObjectConfig.bomb = {
   blastRadiusRatio: 0.2,
   // blastForce is in px/tick velocity units — no dampener applied.
   // Higher = more dramatic knockback. Tune here.
-  blastForce: 50,
+  blastForce: 500,
   directHitDamage: 50,
   blastMaxDamage: 50,
 };
 
+// Create and return a bomb game object with physics body.
 window.GameSceneObjectFactory.createBomb = function (scene, x, y, arena) {
   const cfg = window.GameSceneObjectConfig.bomb;
 
@@ -34,20 +41,36 @@ window.GameSceneObjectFactory.createBomb = function (scene, x, y, arena) {
     label: 'bomb',
   });
 
+  bomb.isBomb = true;
+
+  // Disable bomb-bomb collisions: bombs only explode on ground/player/buildings.
+  if (bomb.body && bomb.body.collisionFilter) {
+    bomb.body.collisionFilter.category = 0x0004;  // bomb category
+    bomb.body.collisionFilter.mask = 0x0001 | 0x0002 | 0x0008;  // ground | player | buildings
+  }
+
   return bomb;
 };
 
-// ----------------------------
-// Plane: config + factory
-// ----------------------------
+// ========================================
+// PLANE_FACTORY
+// ========================================
+
+// Plane config: visual size, bomb count, and randomized drop parameters.
 window.GameSceneObjectConfig.plane = {
   useImage: false,
   imageKey: '',
   widthRatio: 0.12,
   heightRatio: 0.05,
   color: 0xffaa00,
+  bombCount: 10,
+  // Time-based bomb dropping: bombs spawn on a randomized delay while the plane stays in the physics box.
+  bombDropDelayRangeSec: { min: 0.18, max: 0.45 },
+  bombDropOffsetRatioRange: { min: -0.35, max: 0.35 },
+  bombDropYOffsetRatio: 0.04,
 };
 
+// Create and return a plane game object (no physics body).
 window.GameSceneObjectFactory.createPlane = function (scene, spawnLocation, arena) {
   const cfg = window.GameSceneObjectConfig.plane;
 
@@ -59,27 +82,34 @@ window.GameSceneObjectFactory.createPlane = function (scene, spawnLocation, aren
   return scene.add.rectangle(spawnLocation.x, spawnLocation.y, arena.W * cfg.widthRatio, arena.H * cfg.heightRatio, cfg.color);
 };
 
-// ----------------------------
-// UI buttons: take explicit x, y — scene decides positions
-// ----------------------------
+// ========================================
+// UI_FACTORY
+// ========================================
+
+// Button config: styling for text-based UI buttons.
 window.GameSceneObjectConfig.ui = {
   button: {
-    fontSize: '20px',
+    fontSizeRatio: 0.04,  // 4% of viewport height
     fill: '#ffffff',
     backgroundColor: '#333333',
-    padding: { x: 10, y: 8 },
+    paddingXRatio: 0.02,  // 2% of viewport width
+    paddingYRatio: 0.015, // 1.5% of viewport height
   },
 };
 
+// Create an interactive button text with callback.
 window.GameSceneObjectFactory.createButton = function (scene, x, y, label, onClick) {
   const cfg = window.GameSceneObjectConfig.ui.button;
+  const fontSize = Math.round(scene.scale.height * cfg.fontSizeRatio);
+  const paddingX = Math.round(scene.scale.width * cfg.paddingXRatio);
+  const paddingY = Math.round(scene.scale.height * cfg.paddingYRatio);
 
   return scene.add
     .text(x, y, label, {
-      fontSize: cfg.fontSize,
+      fontSize: `${fontSize}px`,
       fill: cfg.fill,
       backgroundColor: cfg.backgroundColor,
-      padding: cfg.padding,
+      padding: { x: paddingX, y: paddingY },
     })
     .setOrigin(1, 0)
     .setInteractive({ useHandCursor: true })

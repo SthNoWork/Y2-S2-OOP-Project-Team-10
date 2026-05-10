@@ -14,15 +14,17 @@ const config = {
   parent: "game-container",
   backgroundColor: "#808080",
   scale: {
-    mode: Phaser.Scale.EXPAND, // was Phaser.Scale.FIT
+    mode: Phaser.Scale.EXPAND,
     autoCenter: Phaser.Scale.CENTER_BOTH,
+    orientation: Phaser.Scale.Orientation.LANDSCAPE,
+    fullscreenTarget: 'parent',
+    expandParent: true,
   },
   physics: {
     default: "matter",
     matter: {
       gravity: { y: 1 },
       debug: false,
-      // DELETE the setBounds block entirely
     },
   },
   scene: [

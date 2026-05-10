@@ -1,6 +1,13 @@
-// ----------------------------
-// Player: config + factory
-// ----------------------------
+// ========================================
+// PLAYER: Configuration, state, and factory
+// ========================================
+// Tracks player health and game-over state; creates the player game object.
+
+// ========================================
+// CONFIGURATION
+// ========================================
+
+// Player visual and physics properties: size, mass, and blast resistance.
 window.GameSceneObjectConfig = window.GameSceneObjectConfig || {};
 window.GameSceneObjectConfig.player = {
   useImage: false,
@@ -19,36 +26,58 @@ window.GameSceneObjectConfig.player = {
   mass: 5,
 };
 
-// Player state management
+// ========================================
+// PLAYER_STATE
+// ========================================
+
+// Global player state: health, game-over flag, and state mutations.
 window.PlayerState = {
   health: window.GameSceneObjectConfig.player.maxHealth,
   gameOver: false,
   
+  // Initialize health and clear game-over flag.
   init(maxHealth) {
     this.health = maxHealth || window.GameSceneObjectConfig.player.maxHealth;
     this.gameOver = false;
   },
 
+  // Apply damage and return true if player dies (no-op if already game-over).
   takeDamage(amount) {
-    this.health -= amount;
-    return this.health <= 0;
+    if (this.gameOver) {
+      return true;
+    }
+
+    this.health = Math.max(0, this.health - amount);
+    if (this.health <= 0) {
+      this.setGameOver();
+      return true;
+    }
+
+    return false;
   },
 
+  // Restore health up to maximum.
   heal(amount) {
     const maxHealth = window.GameSceneObjectConfig.player.maxHealth;
     this.health = Math.min(this.health + amount, maxHealth);
   },
 
+  // Return true if player is alive and game is not over.
   isAlive() {
     return this.health > 0 && !this.gameOver;
   },
 
+  // Mark the game-over state (one-way: cannot be reverted).
   setGameOver() {
     this.gameOver = true;
   },
 };
 
-// Factory method
+// ========================================
+// FACTORY
+// ========================================
+
+// Instantiate the player game object with physics and blast properties.
 window.GameSceneObjectFactory.createPlayer = function (scene, x, y, arena) {
   const config = window.GameSceneObjectConfig.player;
   let player;

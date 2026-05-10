@@ -85,9 +85,37 @@
         background: #808080;
       }
 
+      /* Mobile landscape - shrink height and move away from bottom to avoid swipe gestures */
+      @media (max-height: 500px) {
+        #game-container {
+          height: 85vh;
+          bottom: auto;
+          top: 0;
+        }
+      }
+
       #game-container canvas {
         display: block;
         background: #808080;
+      }
+
+      #fullscreen-btn {
+        position: fixed;
+        bottom: 2vh;
+        left: 2vw;
+        z-index: 999;
+        padding: 1vh 2vw;
+        font-size: 2vh;
+        background: rgba(0, 0, 0, 0.6);
+        color: white;
+        border: 0.2vh solid white;
+        border-radius: 0.5vh;
+        cursor: pointer;
+        display: none;
+      }
+
+      #fullscreen-btn:hover {
+        background: rgba(0, 0, 0, 0.8);
       }
 
       #loading-overlay {
@@ -115,6 +143,7 @@
     </div>
 
     <div id="game-container">
+      <button id="fullscreen-btn">Fullscreen</button>
       <div id="loading-overlay"></div>
     </div>
 
@@ -138,10 +167,11 @@
       const loadingOverlay = document.getElementById("loading-overlay");
       const profilePanel = document.getElementById("profile-panel");
       const profileBtn = document.getElementById("profile-btn");
+      const fullscreenBtn = document.getElementById("fullscreen-btn");
       const PROFILE_PANEL_HIDDEN_SCENES = new Set(["GameScene"]);
 
       function addBackButton(scene, onClick) {
-        const fontSize = Math.max(12, Math.round(scene.scale.height * 0.04));
+        const fontSize = Math.round(scene.scale.height * 0.04);
         const x = Math.round(scene.scale.width * 0.02);
         const y = Math.round(scene.scale.height * 0.02);
 
@@ -204,6 +234,109 @@
         profileBtn.addEventListener("click", () =>
           window.startScene("ProfileScene"),
         );
+      }
+
+      // Fullscreen and landscape functionality
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+      function requestFullscreenAndLandscape() {
+        const elem = document.documentElement;
+        
+        // Request fullscreen
+        const fullscreenPromise = elem.requestFullscreen
+          ? elem.requestFullscreen()
+          : elem.mozRequestFullScreen
+          ? elem.mozRequestFullScreen()
+          : elem.webkitRequestFullscreen
+          ? elem.webkitRequestFullscreen()
+          : elem.msRequestFullscreen
+          ? elem.msRequestFullscreen()
+          : Promise.reject('Fullscreen not supported');
+
+        fullscreenPromise.catch(err => console.log('Fullscreen error:', err));
+
+        // Request landscape orientation if API available
+        if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(err => console.log('Orientation lock error:', err));
+        }
+      }
+
+      function exitFullscreen() {
+        if (document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
+          if (document.exitFullscreen) {
+            document.exitFullscreen();
+          } else if (document.mozCancelFullScreen) {
+            document.mozCancelFullScreen();
+          } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+          } else if (document.msExitFullscreen) {
+            document.msExitFullscreen();
+          }
+        }
+      }
+
+      fullscreenBtn.addEventListener("click", () => {
+        if (!document.fullscreenElement && !document.mozFullScreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
+          requestFullscreenAndLandscape();
+        } else {
+          exitFullscreen();
+        }
+      });
+
+      // Listen for fullscreen change events
+      document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement && isMobile && gameContainer.style.display === 'block') {
+          localStorage.setItem('mobileFullscreenPrompted', 'false');
+        }
+      });
+      document.addEventListener('mozfullscreenchange', () => {
+        if (!document.mozFullScreenElement && isMobile && gameContainer.style.display === 'block') {
+          localStorage.setItem('mobileFullscreenPrompted', 'false');
+        }
+      });
+      document.addEventListener('webkitfullscreenchange', () => {
+        if (!document.webkitFullscreenElement && isMobile && gameContainer.style.display === 'block') {
+          localStorage.setItem('mobileFullscreenPrompted', 'false');
+        }
+      });
+      document.addEventListener('msfullscreenchange', () => {
+        if (!document.msFullscreenElement && isMobile && gameContainer.style.display === 'block') {
+          localStorage.setItem('mobileFullscreenPrompted', 'false');
+        }
+      });
+
+      // Show fullscreen button on mobile when in game
+      const originalStartScene = window.startScene;
+      window.startScene = function(sceneKey) {
+        originalStartScene.call(this, sceneKey);
+        if (isMobile) {
+          fullscreenBtn.style.display = "block";
+          // Auto-request fullscreen on game start if not already prompted
+          const hasBeenPrompted = localStorage.getItem('mobileFullscreenPrompted');
+          if (!hasBeenPrompted) {
+            requestFullscreenAndLandscape();
+            localStorage.setItem('mobileFullscreenPrompted', 'true');
+          }
+        }
+      };
+
+      // Hide fullscreen button when returning to home
+      const originalShowHomeScreen = window.showHomeScreen;
+      window.showHomeScreen = function() {
+        originalShowHomeScreen.call(this);
+        fullscreenBtn.style.display = "none";
+      };
+
+      // Request fullscreen on initial page load for mobile
+      if (isMobile) {
+        document.addEventListener('DOMContentLoaded', () => {
+          const hasBeenPrompted = localStorage.getItem('mobileFullscreenPrompted');
+          if (!hasBeenPrompted) {
+            // Auto-request fullscreen on first load
+            requestFullscreenAndLandscape();
+            localStorage.setItem('mobileFullscreenPrompted', 'true');
+          }
+        });
       }
     </script>
   </body>

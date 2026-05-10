@@ -11,11 +11,11 @@ class LevelSelectScene extends Phaser.Scene {
 
     addBackButton(this, () => window.showHomeScreen());
 
+    const titleFontSize = Math.round(H * 0.08);
     this.add
       .text(W * 0.5, H * 0.25, "Select Level", {
-        // was H/2 - 120
         fontFamily: "Arial, sans-serif",
-        fontSize: "28px",
+        fontSize: `${titleFontSize}px`,
         color: "#000000",
       })
       .setOrigin(0.5);
@@ -36,6 +36,7 @@ class LevelSelectScene extends Phaser.Scene {
       const y = startY + row * (btnH + padY);
       const level = i + 1;
       const isUnlocked = level === 1;
+      const btnFontSize = Math.round(H * 0.035);
 
       const box = this.add
         .rectangle(
@@ -50,7 +51,7 @@ class LevelSelectScene extends Phaser.Scene {
       this.add
         .text(x + btnW / 2, y + btnH / 2, `Level ${level}`, {
           fontFamily: "Arial, sans-serif",
-          fontSize: "14px",
+          fontSize: `${btnFontSize}px`,
           color: isUnlocked ? "#000000" : "#555555",
         })
         .setOrigin(0.5);
