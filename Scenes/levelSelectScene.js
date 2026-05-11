@@ -1,63 +1,60 @@
+// ========================================
+// LEVEL SELECT SCENE
+// ========================================
+// Displays a grid of level buttons. Only Level 1 is unlocked for now.
+
 class LevelSelectScene extends Phaser.Scene {
   constructor() {
-    super("LevelSelectScene");
+    super('LevelSelectScene');
   }
 
   create() {
     const W = this.scale.width;
     const H = this.scale.height;
 
-    this.cameras.main.setBackgroundColor("#808080");
+    this.cameras.main.setBackgroundColor('#808080');
 
-    addBackButton(this, () => window.showHomeScreen());
+    window.UIFactory.addBackButton(this, () => window.showHomeScreen());
 
+    // -- Title --
     const titleFontSize = Math.round(H * 0.08);
-    this.add
-      .text(W * 0.5, H * 0.25, "Select Level", {
-        fontFamily: "Arial, sans-serif",
-        fontSize: `${titleFontSize}px`,
-        color: "#000000",
-      })
-      .setOrigin(0.5);
+    this.add.text(W * 0.5, H * 0.25, 'Select Level', {
+      fontFamily: 'Arial, sans-serif',
+      fontSize:   `${titleFontSize}px`,
+      color:      '#000000',
+    }).setOrigin(0.5);
 
-    const cols = 5;
-    const btnW = W * 0.11;
-    const btnH = H * 0.09;
-    const padX = W * 0.025;
-    const padY = H * 0.04;
-    const totalW = cols * btnW + (cols - 1) * padX;
-    const startX = (W - totalW) / 2;
-    const startY = H * 0.45;
+    // -- Level grid --
+    const cols       = 5;
+    const btnW       = W * 0.11;
+    const btnH       = H * 0.09;
+    const padX       = W * 0.025;
+    const padY       = H * 0.04;
+    const totalW     = cols * btnW + (cols - 1) * padX;
+    const startX     = (W - totalW) / 2;
+    const startY     = H * 0.45;
+    const btnFontSize= Math.round(H * 0.035);
 
     for (let i = 0; i < 10; i++) {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      const x = startX + col * (btnW + padX);
-      const y = startY + row * (btnH + padY);
-      const level = i + 1;
+      const col        = i % cols;
+      const row        = Math.floor(i / cols);
+      const x          = startX + col * (btnW + padX);
+      const y          = startY + row * (btnH + padY);
+      const level      = i + 1;
       const isUnlocked = level === 1;
-      const btnFontSize = Math.round(H * 0.035);
 
       const box = this.add
-        .rectangle(
-          x + btnW / 2,
-          y + btnH / 2,
-          btnW,
-          btnH,
-          isUnlocked ? 0xffffff : 0xaaaaaa,
-        )
+        .rectangle(x + btnW / 2, y + btnH / 2, btnW, btnH, isUnlocked ? 0xffffff : 0xaaaaaa)
         .setInteractive({ useHandCursor: isUnlocked });
 
-      this.add
-        .text(x + btnW / 2, y + btnH / 2, `Level ${level}`, {
-          fontFamily: "Arial, sans-serif",
-          fontSize: `${btnFontSize}px`,
-          color: isUnlocked ? "#000000" : "#555555",
-        })
-        .setOrigin(0.5);
+      this.add.text(x + btnW / 2, y + btnH / 2, `Level ${level}`, {
+        fontFamily: 'Arial, sans-serif',
+        fontSize:   `${btnFontSize}px`,
+        color:      isUnlocked ? '#000000' : '#555555',
+      }).setOrigin(0.5);
 
       if (isUnlocked) {
-        box.on("pointerdown", () => window.startScene("GameScene"));
+        box.on('pointerdown', () => window.startScene('GameScene'));
       }
     }
   }

@@ -1,11 +1,12 @@
+// ========================================
+// SETTINGS SCENE
+// ========================================
+
 class SettingsScene extends Phaser.Scene {
-  constructor() {
-    super("SettingsScene");
-  }
+  constructor() { super('SettingsScene'); }
 
   create() {
-    this.cameras.main.setBackgroundColor("#808080");
-
-    addBackButton(this, () => window.showHomeScreen());
+    this.cameras.main.setBackgroundColor('#808080');
+    window.UIFactory.addBackButton(this, () => window.showHomeScreen());
   }
 }
