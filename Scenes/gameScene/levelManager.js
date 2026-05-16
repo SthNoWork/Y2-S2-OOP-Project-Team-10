@@ -75,15 +75,6 @@ window.LevelManager = {
     return player;
   },
 
-  // Back-compat shims — GameScene still calls init() + setHealthText().
-  init(scene, arena) {
-    this.scene = scene;
-    this.arena = arena;
-  },
-  setHealthText(textObj) {
-    this._healthText = textObj;
-  },
-
   // ========================================
   // PER-FRAME UPDATE
   // ========================================
@@ -142,7 +133,7 @@ window.LevelManager = {
   // ========================================
 
   _calcRoundScore() {
-    const cfg        = window.ScoreConfig ?? this._fallbackScoreConfig();
+    const cfg        = window.ScoreConfig;
     const player     = window.GameLogic.player;
     const maxHp      = window.ObjectConfig.internalTypes?.player?.health ?? 100;
     const hpRatio    = player ? Math.max(0, player.health / maxHp) : 0;
@@ -264,7 +255,7 @@ window.LevelManager = {
     }).setOrigin(0.5).setDepth(2001);
 
     this._overlayBtn(cx, cy + ARENA_H * 0.15, 'Back to Levels', '#333333',
-      () => window.switchScene('LevelSelectScene')
+      () => window.startScene('LevelSelectScene')
     );
   },
 
@@ -294,7 +285,7 @@ window.LevelManager = {
     }).setOrigin(0.5).setDepth(2001);
 
     this._overlayBtn(cx, cy + ARENA_H * 0.15, 'Back to Levels', '#333333',
-      () => window.switchScene('LevelSelectScene')
+      () => window.startScene('LevelSelectScene')
     );
   },
 
@@ -448,15 +439,6 @@ window.LevelManager = {
       prePlaced:        [],
       allowedBuildings: {},
       waves: [{ speedPxPerSec: 350, direction: 1, xRatio: -0.15, yRatio: 0.04 }],
-    };
-  },
-
-  _fallbackScoreConfig() {
-    return {
-      playerHpWeight:    500,
-      buildingWeight:    80,
-      placementPenalty:  10,
-      runMultiplierStep: 0.5,
     };
   },
 

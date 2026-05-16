@@ -213,14 +213,17 @@
       window.startScene = function (sceneKey) {
         destroyGame();
 
-        homeScreen.style.display    = 'none';
-        gameContainer.style.display = 'block';
-        loadingOverlay.style.display= 'block';
-        profilePanel.style.display  = HIDE_PROFILE_IN.has(sceneKey) ? 'none' : 'flex';
+        homeScreen.style.display     = 'none';
+        gameContainer.style.display  = 'block';
+        loadingOverlay.style.display = 'block';
+        profilePanel.style.display   = HIDE_PROFILE_IN.has(sceneKey) ? 'none' : 'flex';
+
+        // Phaser auto-starts the first scene in the config (BootScene) with no data,
+        // so pass the target via a global that BootScene reads before transitioning.
+        window._bootTarget = sceneKey;
 
         game = new Phaser.Game(config);
         game.events.once('ready', () => {
-          game.scene.start('BootScene', { nextScene: sceneKey });
           loadingOverlay.style.display = 'none';
         });
 
@@ -232,22 +235,6 @@
             localStorage.setItem('mobileFullscreenPrompted', 'true');
           }
         }
-      };
-
-      // Switch scenes inside the existing Phaser instance.
-      // Falls back to startScene() if no game is running.
-      window.switchScene = function (sceneKey) {
-        if (!game) {
-          window.startScene(sceneKey);
-          return;
-        }
-
-        homeScreen.style.display    = 'none';
-        gameContainer.style.display = 'block';
-        loadingOverlay.style.display= 'none';
-        profilePanel.style.display  = HIDE_PROFILE_IN.has(sceneKey) ? 'none' : 'flex';
-
-        game.scene.start(sceneKey);
       };
 
       // ================================

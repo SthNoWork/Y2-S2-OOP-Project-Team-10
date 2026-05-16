@@ -1,4 +1,4 @@
-  // ========================================
+// ========================================
   // OBJECT FACTORY
   // ========================================
   // Two completely separate config sections:
@@ -200,42 +200,16 @@
   }
 
   function _addPhysics(scene, obj, cfg, bodyW, bodyH) {
-    const p = cfg.physics;
+    const p     = cfg.physics;
+    const shape = { type: 'rectangle', width: Math.ceil(bodyW), height: Math.ceil(bodyH) };
 
-    let shape = null;
-    if (p.shape && typeof p.shape === 'object') {
-      shape = { ...p.shape };
-      if (shape.type === 'fromTexture' && !obj.texture) {
-        shape = null;
-      }
-    }
-    if (!shape) {
-      shape = { type: 'rectangle', width: Math.ceil(bodyW), height: Math.ceil(bodyH) };
-    }
-
-    try {
-      scene.matter.add.gameObject(obj, {
-        friction:    p.friction,
-        restitution: p.restitution,
-        frictionAir: p.frictionAir,
-        label:       p.label || 'object',
-        shape,
-      });
-    } catch (e) {
-      if (shape?.type === 'fromTexture') {
-        const fallback = { type: 'rectangle', width: Math.ceil(bodyW), height: Math.ceil(bodyH) };
-        console.warn('fromTexture shape failed; falling back to rectangle.', e);
-        scene.matter.add.gameObject(obj, {
-          friction:    p.friction,
-          restitution: p.restitution,
-          frictionAir: p.frictionAir,
-          label:       p.label || 'object',
-          shape:       fallback,
-        });
-      } else {
-        throw e;
-      }
-    }
+    scene.matter.add.gameObject(obj, {
+      friction:    p.friction,
+      restitution: p.restitution,
+      frictionAir: p.frictionAir,
+      label:       p.label || 'object',
+      shape,
+    });
 
     if (obj.body) {
       if (p.mass !== undefined) {
@@ -329,40 +303,10 @@
     }
 
     const { bodyW, bodyH } = _computeSize(scene, cfg, arena);
-    let obj = null;
-    const wantsFromTexture = false;
+    const obj = _buildVisual(scene, cfg, x, y, bodyW, bodyH);
 
-    if (wantsFromTexture && scene.textures.exists(cfg.imageKey)) {
-      try {
-        const p = cfg.physics;
-        obj = scene.matter.add.sprite(x, y, cfg.imageKey, null, {
-          friction:    p.friction,
-          restitution: p.restitution,
-          frictionAir: p.frictionAir,
-          label:       p.label || 'object',
-          shape:       { type: 'fromTexture' },
-        });
-        obj.setDisplaySize(bodyW, bodyH);
-
-        if (p.mass !== undefined) {
-          try { Phaser.Physics.Matter.Matter.Body.setMass(obj.body, p.mass); } catch (e) {}
-        }
-        if (p.collisionFilter && obj.body?.collisionFilter) {
-          obj.body.collisionFilter.category = p.collisionFilter.category;
-          obj.body.collisionFilter.mask     = p.collisionFilter.mask;
-        }
-      } catch (e) {
-        console.warn('fromTexture shape not supported; falling back to rectangle.', e);
-        obj = null;
-      }
-    }
-
-    if (!obj) {
-      obj = _buildVisual(scene, cfg, x, y, bodyW, bodyH);
-
-      if (cfg.physics) {
-        _addPhysics(scene, obj, cfg, bodyW, bodyH);
-      }
+    if (cfg.physics) {
+      _addPhysics(scene, obj, cfg, bodyW, bodyH);
     }
     if (cfg.health !== undefined) {
       _addHealth(obj, cfg);

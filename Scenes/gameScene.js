@@ -45,7 +45,7 @@ class GameScene extends Phaser.Scene {
     this._createActionButtons();
 
     // Back button.
-    window.UIFactory.addBackButton(this, () => window.switchScene('LevelSelectScene'));
+    window.UIFactory.addBackButton(this, () => window.startScene('LevelSelectScene'));
   }
 
   // ========================================
@@ -77,20 +77,22 @@ class GameScene extends Phaser.Scene {
       this.player = window.LevelManager.reset(this.player);
     });
 
-    // Debug — log all placed objects.
-    window.UIFactory.createButton(this, btnX, btnY + btnGap * 2, 'Debug', () => {
-      const placed = window.BuildingManager.getPlacedBuildings();
-      console.log(`[Debug] placedBuildings count: ${placed.length}`);
-      placed.forEach((b, i) => {
-        const inWorld = this.matter?.world?.localWorld?.bodies?.includes(b.body) ?? '?';
-        console.log(`  [${i}] type=${b.buildingType} active=${b.active} visible=${b.visible} x=${Math.round(b.x)} y=${Math.round(b.y)} health=${b.health} ghostRemoved=${b._ghostRemoved} inWorld=${inWorld}`);
+    // Debug — log all placed objects (only in debug mode).
+    if (window.DEBUG) {
+      window.UIFactory.createButton(this, btnX, btnY + btnGap * 2, 'Debug', () => {
+        const placed = window.BuildingManager.getPlacedBuildings();
+        console.log(`[Debug] placedBuildings count: ${placed.length}`);
+        placed.forEach((b, i) => {
+          const inWorld = this.matter?.world?.localWorld?.bodies?.includes(b.body) ?? '?';
+          console.log(`  [${i}] type=${b.buildingType} active=${b.active} visible=${b.visible} x=${Math.round(b.x)} y=${Math.round(b.y)} health=${b.health} ghostRemoved=${b._ghostRemoved} inWorld=${inWorld}`);
+        });
+        console.log('[Debug] buildingCounts:', JSON.stringify(window.BuildingManager.buildingCounts));
+        console.log('[Debug] GameLogic.buildings count:', window.GameLogic.buildings.length);
+        window.GameLogic.buildings.forEach((b, i) => {
+          console.log(`  [GL ${i}] type=${b.buildingType} active=${b.active} x=${Math.round(b.x)} y=${Math.round(b.y)} health=${b.health}`);
+        });
       });
-      console.log('[Debug] buildingCounts:', JSON.stringify(window.BuildingManager.buildingCounts));
-      console.log('[Debug] GameLogic.buildings count:', window.GameLogic.buildings.length);
-      window.GameLogic.buildings.forEach((b, i) => {
-        console.log(`  [GL ${i}] type=${b.buildingType} active=${b.active} x=${Math.round(b.x)} y=${Math.round(b.y)} health=${b.health}`);
-      });
-    });
+    }
   }
 
   // ========================================

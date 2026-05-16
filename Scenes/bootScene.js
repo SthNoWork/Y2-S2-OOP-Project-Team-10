@@ -36,7 +36,8 @@ class BootScene extends Phaser.Scene {
       });
     }
 
-    const nextScene = data?.nextScene || 'GameScene';
+    const nextScene = window._bootTarget ?? 'GameScene';
+    window._bootTarget = null;
     this.scene.start(nextScene);
   }
 

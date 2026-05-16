@@ -156,24 +156,8 @@ window.BuildingManager = {
   },
 
   _getPointerHits(pointer) {
-    const input = this.scene.input;
-    const targets = this.placedBuildings;
-
-    if (!targets?.length) return [];
-
-    if (typeof input.hitTestPointer === 'function') {
-      return input.hitTestPointer(pointer, targets) || [];
-    }
-
-    if (input?.manager && typeof input.manager.hitTest === 'function') {
-      const cameras = this.scene.cameras.getCamerasBelowPointer(pointer) || [this.scene.cameras.main];
-      for (const cam of cameras) {
-        const hits = input.manager.hitTest(pointer, targets, cam) || [];
-        if (hits.length) return hits;
-      }
-    }
-
-    return [];
+    if (!this.placedBuildings?.length) return [];
+    return this.scene.input.hitTestPointer(pointer, this.placedBuildings) || [];
   },
 
   // ========================================
