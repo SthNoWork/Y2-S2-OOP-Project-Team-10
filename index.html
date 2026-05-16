@@ -166,6 +166,7 @@
     <script src="uiFactory.js"></script>
     <script src="Scenes/gameScene/gameLogic.js"></script>
     <script src="Scenes/gameScene/buildingManager.js"></script>
+    <script src="levels.js"></script>
     <script src="Scenes/gameScene/levelManager.js"></script>
     <script src="Scenes/gameScene.js"></script>
     <script src="Scenes/levelSelectScene.js"></script>
@@ -219,7 +220,7 @@
 
         game = new Phaser.Game(config);
         game.events.once('ready', () => {
-          game.scene.start(sceneKey);
+          game.scene.start('BootScene', { nextScene: sceneKey });
           loadingOverlay.style.display = 'none';
         });
 
@@ -231,6 +232,22 @@
             localStorage.setItem('mobileFullscreenPrompted', 'true');
           }
         }
+      };
+
+      // Switch scenes inside the existing Phaser instance.
+      // Falls back to startScene() if no game is running.
+      window.switchScene = function (sceneKey) {
+        if (!game) {
+          window.startScene(sceneKey);
+          return;
+        }
+
+        homeScreen.style.display    = 'none';
+        gameContainer.style.display = 'block';
+        loadingOverlay.style.display= 'none';
+        profilePanel.style.display  = HIDE_PROFILE_IN.has(sceneKey) ? 'none' : 'flex';
+
+        game.scene.start(sceneKey);
       };
 
       // ================================

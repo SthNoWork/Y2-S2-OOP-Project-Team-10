@@ -1,7 +1,6 @@
 // ========================================
 // LEVEL SELECT SCENE
 // ========================================
-// Displays a grid of level buttons. Only Level 1 is unlocked for now.
 
 class LevelSelectScene extends Phaser.Scene {
   constructor() {
@@ -16,7 +15,6 @@ class LevelSelectScene extends Phaser.Scene {
 
     window.UIFactory.addBackButton(this, () => window.showHomeScreen());
 
-    // -- Title --
     const titleFontSize = Math.round(H * 0.08);
     this.add.text(W * 0.5, H * 0.25, 'Select Level', {
       fontFamily: 'Arial, sans-serif',
@@ -24,24 +22,26 @@ class LevelSelectScene extends Phaser.Scene {
       color:      '#000000',
     }).setOrigin(0.5);
 
-    // -- Level grid --
-    const cols       = 5;
-    const btnW       = W * 0.11;
-    const btnH       = H * 0.09;
-    const padX       = W * 0.025;
-    const padY       = H * 0.04;
-    const totalW     = cols * btnW + (cols - 1) * padX;
-    const startX     = (W - totalW) / 2;
-    const startY     = H * 0.45;
-    const btnFontSize= Math.round(H * 0.035);
+    const cols        = 5;
+    const btnW        = W * 0.11;
+    const btnH        = H * 0.09;
+    const padX        = W * 0.025;
+    const padY        = H * 0.04;
+    const totalW      = cols * btnW + (cols - 1) * padX;
+    const startX      = (W - totalW) / 2;
+    const startY      = H * 0.45;
+    const btnFontSize = Math.round(H * 0.035);
 
-    for (let i = 0; i < 10; i++) {
+    const totalLevels = Object.keys(window.Levels ?? {}).length || 10;
+
+    for (let i = 0; i < totalLevels; i++) {
       const col        = i % cols;
       const row        = Math.floor(i / cols);
       const x          = startX + col * (btnW + padX);
       const y          = startY + row * (btnH + padY);
       const level      = i + 1;
-      const isUnlocked = level === 1;
+      // A level is playable if it exists in window.Levels with a waves array.
+      const isUnlocked = !!(window.Levels?.[level]?.waves?.length);
 
       const box = this.add
         .rectangle(x + btnW / 2, y + btnH / 2, btnW, btnH, isUnlocked ? 0xffffff : 0xaaaaaa)
@@ -54,7 +54,10 @@ class LevelSelectScene extends Phaser.Scene {
       }).setOrigin(0.5);
 
       if (isUnlocked) {
-        box.on('pointerdown', () => window.startScene('GameScene'));
+        box.on('pointerdown', () => {
+          window._currentLevel = level;
+          window.startScene('GameScene');
+        });
       }
     }
   }

@@ -89,11 +89,10 @@
 
   <div class="file">
     <div class="file-name">objectFactory.js</div>
-    <div class="fn"><span class="kw">fn</span> <span class="nm">createBomb</span>(scene,x,y,arena) <span class="cm">// rect + matter body, label='bomb', ignores other bombs</span></div>
-    <div class="fn"><span class="kw">fn</span> <span class="nm">createPlane</span>(scene,spawn,arena) <span class="cm">// rect only, no physics — moves via x position each frame</span></div>
-    <div class="fn"><span class="kw">fn</span> <span class="nm">createPlayer</span>(scene,x,y,arena) <span class="cm">// rect + matter body, sets mass so blasts don't fling too far</span></div>
-    <div class="fn"><span class="kw">fn</span> <span class="nm">createBuilding</span>(scene,arena,type,x,y) <span class="cm">// rect + matter body, static, registers with GameLogic</span></div>
-    <div class="fn"><span class="kw">fn</span> <span class="nm">destroyBuilding</span>(building) <span class="cm">// calls building.destroy() safely — count bookkeeping done by BuildingManager</span></div>
+    <div class="fn"><span class="kw">fn</span> <span class="nm">createPlaceable</span>(scene,type,x,y,arena,opts) <span class="cm">// draggable building, registers with GameLogic</span></div>
+    <div class="fn"><span class="kw">fn</span> <span class="nm">createLevelObject</span>(scene,type,x,y,arena) <span class="cm">// pre-placed level object, not draggable</span></div>
+    <div class="fn"><span class="kw">fn</span> <span class="nm">createInternal</span>(scene,type,x,y,arena,opts) <span class="cm">// bomb/plane/player spawns</span></div>
+    <div class="fn"><span class="kw">fn</span> <span class="nm">destroy</span>(obj) <span class="cm">// calls obj.destroy() safely</span></div>
   </div>
 
   <div class="file">
@@ -104,23 +103,15 @@
     <div class="fn"><span class="kw">fn</span> <span class="nm">onPointerDown</span>(pointer) <span class="cm">// hit-tests pointer; if a building is touched starts drag</span></div>
     <div class="fn"><span class="kw">fn</span> <span class="nm">onPointerMove</span>(pointer) <span class="cm">// while dragging, moves building body to cursor position</span></div>
     <div class="fn"><span class="kw">fn</span> <span class="nm">onPointerUp</span>() <span class="cm">// validates drop; keeps or destroys/snaps back, calls _finaliseDrop</span></div>
-    <div class="fn"><span class="kw">fn</span> <span class="nm">_finaliseDrop</span>(building, valid) <span class="cm">// clears isDragging, resets depth, sets body static/dynamic</span></div>
+    <div class="fn"><span class="kw">fn</span> <span class="nm">_finaliseDrop</span>(building) <span class="cm">// clears drag state, resets depth/velocity</span></div>
     <div class="fn"><span class="kw">fn</span> <span class="nm">setGhostMode</span>(building, on) <span class="cm">// removes/adds body from physics world so it won't collide while dragging</span></div>
     <div class="fn"><span class="kw">fn</span> <span class="nm">isPlacementValid</span>(building) <span class="cm">// queries matter.intersectRect(); true if no overlap with other bodies</span></div>
     <div class="fn"><span class="kw">fn</span> <span class="nm">_spawnAllInventoryControls</span>() <span class="cm">// loops building types, calls _spawnInventoryButton for each</span></div>
     <div class="fn"><span class="kw">fn</span> <span class="nm">_spawnInventoryButton</span>(x,y,type) <span class="cm">// colored text label at bottom of arena; click starts a drag</span></div>
-    <div class="fn"><span class="kw">fn</span> <span class="nm">createBuilding</span>(type,x,y,opts) <span class="cm">// checks maxCount, delegates to ObjectFactory, tracks in placedBuildings</span></div>
-    <div class="fn"><span class="kw">fn</span> <span class="nm">destroyBuilding</span>(building) <span class="cm">// decrements count, calls ObjectFactory.destroyBuilding, removes from list</span></div>
+    <div class="fn"><span class="kw">fn</span> <span class="nm">_spawnBuilding</span>(type,x,y,opts) <span class="cm">// checks maxCount, delegates to ObjectFactory.createPlaceable</span></div>
+    <div class="fn"><span class="kw">fn</span> <span class="nm">destroyBuilding</span>(building) <span class="cm">// decrements count, calls ObjectFactory.destroy</span></div>
     <div class="fn"><span class="kw">fn</span> <span class="nm">getPlacedBuildings</span>() <span class="cm">// returns live array of all placed building objects</span></div>
     <div class="fn"><span class="kw">fn</span> <span class="nm">getBuildingCount</span>(type) <span class="cm">// returns how many of a given building type are currently placed</span></div>
-  </div>
-
-  <div class="file">
-    <div class="file-name">gameLogic.js — PlayerState</div>
-    <div class="fn"><span class="kw">fn</span> <span class="nm">init</span>() <span class="cm">// resets health to max, clears gameOver flag</span></div>
-    <div class="fn"><span class="kw">fn</span> <span class="nm">takeDamage</span>(amount) <span class="cm">// reduces health, returns true if player just died</span></div>
-    <div class="fn"><span class="kw">fn</span> <span class="nm">heal</span>(amount) <span class="cm">// restores health up to maxHealth</span></div>
-    <div class="fn"><span class="kw">fn</span> <span class="nm">isAlive</span>() <span class="cm">// returns true if health > 0 and not gameOver</span></div>
   </div>
 
   <div class="file">
@@ -136,7 +127,7 @@
     <div class="fn"><span class="kw">fn</span> <span class="nm">_applyKnockback</span>(body,…) <span class="cm">// velocity impulse scaled by distance falloff divided by mass</span></div>
     <div class="fn"><span class="kw">fn</span> <span class="nm">addBuilding</span>(building) <span class="cm">// registers building in buildings[] so blast queries can find it</span></div>
     <div class="fn"><span class="kw">fn</span> <span class="nm">_endGame</span>(won) <span class="cm">// sets gameOver flag, logs win/lose — fires only once</span></div>
-    <div class="fn"><span class="kw">fn</span> <span class="nm">resetRun</span>() <span class="cm">// destroys active plane + bombs, calls PlayerState.init()</span></div>
+    <div class="fn"><span class="kw">fn</span> <span class="nm">resetRun</span>() <span class="cm">// destroys active plane + bombs, restores player health</span></div>
   </div>
 
   <div class="file">
@@ -145,8 +136,7 @@
     <div class="fn"><span class="kw">fn</span> <span class="nm">setHealthText</span>(textObj) <span class="cm">// stores reference to HUD text so this manager can update it</span></div>
     <div class="fn"><span class="kw">fn</span> <span class="nm">reset</span>(player) <span class="cm">// full reset: run, buildings, HUD, player position, GameLogic.init</span></div>
     <div class="fn"><span class="kw">fn</span> <span class="nm">update</span>() <span class="cm">// called every frame — refreshes HUD and checks game over</span></div>
-    <div class="fn"><span class="kw">fn</span> <span class="nm">_refreshHUD</span>() <span class="cm">// sets health text to current PlayerState.health value</span></div>
-    <div class="fn"><span class="kw">fn</span> <span class="nm">_checkGameOver</span>() <span class="cm">// shows GAME OVER text once when playerState.gameOver is true</span></div>
+    <div class="fn"><span class="kw">fn</span> <span class="nm">_refreshHUD</span>() <span class="cm">// sets health text to current player health value</span></div>
   </div>
 </div>
 
@@ -173,20 +163,17 @@
     <div class="step"><span class="num">5</span><span class="fn-call">_buildArena(W, H)</span><span class="note">computes all layout constants from screen size</span></div>
     <div class="step"><span class="num">6</span><span class="fn-call">matter.world.setBounds()</span></div>
     <div class="step"><span class="num">7</span><span class="fn-call">_drawArenaBorder()</span></div>
-    <div class="step"><span class="num">8</span><span class="fn-call">ObjectFactory.createPlayer()</span><span class="file-ref">objectFactory.js</span></div>
-    <div class="step"><span class="num">9</span><span class="fn-call">GameLogic.init(scene, player, arena)</span><span class="file-ref">gameLogic.js</span><span class="note">binds collisionstart listener, calls PlayerState.init()</span></div>
-    <div class="step"><span class="num">10</span><span class="fn-call">BuildingManager.init(scene, arena)</span><span class="file-ref">buildingManager.js</span><span class="note">→ resetState() → _spawnAllInventoryControls() → setupInputHandlers()</span></div>
-    <div class="step"><span class="num">11</span><span class="fn-call">LevelManager.init(scene, arena)</span><span class="file-ref">levelManager.js</span></div>
-    <div class="step"><span class="num">12</span><span class="fn-call">UIFactory.addHealthText()</span> → <span class="fn-call">LevelManager.setHealthText()</span></div>
-    <div class="step"><span class="num">13</span><span class="fn-call">_createActionButtons()</span> → <span class="fn-call">UIFactory.createButton()</span> × 2</div>
-    <div class="step"><span class="num">14</span><span class="fn-call">UIFactory.addBackButton()</span></div>
+    <div class="step"><span class="num">8</span><span class="fn-call">LevelManager.load(scene, arena, levelNum)</span><span class="file-ref">levelManager.js</span><span class="note">spawns player, platforms, prePlaced, HUD; calls GameLogic.init()</span></div>
+    <div class="step"><span class="num">9</span><span class="fn-call">BuildingManager.init(scene, arena)</span><span class="file-ref">buildingManager.js</span><span class="note">→ resetState() → _spawnAllInventoryControls() → setupInputHandlers()</span></div>
+    <div class="step"><span class="num">10</span><span class="fn-call">_createActionButtons()</span> → <span class="fn-call">UIFactory.createButton()</span> × 2</div>
+    <div class="step"><span class="num">11</span><span class="fn-call">UIFactory.addBackButton()</span></div>
   </div>
 
   <div class="flow">
     <div class="flow-title"><span class="action">click inventory button</span> — pick up a building</div>
     <div class="step"><span class="num">1</span><span class="fn-call">label.on('pointerdown')</span><span class="file-ref">buildingManager.js _spawnInventoryButton</span></div>
-    <div class="step"><span class="num">2</span><span class="fn-call">BuildingManager.createBuilding(type, x, y, {fromInventory: true})</span></div>
-    <div class="step"><span class="num">3</span><span class="fn-call">ObjectFactory.createBuilding()</span><span class="file-ref">objectFactory.js</span><span class="note">creates rect + matter body, static=true by default</span></div>
+    <div class="step"><span class="num">2</span><span class="fn-call">BuildingManager._spawnBuilding(type, x, y, {fromInventory: true})</span></div>
+    <div class="step"><span class="num">3</span><span class="fn-call">ObjectFactory.createPlaceable()</span><span class="file-ref">objectFactory.js</span><span class="note">creates rect + matter body, registers with GameLogic</span></div>
     <div class="step"><span class="num">4</span><span class="fn-call">GameLogic.addBuilding(building)</span><span class="file-ref">gameLogic.js</span><span class="note">registers in buildings[] for blast damage queries</span></div>
     <div class="step"><span class="num">5</span><span class="fn-call">BuildingManager.setGhostMode(building, true)</span><span class="note">removes body from physics world, collision mask = 0</span></div>
     <div class="step"><span class="num">6</span><span class="fn-call">building.setDepth(1000)</span><span class="note">renders on top while being dragged</span></div>
@@ -206,7 +193,7 @@
     <div class="step"><span class="num">3</span><span class="fn-call">isPlacementValid(building)</span><span class="note">matter.intersectRect() checks for overlapping bodies</span></div>
     <div class="step branch"><span class="num">↳</span><span class="fn-call">INVALID + fromInventory → destroyBuilding()</span><span class="note">removes from scene, decrements count</span></div>
     <div class="step branch"><span class="num">↳</span><span class="fn-call">INVALID + was placed → snap back to _dragOrigin x/y</span></div>
-    <div class="step branch"><span class="num">↳</span><span class="fn-call">VALID → _finaliseDrop(building, true)</span></div>
+    <div class="step branch"><span class="num">↳</span><span class="fn-call">VALID → _finaliseDrop(building)</span></div>
     <div class="step"><span class="num">4</span><span class="fn-call">setGhostMode(building, false)</span><span class="note">re-adds body to physics world, collision mask = -1</span></div>
     <div class="step"><span class="num">5</span><span class="fn-call">Matter.Body.setStatic(building.body, false)</span><span class="note">building now affected by gravity and blast forces</span></div>
     <div class="step"><span class="num">6</span><span class="fn-call">building.setDepth(0)</span> · <span class="fn-call">isDragging = false</span></div>
@@ -216,7 +203,7 @@
     <div class="flow-title"><span class="action">click "Start"</span> — launch bombing run</div>
     <div class="step"><span class="num">1</span><span class="fn-call">UIFactory.createButton pointerdown</span><span class="file-ref">gameScene.js _createActionButtons</span></div>
     <div class="step"><span class="num">2</span><span class="fn-call">GameLogic.startBombingRun(vel, spawn, dir)</span><span class="file-ref">gameLogic.js</span></div>
-    <div class="step"><span class="num">3</span><span class="fn-call">ObjectFactory.createPlane(scene, spawn, arena)</span><span class="note">rectangle only, no physics body</span></div>
+    <div class="step"><span class="num">3</span><span class="fn-call">ObjectFactory.createInternal('plane')</span><span class="note">rectangle only, no physics body</span></div>
     <div class="step"><span class="num">4</span><span class="fn-call">sets this._run = {plane, speed, direction, nextBombDelay…}</span><span class="note">timing state for bomb drop schedule</span></div>
   </div>
 
@@ -225,10 +212,10 @@
     <div class="step"><span class="num">1</span><span class="fn-call">GameScene.update(time, delta)</span><span class="file-ref">gameScene.js</span></div>
     <div class="step"><span class="num">2</span><span class="fn-call">GameLogic.update(delta)</span><span class="file-ref">gameLogic.js</span></div>
     <div class="step"><span class="num">3</span><span class="fn-call">_updatePlane(dt)</span><span class="note">moves plane x, tracks velocity for bomb inheritance</span></div>
-    <div class="step"><span class="num">4</span><span class="fn-call">_spawnBomb()</span><span class="note">fires when accumulator ≥ nextBombDelay → ObjectFactory.createBomb()</span></div>
+    <div class="step"><span class="num">4</span><span class="fn-call">_spawnBomb()</span><span class="note">fires when accumulator ≥ nextBombDelay → ObjectFactory.createInternal('bomb')</span></div>
     <div class="step"><span class="num">5</span><span class="fn-call">_updateBombs()</span><span class="note">bomb hit floor → _createBlastRadius() → bomb.destroy()</span></div>
     <div class="step"><span class="num">6</span><span class="fn-call">LevelManager.update()</span><span class="file-ref">levelManager.js</span></div>
-    <div class="step"><span class="num">7</span><span class="fn-call">_refreshHUD()</span> → <span class="fn-call">_checkGameOver()</span></div>
+    <div class="step"><span class="num">7</span><span class="fn-call">_refreshHUD()</span></div>
   </div>
 
   <div class="flow">
@@ -238,7 +225,7 @@
     <div class="step"><span class="num">3</span><span class="fn-call">_createBlastRadius(x, y, radius, force)</span><span class="note">spawns orange circle tween + queries nearby bodies</span></div>
     <div class="step"><span class="num">4</span><span class="fn-call">matter.intersectRect()</span><span class="note">finds all bodies inside blast zone</span></div>
     <div class="step"><span class="num">5</span><span class="fn-call">_applyKnockback(body, …)</span><span class="note">velocity impulse = force × falloff / mass</span></div>
-    <div class="step branch"><span class="num">↳</span><span class="fn-call">player hit → PlayerState.takeDamage(amount)</span><span class="note">health ≤ 0 → _endGame(false)</span></div>
+    <div class="step branch"><span class="num">↳</span><span class="fn-call">player hit → GameLogic._damagePlayer(amount)</span><span class="note">health ≤ 0 → _endGame(false)</span></div>
     <div class="step branch"><span class="num">↳</span><span class="fn-call">building hit → building.takeDamage(amount)</span><span class="note">health ≤ 0 → BuildingManager.destroyBuilding()</span></div>
   </div>
 
@@ -246,11 +233,11 @@
     <div class="flow-title"><span class="action">click "Reset"</span></div>
     <div class="step"><span class="num">1</span><span class="fn-call">UIFactory.createButton pointerdown</span><span class="file-ref">gameScene.js</span></div>
     <div class="step"><span class="num">2</span><span class="fn-call">LevelManager.reset(player)</span><span class="file-ref">levelManager.js</span></div>
-    <div class="step"><span class="num">3</span><span class="fn-call">GameLogic.resetRun()</span><span class="note">destroys plane + all active bombs, calls PlayerState.init()</span></div>
-    <div class="step"><span class="num">4</span><span class="fn-call">BuildingManager.destroyBuilding()</span><span class="note">× each placed building → ObjectFactory.destroyBuilding()</span></div>
+    <div class="step"><span class="num">3</span><span class="fn-call">GameLogic.resetRun()</span><span class="note">destroys plane + all active bombs, restores player health</span></div>
+    <div class="step"><span class="num">4</span><span class="fn-call">BuildingManager.destroyBuilding()</span><span class="note">× each placed building → ObjectFactory.destroy()</span></div>
     <div class="step"><span class="num">5</span><span class="fn-call">BuildingManager.resetState()</span><span class="note">clears placedBuildings[], resets buildingCounts to 0</span></div>
-    <div class="step"><span class="num">6</span><span class="fn-call">ObjectFactory.createPlayer()</span><span class="note">repositions or recreates player at arena centre</span></div>
-    <div class="step"><span class="num">7</span><span class="fn-call">GameLogic.init(scene, player, arena)</span><span class="note">fresh collision listener, fresh PlayerState</span></div>
+    <div class="step"><span class="num">6</span><span class="fn-call">ObjectFactory.createInternal('player')</span><span class="note">repositions or recreates player at arena centre</span></div>
+    <div class="step"><span class="num">7</span><span class="fn-call">GameLogic.init(scene, player, arena)</span><span class="note">fresh collision listener, resets player health</span></div>
     <div class="step"><span class="num">8</span><span class="fn-call">LevelManager._refreshHUD()</span></div>
   </div>
 

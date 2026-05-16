@@ -2,9 +2,12 @@
 // BUILDING MANAGER
 // ========================================
 // Manages drag-and-drop placement of buildings inside the arena.
-// Owns: input handling, ghost-mode dragging, placement validation, count tracking,
-//       inventory UI controls, and building cleanup.
-// Does NOT own: building config/data (see objectFactory.js), blast/damage logic.
+// Owns: input handling, ghost-mode dragging, placement validation,
+//       count tracking, inventory UI controls, and building cleanup.
+// Does NOT own: building config/data (objectFactory.js), blast/damage logic.
+//
+// Creation and destruction go straight to ObjectFactory.create / .destroy.
+// This manager only tracks counts and the placed list.
 
 window.BuildingManager = {
 
@@ -18,12 +21,12 @@ window.BuildingManager = {
   placedBuildings:  [],
   buildingCounts:   {},
   _handlers:        null,
+  dragMoveThreshold: 1,
 
   // ========================================
   // INITIALIZATION
   // ========================================
 
-  // Bind to a scene and arena, reset all state, spawn inventory controls, and attach input.
   init(scene, arena) {
     this.scene = scene;
     this.arena = arena;
@@ -32,11 +35,10 @@ window.BuildingManager = {
     this.setupInputHandlers();
   },
 
-  // Clear drag state, placed list, and per-type counts. Does not touch input handlers.
   resetState() {
     this.draggingBuilding = null;
     this.placedBuildings  = [];
-    Object.keys(window.ObjectConfig.buildingTypes).forEach((type) => {
+    Object.keys(window.ObjectConfig.placeableTypes).forEach((type) => {
       this.buildingCounts[type] = 0;
     });
   },
@@ -45,7 +47,6 @@ window.BuildingManager = {
   // INPUT HANDLERS
   // ========================================
 
-  // Attach pointer events to the current scene, removing any previous listeners first.
   setupInputHandlers() {
     if (this._handlers && this.scene?.input) {
       try {
@@ -66,25 +67,17 @@ window.BuildingManager = {
     this.scene.input.on('pointerup',   this._handlers.up);
   },
 
-  // Hit-test the pointer and begin dragging a building if one is touched.
   onPointerDown(pointer) {
-    const input = this.scene.input;
-    let gameObjects = [];
-
-    if (typeof input.hitTestPointer === 'function') {
-      gameObjects = input.hitTestPointer(pointer) || [];
-    } else if (input?.manager && typeof input.manager.hitTest === 'function') {
-      const cameras = this.scene.cameras.getCamerasBelowPointer(pointer) || [this.scene.cameras.main];
-      for (const cam of cameras) {
-        gameObjects = input.manager.hitTest(pointer, this.scene.children.list, cam) || [];
-        if (gameObjects.length) break;
-      }
-    }
+    const gameObjects = this._getPointerHits(pointer);
+    if (!gameObjects.length) return;
 
     for (const obj of gameObjects) {
+      if (obj.isLevelObject) continue;
       if (obj.isBuilding || obj.buildingConfig) {
         this.draggingBuilding = obj;
         obj.isDragging = true;
+        obj._lastDragPos = { x: pointer.x, y: pointer.y };
+        obj._cachedBounds = obj.getBounds?.() ?? null;
         this.setGhostMode(obj, true);
         obj.setDepth(1000);
         break;
@@ -92,9 +85,15 @@ window.BuildingManager = {
     }
   },
 
-  // Move the dragged building to follow the pointer.
   onPointerMove(pointer) {
     if (!this.draggingBuilding?.isDragging) return;
+
+    const last = this.draggingBuilding._lastDragPos;
+    if (last) {
+      const dx = pointer.x - last.x;
+      const dy = pointer.y - last.y;
+      if (dx * dx + dy * dy < this.dragMoveThreshold * this.dragMoveThreshold) return;
+    }
 
     if (this.draggingBuilding.body) {
       Phaser.Physics.Matter.Matter.Body.setPosition(
@@ -104,9 +103,11 @@ window.BuildingManager = {
       this.draggingBuilding.x = pointer.x;
       this.draggingBuilding.y = pointer.y;
     }
+
+    this.draggingBuilding._lastDragPos = { x: pointer.x, y: pointer.y };
+    this.draggingBuilding._cachedBounds = this.draggingBuilding.getBounds?.() ?? null;
   },
 
-  // Drop the building: keep it if placement is valid, otherwise return or destroy it.
   onPointerUp() {
     if (!this.draggingBuilding) return;
 
@@ -116,9 +117,6 @@ window.BuildingManager = {
     this.setGhostMode(building, false);
 
     if (!valid) {
-      // -- INVALID DROP --
-      // If the building came from inventory, remove it entirely.
-      // Otherwise snap it back to where it was before the drag.
       if (building.spawnedFromInventory) {
         this.destroyBuilding(building);
       } else if (building._dragOrigin) {
@@ -133,23 +131,22 @@ window.BuildingManager = {
         building.x = x;
         building.y = y;
       }
-
-      this._finaliseDrop(building, false);
+      this._finaliseDrop(building);
       return;
     }
 
-    // -- VALID DROP --
-    this._finaliseDrop(building, true);
+    this._finaliseDrop(building);
   },
 
-  // Shared cleanup after a drop, valid or not.
-  _finaliseDrop(building, makesDynamic) {
+  _finaliseDrop(building) {
     building.isDragging = false;
     building.setDepth(0);
 
+    building._lastDragPos = null;
+    building._cachedBounds = null;
+
     if (building.body) {
       try {
-        Phaser.Physics.Matter.Matter.Body.setStatic(building.body, !makesDynamic);
         Phaser.Physics.Matter.Matter.Body.setVelocity(building.body, { x: 0, y: 0 });
         Phaser.Physics.Matter.Matter.Body.setAngularVelocity(building.body, 0);
       } catch (e) {}
@@ -158,29 +155,41 @@ window.BuildingManager = {
     this.draggingBuilding = null;
   },
 
+  _getPointerHits(pointer) {
+    const input = this.scene.input;
+    const targets = this.placedBuildings;
+
+    if (!targets?.length) return [];
+
+    if (typeof input.hitTestPointer === 'function') {
+      return input.hitTestPointer(pointer, targets) || [];
+    }
+
+    if (input?.manager && typeof input.manager.hitTest === 'function') {
+      const cameras = this.scene.cameras.getCamerasBelowPointer(pointer) || [this.scene.cameras.main];
+      for (const cam of cameras) {
+        const hits = input.manager.hitTest(pointer, targets, cam) || [];
+        if (hits.length) return hits;
+      }
+    }
+
+    return [];
+  },
+
   // ========================================
   // GHOST MODE
   // ========================================
+  // Only toggles collision filter — never removes/re-adds the body from the world.
+  // Removing with the deep flag corrupts compound body parts → NaN positions on collision.
 
-  // Toggle physics participation while dragging.
-  // enabled=true  → remove from world so it doesn't collide while being dragged.
-  // enabled=false → re-add to world so it collides after being placed.
   setGhostMode(building, enabled) {
     if (!building?.body) return;
-
     try {
+      building.body.collisionFilter.mask = enabled ? 0 : -1;
+      building.body.ignoreGravity = !!enabled;
       if (enabled) {
-        if (!building._ghostRemoved) {
-          this.scene.matter.world.remove(building.body, true);
-          building._ghostRemoved = true;
-        }
-        if (building.body.collisionFilter) building.body.collisionFilter.mask = 0;
-      } else {
-        if (building._ghostRemoved) {
-          this.scene.matter.world.add(building.body);
-          building._ghostRemoved = false;
-        }
-        if (building.body.collisionFilter) building.body.collisionFilter.mask = -1;
+        Phaser.Physics.Matter.Matter.Body.setVelocity(building.body, { x: 0, y: 0 });
+        Phaser.Physics.Matter.Matter.Body.setAngularVelocity(building.body, 0);
       }
     } catch (e) {}
   },
@@ -189,18 +198,16 @@ window.BuildingManager = {
   // PLACEMENT VALIDATION
   // ========================================
 
-  // Return true if the building's current position does not overlap any other body.
   isPlacementValid(building) {
     if (!building?.body) return true;
 
-    const bounds = building.getBounds?.() ?? null;
+    const bounds = building._cachedBounds ?? building.getBounds?.() ?? null;
     if (!bounds) return true;
 
     const bodies = this.scene.matter.intersectRect(bounds.x, bounds.y, bounds.width, bounds.height) || [];
     return bodies.every((body) => {
       if (!body) return true;
       const obj = body.gameObject;
-      // Allow overlap only with the building being dragged itself.
       return !obj || obj === building;
     });
   },
@@ -209,22 +216,20 @@ window.BuildingManager = {
   // INVENTORY CONTROLS
   // ========================================
 
-  // Spawn one inventory button per building type at the bottom of the arena.
   _spawnAllInventoryControls() {
     const { ARENA_X, ARENA_W, ARENA_Y, ARENA_H } = this.arena;
-    let   controlX        = ARENA_X + ARENA_W * 0.02;
-    const controlY        = ARENA_Y + ARENA_H * 0.94;
-    const controlSpacing  = ARENA_W * 0.12;
+    let   controlX       = ARENA_X + ARENA_W * 0.02;
+    const controlY       = ARENA_Y + ARENA_H * 0.94;
+    const controlSpacing = ARENA_W * 0.12;
 
-    Object.keys(window.ObjectConfig.buildingTypes).forEach((type) => {
+    Object.keys(window.ObjectConfig.placeableTypes).forEach((type) => {
       this._spawnInventoryButton(controlX, controlY, type);
       controlX += controlSpacing;
     });
   },
 
-  // Create one inventory button that spawns a building of the given type on click.
   _spawnInventoryButton(x, y, buildingType) {
-    const cfg      = window.ObjectConfig.buildingTypes[buildingType];
+    const cfg = window.ObjectConfig.placeableTypes[buildingType];
     if (!cfg) return null;
 
     const bg       = '#' + cfg.color.toString(16).padStart(6, '0');
@@ -243,7 +248,7 @@ window.BuildingManager = {
     label.setDepth(2000);
 
     label.on('pointerdown', () => {
-      const b = this.createBuilding(buildingType, x, y, { fromInventory: true });
+      const b = this._spawnBuilding(buildingType, x, y, { fromInventory: true });
       if (b) {
         this.draggingBuilding = b;
         b.isDragging = true;
@@ -256,22 +261,22 @@ window.BuildingManager = {
   },
 
   // ========================================
-  // BUILDING CREATION
+  // BUILDING CREATION  (internal)
   // ========================================
+  // Direct call to ObjectFactory.create — no extra wrapper layer.
+  // BuildingManager only adds count tracking on top.
 
-  // Delegate creation to ObjectFactory and track the result in this manager.
-  createBuilding(buildingType, x, y, options = {}) {
-    const cfg = window.ObjectConfig.buildingTypes[buildingType];
+  _spawnBuilding(buildingType, x, y, options = {}) {
+    const cfg = window.ObjectConfig.placeableTypes[buildingType];
     if (!cfg) return null;
 
-    // Enforce per-type placement limit.
     if ((this.buildingCounts[buildingType] || 0) >= cfg.maxCount) {
-      console.log(`Max count reached for ${buildingType}`);
+      window.logDebug?.(`Max count reached for ${buildingType}`);
       return null;
     }
 
-    const building = window.ObjectFactory.createBuilding(
-      this.scene, this.arena, buildingType, x, y, options
+    const building = window.ObjectFactory.createPlaceable(
+      this.scene, buildingType, x, y, this.arena, options
     );
     if (!building) return null;
 
@@ -282,17 +287,17 @@ window.BuildingManager = {
   },
 
   // ========================================
-  // CLEANUP
+  // BUILDING DESTRUCTION
   // ========================================
+  // Decrement count, remove from list, then delegate to ObjectFactory.destroy.
 
-  // Remove a building from the scene, decrement its type count, and unlist it.
   destroyBuilding(building) {
     if (!building?.active) return;
 
     const type = building.buildingType;
     if (type && this.buildingCounts[type] > 0) this.buildingCounts[type]--;
 
-    window.ObjectFactory.destroyBuilding(building);
+    window.ObjectFactory.destroy(building);
 
     const i = this.placedBuildings.indexOf(building);
     if (i > -1) this.placedBuildings.splice(i, 1);
@@ -302,10 +307,7 @@ window.BuildingManager = {
   // ACCESSORS
   // ========================================
 
-  // Return the live list of all placed buildings.
   getPlacedBuildings() { return this.placedBuildings; },
-
-  // Return how many of a given type are currently placed.
   getBuildingCount(type) { return this.buildingCounts[type] || 0; },
 
 };

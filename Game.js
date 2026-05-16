@@ -1,6 +1,11 @@
 const GAME_WIDTH = window.innerWidth; // was 800
 const GAME_HEIGHT = window.innerHeight; // was 600
 
+window.DEBUG = window.DEBUG ?? false;
+window.logDebug = function (...args) {
+  if (window.DEBUG) console.log(...args);
+};
+
 // DELETE these 4 lines entirely:
 // const ARENA_X = 50;
 // const ARENA_Y = 50;

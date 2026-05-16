@@ -1,9 +1,8 @@
 // ========================================
 // GAME SCENE
 // ========================================
-// Thin orchestrator for the main gameplay screen.
-// Owns: arena setup, physics bounds, scene resize, and manager initialisation.
-// All gameplay logic is delegated to GameLogic, BuildingManager, LevelManager, and UIFactory.
+// Thin orchestrator. All gameplay delegated to managers.
+// GameScene only owns: arena setup, physics bounds, resize, button wiring.
 
 class GameScene extends Phaser.Scene {
 
@@ -12,6 +11,7 @@ class GameScene extends Phaser.Scene {
     this.arena       = null;
     this.arenaBorder = null;
     this.player      = null;
+    this._levelNum   = 1;   // set by LevelSelectScene before starting
   }
 
   // ========================================
@@ -21,10 +21,8 @@ class GameScene extends Phaser.Scene {
   create() {
     this.cameras.main.setBackgroundColor('#808080');
 
-    // -- Build arena dimensions from current screen size --
     this.arena = this._buildArena(this.scale.width, this.scale.height);
 
-    // -- Physics world bounds extend one screen-width either side for plane travel --
     this.matter.world.setBounds(
       this.arena.PHYSICS_X, this.arena.PHYSICS_Y,
       this.arena.PHYSICS_W, this.arena.PHYSICS_H,
@@ -33,32 +31,21 @@ class GameScene extends Phaser.Scene {
 
     this._drawArenaBorder();
 
-    // -- Listen for screen resize --
     this.scale.off('resize', this._onResize, this);
     this.scale.on('resize',  this._onResize, this);
 
-    // -- Create player at arena centre --
-    this.player = window.ObjectFactory.createPlayer(
-      this,
-      this.arena.ARENA_X + this.arena.ARENA_W / 2,
-      this.arena.ARENA_Y + this.arena.ARENA_H / 2,
-      this.arena
-    );
+    // Load level — creates player, platforms, pre-placed buildings, HUD.
+    const levelNum  = window._currentLevel ?? 1;
+    this.player     = window.LevelManager.load(this, this.arena, levelNum);
 
-    // -- Initialise managers --
-    window.GameLogic.init(this, this.player, this.arena);
+    // BuildingManager still needs init for drag/inventory.
     window.BuildingManager.init(this, this.arena);
-    window.LevelManager.init(this, this.arena);
 
-    // -- HUD --
-    const healthText = window.UIFactory.addHealthText(this, this.arena);
-    window.LevelManager.setHealthText(healthText);
-
-    // -- Action buttons --
+    // Action buttons.
     this._createActionButtons();
 
-    // -- Back button --
-    window.UIFactory.addBackButton(this, () => window.startScene('LevelSelectScene'));
+    // Back button.
+    window.UIFactory.addBackButton(this, () => window.switchScene('LevelSelectScene'));
   }
 
   // ========================================
@@ -80,18 +67,29 @@ class GameScene extends Phaser.Scene {
     const btnY   = ARENA_Y + ARENA_H * 0.02;
     const btnGap = ARENA_H * 0.055;
 
-    // Start bombing run — plane always spawns left and flies right.
+    // Start wave — fires the next wave from the level config.
     window.UIFactory.createButton(this, btnX, btnY, 'Start', () => {
-      window.GameLogic.startBombingRun(
-        ARENA_W * 0.35,
-        { x: -this.arena.W, y: ARENA_Y + ARENA_H * 0.04 },
-        1
-      );
+      window.LevelManager.startWave();
     });
 
     // Reset level.
     window.UIFactory.createButton(this, btnX, btnY + btnGap, 'Reset', () => {
       this.player = window.LevelManager.reset(this.player);
+    });
+
+    // Debug — log all placed objects.
+    window.UIFactory.createButton(this, btnX, btnY + btnGap * 2, 'Debug', () => {
+      const placed = window.BuildingManager.getPlacedBuildings();
+      console.log(`[Debug] placedBuildings count: ${placed.length}`);
+      placed.forEach((b, i) => {
+        const inWorld = this.matter?.world?.localWorld?.bodies?.includes(b.body) ?? '?';
+        console.log(`  [${i}] type=${b.buildingType} active=${b.active} visible=${b.visible} x=${Math.round(b.x)} y=${Math.round(b.y)} health=${b.health} ghostRemoved=${b._ghostRemoved} inWorld=${inWorld}`);
+      });
+      console.log('[Debug] buildingCounts:', JSON.stringify(window.BuildingManager.buildingCounts));
+      console.log('[Debug] GameLogic.buildings count:', window.GameLogic.buildings.length);
+      window.GameLogic.buildings.forEach((b, i) => {
+        console.log(`  [GL ${i}] type=${b.buildingType} active=${b.active} x=${Math.round(b.x)} y=${Math.round(b.y)} health=${b.health}`);
+      });
     });
   }
 
@@ -99,16 +97,13 @@ class GameScene extends Phaser.Scene {
   // ARENA BORDER
   // ========================================
 
-  // Draw (or redraw) the white outline around the physics play area.
   _drawArenaBorder() {
     if (this.arenaBorder) {
       this.arenaBorder.clear();
     } else {
       this.arenaBorder = this.add.graphics();
     }
-
     if (!this.arena) return;
-
     this.arenaBorder
       .lineStyle(2, 0xffffff, 1)
       .strokeRect(
@@ -121,7 +116,6 @@ class GameScene extends Phaser.Scene {
   // RESIZE
   // ========================================
 
-  // Recalculate arena and physics bounds when the window size changes.
   _onResize(gameSize) {
     this.arena = this._buildArena(gameSize.width, gameSize.height);
     this.matter.world.setBounds(
@@ -136,7 +130,6 @@ class GameScene extends Phaser.Scene {
   // HELPERS
   // ========================================
 
-  // Compute all arena layout values from screen dimensions.
   _buildArena(W, H) {
     const ARENA_X   = W * 0.05;
     const ARENA_Y   = H * 0.075;
