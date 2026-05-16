@@ -266,7 +266,9 @@ window.GameLogic = {
   // ========================================
 
   // Spawn an explosion visual and apply knockback + damage to all nearby bodies.
-  _createBlastRadius(x, y, radius, force) {
+  // maxDamageOverride: optional — if provided, overrides ObjectConfig.bomb.blastMaxDamage.
+  // This lets bomb_crate use its own blast.maxDamage without touching the plane-bomb config.
+  _createBlastRadius(x, y, radius, force, maxDamageOverride) {
     // Visual: expanding orange circle that fades out.
     try {
       const gfx = this.scene.add.circle(x, y, Math.max(8, radius * 0.2), 0xff6600, 0.5);
@@ -280,7 +282,9 @@ window.GameLogic = {
     } catch (e) {}
 
     const bodies      = this.scene.matter.intersectRect(x - radius, y - radius, radius * 2, radius * 2) || [];
-    const blastMaxDmg = window.ObjectConfig.bomb.blastMaxDamage || 50;
+    const blastMaxDmg = (maxDamageOverride !== undefined)
+      ? maxDamageOverride
+      : (window.ObjectConfig.bomb.blastMaxDamage || 50);
 
     bodies.forEach((body) => {
       const obj = body.gameObject;
