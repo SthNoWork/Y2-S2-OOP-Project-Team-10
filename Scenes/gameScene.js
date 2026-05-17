@@ -20,6 +20,8 @@ class GameScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.setBackgroundColor('#808080');
+    window.UIFactory.addBackground(this, 'asset/background/1.jpg');
+    window.UIFactory.addBackground(this);
 
     this.arena = this._buildArena(this.scale.width, this.scale.height);
 
@@ -143,4 +145,5 @@ class GameScene extends Phaser.Scene {
     const PHYSICS_H = ARENA_H;
     return { W, H, ARENA_X, ARENA_Y, ARENA_W, ARENA_H, PHYSICS_X, PHYSICS_Y, PHYSICS_W, PHYSICS_H };
   }
+
 }

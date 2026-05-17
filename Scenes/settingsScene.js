@@ -7,6 +7,7 @@ class SettingsScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.setBackgroundColor('#808080');
+    window.UIFactory.addBackground(this, 'asset/background/3.jpg');
     window.UIFactory.addBackButton(this, () => window.showHomeScreen());
   }
 }

@@ -95,3 +95,40 @@ window.UIFactory.addHealthText = function (scene, arena) {
     }
   );
 };
+
+// ========================================
+// BACKGROUND
+// ========================================
+
+// Add a background image (cover) using a file path.
+window.UIFactory.addBackground = function (scene, path) {
+  if (!path) return null;
+
+  const key = `bg_${path.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+  const addImage = () => {
+    const W = scene.scale.width;
+    const H = scene.scale.height;
+    const img = scene.add.image(W * 0.5, H * 0.5, key).setOrigin(0.5, 0.5);
+    const src = scene.textures.get(key)?.getSourceImage?.();
+    const texW = src?.width || 1;
+    const texH = src?.height || 1;
+    const scale = Math.max(W / texW, H / texH);
+    img.setScale(scale);
+    img.setDepth(-1000);
+    img.setScrollFactor(0);
+    return img;
+  };
+
+  if (scene.textures.exists(key)) {
+    return addImage();
+  }
+
+  scene.load.image(key, path);
+  scene.load.once('complete', () => addImage());
+  scene.load.once('loaderror', () => {
+    console.warn(`[UIFactory.addBackground] Failed to load ${path}`);
+  });
+  scene.load.start();
+  return null;
+};

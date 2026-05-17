@@ -31,6 +31,7 @@
     shortPlank: {
       widthRatio:  0.15,
       heightRatio: 0.04,
+      scale:       1,
       color:       0x8b4513,
       physics: {
         friction:    0.8,
@@ -47,6 +48,7 @@
     thickPlank: {
       widthRatio:  0.1,
       heightRatio: 0.08,
+      scale:       1,
       color:       0x654321,
       physics: {
         friction:    0.9,
@@ -63,6 +65,7 @@
     wall: {
       widthRatio:  0.06,
       heightRatio: 0.2,
+      scale:       1,
       color:       0x696969,
       physics: {
         friction:    0.8,
@@ -92,6 +95,7 @@
     bomb_crate: {
       widthRatio:  0.07,
       heightRatio: 0.07,
+      scale:       1,
       color:       0xa0522d,
       useImage:    true,
       imageKey:    'bomb_crate',
@@ -123,7 +127,11 @@
     bomb: {
       widthRatio:       0.025,
       heightRatio:      0.035,
+      scale:            0.8,
       color:            0x333333,
+      useImage:         true,
+      imageKey:         'plane_atlas',
+      startFrame:       'row11_04',
       physics: {
         friction:       0.8,
         restitution:    0.1,
@@ -143,7 +151,12 @@
     plane: {
       widthRatio:               0.12,
       heightRatio:              0.05,
+      scale:                    1,
       color:                    0xffaa00,
+      useImage:                 true,
+      imageKey:                 'plane_atlas',
+      animKey:                  'plane_fly',
+      startFrame:               'row01_02',
       bombDropDelayRangeSec:    { min: 0.18, max: 0.45 },
       bombDropOffsetRatioRange: { min: -0.35, max: 0.35 },
       bombDropYOffsetRatio:     0.04,
@@ -152,13 +165,17 @@
     player: {
       widthRatio:  0.08,
       heightRatio: 0.08,
+      scale:       1,
       color:       0x00ff00,
+      useImage:    true,
+      imageKey:    'player',
       physics: {
         friction:    0.5,
         restitution: 0.1,
         frictionAir: 0.02,
         label:       'player',
         mass:        5,
+        shape:       { type: 'circle' },
       },
       health:  100,
       onDeath: 'remove',
@@ -173,7 +190,14 @@
 
   function _buildVisual(scene, cfg, x, y, bodyW, bodyH) {
     if (cfg.useImage && cfg.imageKey && scene.textures.exists(cfg.imageKey)) {
-      return scene.add.image(x, y, cfg.imageKey).setDisplaySize(bodyW, bodyH);
+      if (cfg.animKey) {
+        const sprite = scene.add.sprite(x, y, cfg.imageKey, cfg.startFrame);
+        if (scene.anims?.exists?.(cfg.animKey)) {
+          sprite.play(cfg.animKey);
+        }
+        return sprite;
+      }
+      return scene.add.image(x, y, cfg.imageKey, cfg.startFrame);
     }
     return scene.add.rectangle(x, y, bodyW, bodyH, cfg.color);
   }
@@ -184,16 +208,20 @@
       return { ...cfg._sizeCache.size };
     }
 
-    const bodyW = arena.ARENA_W * cfg.widthRatio;
-    const bodyH = arena.ARENA_H * cfg.heightRatio;
     if (cfg.useImage && cfg.imageKey && scene.textures.exists(cfg.imageKey)) {
-      const frame = scene.textures.getFrame(cfg.imageKey);
+      const frame = cfg.startFrame
+        ? scene.textures.getFrame(cfg.imageKey, cfg.startFrame)
+        : scene.textures.getFrame(cfg.imageKey);
       const texW  = frame?.realWidth  || frame?.width  || 32;
       const texH  = frame?.realHeight || frame?.height || 32;
-      const size = { bodyW, bodyH: bodyW * (texH / texW) };
+      const size = { bodyW: texW, bodyH: texH };
       cfg._sizeCache = { key: cacheKey, size };
       return { ...size };
     }
+
+    const scale = cfg.scale ?? 1;
+    const bodyW = arena.ARENA_W * cfg.widthRatio * scale;
+    const bodyH = arena.ARENA_H * cfg.heightRatio * scale;
     const size = { bodyW, bodyH };
     cfg._sizeCache = { key: cacheKey, size };
     return { ...size };
@@ -201,7 +229,11 @@
 
   function _addPhysics(scene, obj, cfg, bodyW, bodyH) {
     const p     = cfg.physics;
-    const shape = { type: 'rectangle', width: Math.ceil(bodyW), height: Math.ceil(bodyH) };
+    let shape = { type: 'rectangle', width: Math.ceil(bodyW), height: Math.ceil(bodyH) };
+    if (p?.shape?.type === 'circle') {
+      const radius = Math.max(2, Math.round(Math.min(bodyW, bodyH) * 0.5));
+      shape = { type: 'circle', radius };
+    }
 
     scene.matter.add.gameObject(obj, {
       friction:    p.friction,

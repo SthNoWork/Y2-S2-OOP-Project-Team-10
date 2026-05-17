@@ -6,6 +6,7 @@ window.logDebug = function (...args) {
   if (window.DEBUG) console.log(...args);
 };
 
+
 // DELETE these 4 lines entirely:
 // const ARENA_X = 50;
 // const ARENA_Y = 50;
@@ -18,6 +19,9 @@ const config = {
   height: GAME_HEIGHT,
   parent: "game-container",
   backgroundColor: "#808080",
+  render: {
+    pixelArt: true,
+  },
   scale: {
     mode: Phaser.Scale.EXPAND,
     autoCenter: Phaser.Scale.CENTER_BOTH,

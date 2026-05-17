@@ -26,6 +26,12 @@
         gap: 3vh;
       }
 
+      #home-screen {
+        width: 100vw;
+        height: 100vh;
+        background: url('asset/background/6.jpg') center / cover no-repeat;
+      }
+
       .title {
         margin: 0;
         text-align: center;
@@ -125,15 +131,40 @@
         background: #808080;
         z-index: 10;
       }
+
+      #start-overlay {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #808080;
+        z-index: 2000;
+      }
+
+      #start-overlay button {
+        font-size: 6vh;
+        padding: 4vh 8vw;
+        border: 0.4vh solid #000;
+        background: #ffffff;
+        cursor: pointer;
+      }
     </style>
   </head>
   <body>
 
     <!-- ================================ -->
+    <!-- START OVERLAY                    -->
+    <!-- ================================ -->
+    <div id="start-overlay">
+      <button id="start-btn">Start</button>
+    </div>
+
+    <!-- ================================ -->
     <!-- HOME SCREEN                      -->
     <!-- ================================ -->
     <main id="home-screen">
-      <h1 class="title">Title</h1>
+      <h1 class="title">Build To Survive</h1>
       <div class="button-container">
         <button id="play-btn">play</button>
         <button id="saves-btn">saves</button>
@@ -188,6 +219,75 @@
       const profilePanel  = document.getElementById('profile-panel');
       const profileBtn    = document.getElementById('profile-btn');
       const fullscreenBtn = document.getElementById('fullscreen-btn');
+      const startOverlay  = document.getElementById('start-overlay');
+      const startBtn      = document.getElementById('start-btn');
+
+      // ================================
+      // MUSIC
+      // ================================
+
+      window.MusicManager = window.MusicManager || (() => {
+        const sharedPath  = 'asset/music/Forest Drift.mp3';
+        const volume      = 0.5;
+        const sharedAudio = new Audio(sharedPath);
+        sharedAudio.loop   = true;
+        sharedAudio.volume = volume;
+
+        return {
+          mode: 'shared',
+          sharedAudio,
+          levelAudio: null,
+          currentLevelPath: null,
+          playShared(opts = {}) {
+            const restart = !!opts.restart;
+            if (this.mode === 'shared' && !restart && !this.sharedAudio.paused) return;
+            if (this.levelAudio) {
+              this.levelAudio.pause();
+              this.levelAudio.currentTime = 0;
+            }
+            if (restart) this.sharedAudio.currentTime = 0;
+            this.sharedAudio.play().catch(() => {});
+            this.mode = 'shared';
+          },
+          playLevel(levelNum) {
+            const path = window.Levels?.[levelNum]?.music;
+            if (!path) {
+              this.playShared({ restart: this.mode === 'level' });
+              return;
+            }
+            this.sharedAudio.pause();
+            this.sharedAudio.currentTime = 0;
+
+            if (!this.levelAudio || this.currentLevelPath !== path) {
+              if (this.levelAudio) {
+                this.levelAudio.pause();
+                this.levelAudio.currentTime = 0;
+              }
+              this.levelAudio = new Audio(path);
+              this.levelAudio.loop = true;
+              this.levelAudio.volume = volume;
+              this.currentLevelPath = path;
+            } else {
+              this.levelAudio.currentTime = 0;
+            }
+
+            this.levelAudio.play().catch(() => {});
+            this.mode = 'level';
+          },
+        };
+      })();
+
+      // Autoplay policies require a user gesture to start audio.
+      const startSharedOnFirstGesture = () => {
+        window.MusicManager.playShared({ restart: false });
+      };
+      document.addEventListener('pointerdown', startSharedOnFirstGesture, { once: true });
+      document.addEventListener('keydown', startSharedOnFirstGesture, { once: true });
+
+      startBtn.addEventListener('click', () => {
+        window.MusicManager.playShared({ restart: false });
+        startOverlay.style.display = 'none';
+      });
 
       // Scenes listed here hide the profile panel while active.
       const HIDE_PROFILE_IN = new Set(['GameScene']);
@@ -208,6 +308,7 @@
         homeScreen.style.display    = 'flex';
         profilePanel.style.display  = 'flex';
         fullscreenBtn.style.display = 'none';
+        window.MusicManager.playShared({ restart: window.MusicManager.mode === 'level' });
       };
 
       window.startScene = function (sceneKey) {
@@ -221,6 +322,12 @@
         // Phaser auto-starts the first scene in the config (BootScene) with no data,
         // so pass the target via a global that BootScene reads before transitioning.
         window._bootTarget = sceneKey;
+
+        if (sceneKey === 'GameScene') {
+          window.MusicManager.playLevel(window._currentLevel ?? 1);
+        } else {
+          window.MusicManager.playShared({ restart: window.MusicManager.mode === 'level' });
+        }
 
         game = new Phaser.Game(config);
         game.events.once('ready', () => {

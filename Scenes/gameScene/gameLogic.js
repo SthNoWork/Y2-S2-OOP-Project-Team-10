@@ -64,15 +64,35 @@ window.GameLogic = {
   startBombingRun(velocityPxPerSec, spawnLocation, direction) {
     const planeCfg = window.ObjectConfig.internalTypes.plane;
 
-    if (this._run?.plane?.active) this._run.plane.destroy();
+    if (this._run?.plane?.active) {
+      if (this._run.plane._blade?.active) this._run.plane._blade.destroy();
+      this._run.plane.destroy();
+    }
 
     const plane = window.ObjectFactory.createInternal(
       this.scene, 'plane', 0, 0, this.arena, { spawnLocation }
     );
+    if (plane?.setFlipX) {
+      plane.setFlipX(direction > 0);
+    }
+
+    const blade = this.scene.add.sprite(plane.x, plane.y, 'plane_atlas', 'row04_01');
+    blade.setDepth((plane.depth || 0) + 1);
+    blade.setFlipX(direction > 0);
+    if (this.scene.anims?.exists?.('plane_blades')) {
+      blade.play('plane_blades');
+    }
+    plane._blade = blade;
+
+    const bladeOffset = {
+      x: 0,
+      y: -plane.displayHeight * 0.25,
+    };
     const range = planeCfg.bombDropDelayRangeSec;
 
     this._run = {
       plane,
+      bladeOffset,
       speed:            velocityPxPerSec,
       direction,
       planeVelocity:    { x: velocityPxPerSec * direction, y: 0 },
@@ -101,6 +121,11 @@ window.GameLogic = {
     const prevY = run.plane.y;
 
     run.plane.x += run.speed * run.direction * dt;
+    if (run.plane._blade?.active) {
+      const off = run.bladeOffset || { x: 0, y: 0 };
+      run.plane._blade.x = run.plane.x + off.x;
+      run.plane._blade.y = run.plane.y + off.y;
+    }
 
     const safeDt        = dt > 0 ? dt : 1 / 60;
     run.planeVelocity.x = (run.plane.x - prevX) / safeDt;
@@ -120,6 +145,7 @@ window.GameLogic = {
       : run.plane.x <= run.endX;
 
     if (reachedEnd) {
+      if (run.plane._blade?.active) run.plane._blade.destroy();
       run.plane.destroy();
       this._run = null;
     }
@@ -142,10 +168,19 @@ window.GameLogic = {
       this.scene, 'bomb', plane.x + offsetX, plane.y + bombOffsetY, this.arena
     );
 
+    const planeHalfH = plane.displayHeight ? plane.displayHeight * 0.5 : 0;
+    const bombHalfH  = bomb.displayHeight ? bomb.displayHeight * 0.5 : 0;
+    bomb.y = plane.y + bombOffsetY + planeHalfH + bombHalfH;
+
+    if (bomb?.setFlipX) {
+      bomb.setFlipX(this._run.direction < 0);
+    }
+
     const matterStepRate = 60;
+    const speed = Math.max(120, Math.abs(planeVelocity.x));
     Phaser.Physics.Matter.Matter.Body.setVelocity(bomb.body, {
-      x: planeVelocity.x / matterStepRate,
-      y: planeVelocity.y / matterStepRate,
+      x: 0,
+      y: (speed / matterStepRate),
     });
 
     this._activeBombs.push(bomb);

@@ -28,6 +28,7 @@ window.Levels = {
 
   1: {
     playerSpawn: { xRatio: 0.5, yRatio: 0.75 },
+    music: 'asset/music/Shield the Sky.mp3',
 
     platforms: [
       { xRatio: 0.5, yRatio: 0.88, wRatio: 0.8, hRatio: 0.03 },
@@ -58,6 +59,7 @@ window.Levels = {
 
   2: {
     playerSpawn: { xRatio: 0.5, yRatio: 0.75 },
+    music: 'asset/music/Forest Drift (1).mp3',
     platforms:   [],
     prePlaced:   [],
     allowedBuildings: { shortPlank: 4, thickPlank: 2, wall: 2 },
@@ -70,6 +72,7 @@ window.Levels = {
 
   3: {
     playerSpawn: { xRatio: 0.5, yRatio: 0.75 },
+    music: 'asset/music/Forest Drift.mp3',
     platforms:   [],
     prePlaced:   [],
     allowedBuildings: { shortPlank: 5, thickPlank: 3, wall: 3 },

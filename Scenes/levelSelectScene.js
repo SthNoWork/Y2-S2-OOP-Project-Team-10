@@ -12,6 +12,8 @@ class LevelSelectScene extends Phaser.Scene {
     const H = this.scale.height;
 
     this.cameras.main.setBackgroundColor('#808080');
+    window.UIFactory.addBackground(this, 'asset/background/2.jpg');
+    window.UIFactory.addBackground(this);
 
     window.UIFactory.addBackButton(this, () => window.showHomeScreen());
 
@@ -61,4 +63,5 @@ class LevelSelectScene extends Phaser.Scene {
       }
     }
   }
+
 }

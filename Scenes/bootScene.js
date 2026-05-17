@@ -1,14 +1,3 @@
-const TRIM_CONFIGS = [
-  {
-    key:    'bomb_crate',
-    sx:     15,
-    sy:     25,
-    sw:     33,
-    sh:     33,
-    alphaThreshold: 1,
-  },
-];
-
 class BootScene extends Phaser.Scene {
   constructor() {
     super("BootScene");
@@ -20,77 +9,61 @@ class BootScene extends Phaser.Scene {
   // Load all shared assets here so every scene can use them.
 
   preload() {
-    this.load.image('items', 'assets/metal_slug_items.png');
+    this.load.image('bomb_crate', 'asset/material/tile_0001.png');
+    this.load.image('player', 'asset/character/1.png');
+    this.load.image('plane_sheet', 'assets/plane/spritesheet.png');
+    this.load.text('plane_sprites', 'assets/plane/sprites.txt');
   }
 
   create(data) {
-    const tex = this.textures.get('items');
-
-    if (!tex || !tex.source || !tex.source[0]) {
-      console.error('BootScene: items texture not ready');
-    } else {
-      const src = tex.getSourceImage();
-
-      TRIM_CONFIGS.forEach((cfg) => {
-        this._createTrimmedTexture(src, cfg);
-      });
-    }
+    this._initPlaneAtlas();
 
     const nextScene = window._bootTarget ?? 'GameScene';
     window._bootTarget = null;
     this.scene.start(nextScene);
   }
 
-  _trimOpaqueBounds(ctx, w, h) {
-    const data = ctx.getImageData(0, 0, w, h).data;
-    let minX = w, minY = h, maxX = -1, maxY = -1;
+  _initPlaneAtlas() {
+    const sheetTex = this.textures.get('plane_sheet');
+    const src = sheetTex?.getSourceImage?.();
+    const raw = this.cache.text.get('plane_sprites');
+    if (!src || !raw) return;
 
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const i = (y * w + x) * 4;
-        if (data[i + 3] >= this._trimAlphaThreshold) {
-          if (x < minX) minX = x;
-          if (y < minY) minY = y;
-          if (x > maxX) maxX = x;
-          if (y > maxY) maxY = y;
-        }
-      }
+    const frames = {};
+    raw.split(/\r?\n/).forEach((line) => {
+      const parts = line.split(',');
+      if (parts.length < 5) return;
+      const name = parts[0].trim();
+      const x = parseInt(parts[1], 10);
+      const y = parseInt(parts[2], 10);
+      const w = parseInt(parts[3], 10);
+      const h = parseInt(parts[4], 10);
+      if (!name || Number.isNaN(x) || Number.isNaN(y) || Number.isNaN(w) || Number.isNaN(h)) return;
+      frames[name] = { frame: { x, y, w, h } };
+    });
+
+    if (!this.textures.exists('plane_atlas')) {
+      this.textures.addAtlas('plane_atlas', src, { frames });
     }
 
-    if (maxX < 0 || maxY < 0) {
-      return { minX: 0, minY: 0, maxX: w - 1, maxY: h - 1 };
-    }
+    if (this.anims.exists('plane_fly')) this.anims.remove('plane_fly');
+    const frameNames = ['row01_02','row01_03','row01_04','row01_05','row01_06'];
+    this.anims.create({
+      key: 'plane_fly',
+      frames: frameNames.map((frame) => ({ key: 'plane_atlas', frame })),
+      frameRate: 10,
+      repeat: -1,
+    });
 
-    return { minX, minY, maxX, maxY };
-  }
-
-  _createTrimmedTexture(src, cfg) {
-    const rawKey = `${cfg.key}_raw`;
-    const raw = this.textures.createCanvas(rawKey, cfg.sw, cfg.sh);
-    raw.context.drawImage(src, cfg.sx, cfg.sy, cfg.sw, cfg.sh, 0, 0, cfg.sw, cfg.sh);
-    raw.refresh();
-
-    this._trimAlphaThreshold = cfg.alphaThreshold ?? 1;
-    const bounds = this._trimOpaqueBounds(raw.context, cfg.sw, cfg.sh);
-    this._trimAlphaThreshold = 1;
-
-    const trimW = bounds.maxX - bounds.minX + 1;
-    const trimH = bounds.maxY - bounds.minY + 1;
-    const trimmed = this.textures.createCanvas(cfg.key, trimW, trimH);
-
-    trimmed.context.drawImage(
-      raw.getSourceImage(),
-      bounds.minX,
-      bounds.minY,
-      trimW,
-      trimH,
-      0,
-      0,
-      trimW,
-      trimH
-    );
-
-    trimmed.refresh();
-    this.textures.remove(rawKey);
+    if (this.anims.exists('plane_blades')) this.anims.remove('plane_blades');
+    const bladeFrames = [
+      'row04_01','row04_02','row04_03','row04_04','row04_05',
+    ];
+    this.anims.create({
+      key: 'plane_blades',
+      frames: bladeFrames.map((frame) => ({ key: 'plane_atlas', frame })),
+      frameRate: 18,
+      repeat: -1,
+    });
   }
 }
