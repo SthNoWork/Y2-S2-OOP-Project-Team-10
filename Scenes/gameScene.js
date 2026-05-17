@@ -72,9 +72,9 @@ class GameScene extends Phaser.Scene {
       window.LevelManager.startWave();
     });
 
-    // Reset level.
+    // Reset level (full reload like initial load).
     window.UIFactory.createButton(this, btnX, btnY + btnGap, 'Reset', () => {
-      this.player = window.LevelManager.reset(this.player);
+      window.startScene('GameScene');
     });
 
     // Debug — log all placed objects (only in debug mode).
