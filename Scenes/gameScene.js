@@ -21,7 +21,6 @@ class GameScene extends Phaser.Scene {
   create() {
     this.cameras.main.setBackgroundColor('#808080');
     window.UIFactory.addBackground(this, 'asset/background/1.jpg');
-    window.UIFactory.addBackground(this);
 
     this.arena = this._buildArena(this.scale.width, this.scale.height);
 
@@ -33,7 +32,6 @@ class GameScene extends Phaser.Scene {
 
     this._drawArenaBorder();
 
-    this.scale.off('resize', this._onResize, this);
     this.scale.on('resize',  this._onResize, this);
 
     // Load level — creates player, platforms, pre-placed buildings, HUD.
@@ -56,7 +54,7 @@ class GameScene extends Phaser.Scene {
 
   update(_time, delta) {
     window.GameLogic.update(delta);
-    window.LevelManager.update();
+    window.LevelManager.update(delta);   // delta needed for between-wave countdown
   }
 
   // ========================================
@@ -64,22 +62,22 @@ class GameScene extends Phaser.Scene {
   // ========================================
 
   _createActionButtons() {
-    const { ARENA_X, ARENA_W, ARENA_Y, ARENA_H } = this.arena;
-    const btnX   = ARENA_X + ARENA_W * 0.99;
-    const btnY   = ARENA_Y + ARENA_H * 0.02;
-    const btnGap = ARENA_H * 0.055;
+    const { ARENA_X, ARENA_W, ARENA_Y } = this.arena;
+    const btnX   = ARENA_X + ARENA_W - window.Scale.screenScaleW(this, window.Scale.baseW * 0.01);
+    const btnY   = ARENA_Y + window.Scale.screenScaleH(this, window.Scale.baseH * 0.02);
+    const btnGap = window.Scale.screenScaleH(this, window.Scale.baseH * 0.055);
 
-    // Start wave — fires the next wave from the level config.
+    // Start — fires the first wave and begins the auto sequence.
     window.UIFactory.createButton(this, btnX, btnY, 'Start', () => {
       window.LevelManager.startWave();
     });
 
-    // Reset level (full reload like initial load).
+    // Reset — full scene reload, returns to placement phase.
     window.UIFactory.createButton(this, btnX, btnY + btnGap, 'Reset', () => {
       window.startScene('GameScene');
     });
 
-    // Debug — log all placed objects (only in debug mode).
+    // Debug — log placed objects (only in debug mode).
     if (window.DEBUG) {
       window.UIFactory.createButton(this, btnX, btnY + btnGap * 2, 'Debug', () => {
         const placed = window.BuildingManager.getPlacedBuildings();

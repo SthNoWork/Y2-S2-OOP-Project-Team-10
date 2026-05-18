@@ -1,17 +1,19 @@
 // ========================================
 // LEVEL MANAGER
 // ========================================
-// Owns: level loading from Levels config, platform/prePlaced spawning,
-//       wave sequencing, score calculation, continue/stop screen, HUD.
+// Owns: level loading, platform/prePlaced spawning, sequential wave
+//       firing with inter-wave countdown, win/lose screens, HUD.
 // Does NOT own: physics, blast logic, building drag, UI styling.
 //
 // Flow:
 //   LevelManager.load(scene, arena, levelNum)  — call from GameScene.create()
-//   LevelManager.update()                      — call from GameScene.update()
+//   LevelManager.update(delta)                 — call from GameScene.update()
+//   LevelManager.startWave()                   — wired to the Start button
 //
-// After each wave, if player alive → continue/stop screen.
-//   Continue: fire next wave (loops with higher multiplier).
-//   Stop:     lock in score, show final screen.
+// Wave sequence (fires automatically once Start is pressed):
+//   wave[0] fires → countdown starts immediately → wave[1] fires (plane[0] may still be flying)
+//   → … → last wave fires → wait for last plane to exit → win.
+//   If player.health <= 0 at any point → lose immediately.
 
 window.LevelManager = {
 
@@ -19,28 +21,29 @@ window.LevelManager = {
   // STATE
   // ========================================
 
-  scene:       null,
-  arena:       null,
-  levelNum:    1,
-  levelCfg:    null,
+  scene:    null,
+  arena:    null,
+  levelNum: 1,
+  levelCfg: null,
 
-  _waveIndex:  0,       // index into levelCfg.waves (wraps on loop)
-  _runCount:   0,       // total completed runs (drives multiplier)
-  _waveActive: false,   // true while a plane is in flight
+  // 'idle'    — waiting for Start press
+  // 'running' — sequence active: countdown ticking, planes spawning (may overlap)
+  // 'waiting' — all waves fired, waiting for last plane to clear the arena
+  // 'won'     — all waves cleared
+  // 'lost'    — player health reached 0
+  _state: 'idle',
 
-  _score:      0,
-  _buildingsPlacedThisRun: 0,
+  _waveIndex:      0,     // index of the NEXT wave to fire
+  _countdownMs:    0,     // ms until the next wave fires
+  _waveText:       null,  // "Wave X / Y" HUD label
+  _healthText:     null,  // HP HUD label
+  _screenShown:    false, // prevents duplicate win/lose overlays
 
-  _healthText:   null,
-  _scoreText:    null,
-  _gameOverText: null,
-  _overlay:      null,  // continue/stop panel object refs
-
-  _platforms:  [],      // static platform game objects
-  _prePlaced:  [],      // locked pre-placed building game objects
+  _platforms:  [],        // static platform game objects
+  _prePlaced:  [],        // pre-placed level object game objects
 
   // ========================================
-  // LOAD  (replaces old init)
+  // LOAD
   // ========================================
 
   load(scene, arena, levelNum) {
@@ -49,17 +52,15 @@ window.LevelManager = {
     this.levelNum = levelNum;
     this.levelCfg = window.Levels?.[levelNum] ?? this._fallbackConfig();
 
-    this._waveIndex    = 0;
-    this._runCount     = 0;
-    this._waveActive   = false;
-    this._score        = 0;
-    this._buildingsPlacedThisRun = 0;
-    this._platforms    = [];
-    this._prePlaced    = [];
-    this._gameOverText = null;
-    this._overlay      = null;
-    this._healthText   = null;
-    this._scoreText    = null;
+    this._state          = 'idle';
+    this._waveIndex      = 0;
+    this._countdownMs    = 0;
+    this._screenShown    = false;
+    this._countdownText  = null;
+    this._waveText       = null;
+    this._healthText     = null;
+    this._platforms      = [];
+    this._prePlaced      = [];
 
     this._applyAllowedBuildings();
     this._spawnPlatforms();
@@ -70,7 +71,7 @@ window.LevelManager = {
     window.GameLogic.init(scene, player, arena);
 
     this._healthText = window.UIFactory.addHealthText(scene, arena);
-    this._scoreText  = this._createScoreText();
+    this._waveText   = this._createWaveText();
 
     return player;
   },
@@ -79,212 +80,175 @@ window.LevelManager = {
   // PER-FRAME UPDATE
   // ========================================
 
-  update() {
+  update(delta) {
+    // Always refresh HP display.
     this._refreshHUD();
 
-    if (window.GameLogic.gameOver) {
-      this._showGameOver();
-      return;
+    // Player death takes priority — can happen in any active state.
+    if (window.GameLogic.gameOver && this._state !== 'won' && this._state !== 'lost') {
+      this._state = 'lost';
     }
 
-    // Wave just ended — plane exited, no overlay showing yet.
-    if (this._waveActive && !window.GameLogic._run && !this._overlay) {
-      this._waveActive = false;
-      this._onWaveComplete();
+    switch (this._state) {
+
+      case 'idle':
+        // Waiting for the Start button — nothing to do.
+        break;
+
+      case 'running':
+        // Tick the countdown toward the next wave.
+        this._countdownMs -= delta;
+
+        if (this._countdownMs <= 0) {
+          if (this._waveIndex < this.levelCfg.waves.length) {
+            // Fire the next wave and restart the countdown for the one after.
+            this._fireNextWave();
+            this._countdownMs = this.levelCfg.waveDelayMs ?? 3000;
+          } else {
+            // All waves have been dispatched — wait for the last plane to leave.
+            this._state = 'waiting';
+          }
+        }
+        break;
+
+      case 'waiting':
+        // All planes spawned. Once the last one clears, the level is won.
+        if (!window.GameLogic._run) {
+          this._state = 'won';
+        }
+        break;
+
+      case 'won':
+        if (!this._screenShown) {
+          this._screenShown = true;
+          this._showWinScreen();
+        }
+        break;
+
+      case 'lost':
+        if (!this._screenShown) {
+          this._screenShown = true;
+          this._showLoseScreen();
+        }
+        break;
     }
   },
 
   // ========================================
-  // WAVE CONTROL
+  // START — wired to the Start button in GameScene
   // ========================================
 
   startWave() {
-    if (this._waveActive) return;
+    if (this._state !== 'idle') return;   // already running
 
+    // Fire wave 0 immediately.
+    this._fireNextWave();
+
+    // If there are more waves, start the countdown for the next one right away.
+    if (this._waveIndex < this.levelCfg.waves.length) {
+      this._state       = 'running';
+      this._countdownMs = this.levelCfg.waveDelayMs ?? 3000;
+    } else {
+      // Only one wave — go straight to waiting for it to finish.
+      this._state = 'waiting';
+    }
+  },
+
+  // ========================================
+  // INTERNAL — WAVE FIRING
+  // ========================================
+
+  _fireNextWave() {
     const waves = this.levelCfg.waves;
-    if (!waves?.length) return;
+    if (!waves?.length || this._waveIndex >= waves.length) return;
 
-    const waveCfg = waves[this._waveIndex % waves.length];
+    const waveCfg = waves[this._waveIndex];
     const spawnX  = this.arena.ARENA_X + this.arena.ARENA_W * waveCfg.xRatio;
     const spawnY  = this.arena.ARENA_Y + this.arena.ARENA_H * waveCfg.yRatio;
+    const speed   = this._scaleWaveSpeed(waveCfg);
 
     window.GameLogic.startBombingRun(
-      waveCfg.speedPxPerSec,
+      speed,
       { x: spawnX, y: spawnY },
       waveCfg.direction
     );
 
-    this._waveActive             = true;
-    this._buildingsPlacedThisRun = window.BuildingManager.getPlacedBuildings().length;
-  },
-
-  _onWaveComplete() {
-    this._runCount++;
     this._waveIndex++;
-
-    const roundScore = this._calcRoundScore();
-    this._score     += roundScore;
-
-    this._showContinueStop(roundScore);
+    this._refreshHUD();   // update "Wave X / Y" immediately
   },
 
   // ========================================
-  // SCORE
+  // WIN SCREEN
   // ========================================
 
-  _calcRoundScore() {
-    const cfg        = window.ScoreConfig;
-    const player     = window.GameLogic.player;
-    const maxHp      = window.ObjectConfig.internalTypes?.player?.health ?? 100;
-    const hpRatio    = player ? Math.max(0, player.health / maxHp) : 0;
-    const hpScore    = Math.round(hpRatio * cfg.playerHpWeight);
-
-    const buildings  = window.BuildingManager.getPlacedBuildings();
-    const totals = buildings.reduce((acc, b) => {
-      if (!b || b.maxHealth <= 0) return acc;
-      acc.current += Math.max(0, b.health);
-      acc.max += b.maxHealth;
-      return acc;
-    }, { current: 0, max: 0 });
-    const bldRatio = totals.max > 0 ? Math.max(0, totals.current / totals.max) : 0;
-    const bldScore = Math.round(bldRatio * cfg.buildingWeight);
-
-    const penalty    = this._buildingsPlacedThisRun * cfg.placementPenalty;
-    const multiplier = 1 + (this._runCount - 1) * cfg.runMultiplierStep;
-    const total      = Math.round(Math.max(0, hpScore + bldScore - penalty) * multiplier);
-
-    window.logDebug?.(
-      `Run ${this._runCount}: hp=${hpScore} bld=${bldScore} ` +
-      `pen=-${penalty} ×${multiplier.toFixed(1)} = ${total}`
-    );
-    return total;
-  },
-
-  // ========================================
-  // CONTINUE / STOP SCREEN
-  // ========================================
-
-  _showContinueStop(roundScore) {
-    if (this._overlay) return;
-
+  _showWinScreen() {
     const { ARENA_X, ARENA_Y, ARENA_W, ARENA_H } = this.arena;
-    const cx   = ARENA_X + ARENA_W * 0.5;
-    const cy   = ARENA_Y + ARENA_H * 0.5;
-    const fs   = Math.round(this.scene.scale.height * 0.04);
-    const fsLg = Math.round(this.scene.scale.height * 0.06);
+    const scale  = window.Scale;
+    const cx     = ARENA_X + ARENA_W * 0.5;
+    const cy     = ARENA_Y + ARENA_H * 0.5;
+    const fsLg   = scale.screenScaleH(this.scene, scale.baseH * 0.09);
+    const fs     = scale.screenScaleH(this.scene, scale.baseH * 0.04);
+    const panelW = scale.screenScaleW(this.scene, scale.baseW * 0.5);
+    const panelH = scale.screenScaleH(this.scene, scale.baseH * 0.42);
+    const titleY = cy - scale.screenScaleH(this.scene, scale.baseH * 0.11);
+    const subY   = cy - scale.screenScaleH(this.scene, scale.baseH * 0.02);
+    const btnY   = cy + scale.screenScaleH(this.scene, scale.baseH * 0.13);
 
-    const nextMult = 1 + this._runCount * (window.ScoreConfig?.runMultiplierStep ?? 0.5);
+    const totalWaves = this.levelCfg.waves.length;
+    const hp         = Math.max(0, Math.round(window.GameLogic.player?.health ?? 0));
 
-    const bg = this.scene.add.rectangle(cx, cy, ARENA_W * 0.55, ARENA_H * 0.48, 0x000000, 0.78)
-      .setDepth(2000);
+    this.scene.add.rectangle(cx, cy, panelW, panelH, 0x000000, 0.82).setDepth(2000);
 
-    const title = this.scene.add.text(cx, cy - ARENA_H * 0.16, 'Wave Complete!', {
-      fontSize: `${fsLg}px`, fill: '#ffffff', align: 'center',
+    this.scene.add.text(cx, titleY, 'YOU WIN!', {
+      fontSize: `${fsLg}px`,
+      fill: '#44ff88',
+      align: 'center',
     }).setOrigin(0.5).setDepth(2001);
 
-    const scoreLine = this.scene.add.text(
-      cx, cy - ARENA_H * 0.07,
-      `+${roundScore}  |  Total: ${this._score}`,
-      { fontSize: `${fs}px`, fill: '#ffdd00', align: 'center' }
+    this.scene.add.text(cx, subY,
+      `All ${totalWaves} wave${totalWaves !== 1 ? 's' : ''} survived  ·  HP remaining: ${hp}`,
+      { fontSize: `${fs}px`, fill: '#ffffff', align: 'center' }
     ).setOrigin(0.5).setDepth(2001);
 
-    const hint = this.scene.add.text(
-      cx, cy + ARENA_H * 0.01,
-      `Continue for ×${nextMult.toFixed(1)} multiplier`,
-      { fontSize: `${Math.round(fs * 0.8)}px`, fill: '#aaaaaa', align: 'center' }
-    ).setOrigin(0.5).setDepth(2001);
-
-    const contBtn = this._overlayBtn(
-      cx - ARENA_W * 0.1, cy + ARENA_H * 0.12, 'Continue', '#1a7a3a',
-      () => { this._closeOverlay(); this.startWave(); }
-    );
-
-    const stopBtn = this._overlayBtn(
-      cx + ARENA_W * 0.1, cy + ARENA_H * 0.12, 'Stop', '#7a1a1a',
-      () => { this._closeOverlay(); this._showFinalScore(); }
-    );
-
-    this._overlay = { bg, title, scoreLine, hint, contBtn, stopBtn };
-  },
-
-  _overlayBtn(x, y, label, bgColor, onClick) {
-    const fs   = Math.round(this.scene.scale.height * 0.04);
-    const padX = Math.round(this.scene.scale.width  * 0.025);
-    const padY = Math.round(this.scene.scale.height * 0.015);
-    return this.scene.add.text(x, y, label, {
-      fontSize: `${fs}px`, fill: '#ffffff',
-      backgroundColor: bgColor,
-      padding: { x: padX, y: padY },
-    })
-      .setOrigin(0.5).setDepth(2002)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', onClick);
-  },
-
-  _closeOverlay() {
-    if (!this._overlay) return;
-    Object.values(this._overlay).forEach((o) => { try { o.destroy(); } catch (e) {} });
-    this._overlay = null;
-  },
-
-  // ========================================
-  // FINAL SCORE SCREEN
-  // ========================================
-
-  _showFinalScore() {
-    const { ARENA_X, ARENA_Y, ARENA_W, ARENA_H } = this.arena;
-    const cx   = ARENA_X + ARENA_W * 0.5;
-    const cy   = ARENA_Y + ARENA_H * 0.5;
-    const fsLg = Math.round(this.scene.scale.height * 0.07);
-    const fs   = Math.round(this.scene.scale.height * 0.05);
-    const fsSm = Math.round(this.scene.scale.height * 0.035);
-
-    this.scene.add.rectangle(cx, cy, ARENA_W * 0.55, ARENA_H * 0.52, 0x000000, 0.85)
-      .setDepth(2000);
-
-    this.scene.add.text(cx, cy - ARENA_H * 0.18, 'Level Complete!', {
-      fontSize: `${fsLg}px`, fill: '#ffdd00', align: 'center',
-    }).setOrigin(0.5).setDepth(2001);
-
-    this.scene.add.text(cx, cy - ARENA_H * 0.07, `Final Score: ${this._score}`, {
-      fontSize: `${fs}px`, fill: '#ffffff', align: 'center',
-    }).setOrigin(0.5).setDepth(2001);
-
-    this.scene.add.text(cx, cy + ARENA_H * 0.03, `Waves survived: ${this._runCount}`, {
-      fontSize: `${fsSm}px`, fill: '#aaaaaa', align: 'center',
-    }).setOrigin(0.5).setDepth(2001);
-
-    this._overlayBtn(cx, cy + ARENA_H * 0.15, 'Back to Levels', '#333333',
+    this._overlayBtn(cx, btnY, 'Back to Levels', '#333333',
       () => window.startScene('LevelSelectScene')
     );
   },
 
   // ========================================
-  // GAME OVER
+  // LOSE SCREEN
   // ========================================
 
-  _showGameOver() {
-    if (this._gameOverText) return;
-    this._closeOverlay();
-
+  _showLoseScreen() {
     const { ARENA_X, ARENA_Y, ARENA_W, ARENA_H } = this.arena;
-    const cx   = ARENA_X + ARENA_W * 0.5;
-    const cy   = ARENA_Y + ARENA_H * 0.5;
-    const fsLg = Math.round(this.scene.scale.height * 0.1);
-    const fs   = Math.round(this.scene.scale.height * 0.04);
+    const scale  = window.Scale;
+    const cx     = ARENA_X + ARENA_W * 0.5;
+    const cy     = ARENA_Y + ARENA_H * 0.5;
+    const fsLg   = scale.screenScaleH(this.scene, scale.baseH * 0.1);
+    const fs     = scale.screenScaleH(this.scene, scale.baseH * 0.04);
+    const panelW = scale.screenScaleW(this.scene, scale.baseW * 0.5);
+    const panelH = scale.screenScaleH(this.scene, scale.baseH * 0.42);
+    const titleY = cy - scale.screenScaleH(this.scene, scale.baseH * 0.11);
+    const subY   = cy - scale.screenScaleH(this.scene, scale.baseH * 0.02);
+    const btnY   = cy + scale.screenScaleH(this.scene, scale.baseH * 0.13);
 
-    this.scene.add.rectangle(cx, cy, ARENA_W * 0.55, ARENA_H * 0.48, 0x000000, 0.82)
-      .setDepth(2000);
+    const wavesSurvived = Math.max(0, this._waveIndex - 1);
+    const totalWaves    = this.levelCfg.waves.length;
 
-    this._gameOverText = this.scene.add.text(cx, cy - ARENA_H * 0.12, 'GAME OVER', {
-      fontSize: `${fsLg}px`, fill: '#ff3333', align: 'center',
+    this.scene.add.rectangle(cx, cy, panelW, panelH, 0x000000, 0.85).setDepth(2000);
+
+    this.scene.add.text(cx, titleY, 'GAME OVER', {
+      fontSize: `${fsLg}px`,
+      fill: '#ff3333',
+      align: 'center',
     }).setOrigin(0.5).setDepth(2001);
 
-    this.scene.add.text(cx, cy + ARENA_H * 0.03, `Score: ${this._score}`, {
-      fontSize: `${fs}px`, fill: '#ffffff', align: 'center',
-    }).setOrigin(0.5).setDepth(2001);
+    this.scene.add.text(cx, subY,
+      `Survived ${wavesSurvived} of ${totalWaves} wave${totalWaves !== 1 ? 's' : ''}`,
+      { fontSize: `${fs}px`, fill: '#aaaaaa', align: 'center' }
+    ).setOrigin(0.5).setDepth(2001);
 
-    this._overlayBtn(cx, cy + ARENA_H * 0.15, 'Back to Levels', '#333333',
+    this._overlayBtn(cx, btnY, 'Back to Levels', '#333333',
       () => window.startScene('LevelSelectScene')
     );
   },
@@ -295,23 +259,51 @@ window.LevelManager = {
 
   _refreshHUD() {
     if (this._healthText) {
-      const hp = window.GameLogic.player?.health ?? 0;
-      this._healthText.setText(`HP: ${Math.max(0, Math.round(hp))}`);
+      const hp = Math.max(0, Math.round(window.GameLogic.player?.health ?? 0));
+      this._healthText.setText(`HP: ${hp}`);
     }
-    if (this._scoreText) {
-      this._scoreText.setText(`Score: ${this._score}`);
+    if (this._waveText) {
+      const total    = this.levelCfg?.waves?.length ?? 0;
+      const current  = Math.min(this._waveIndex, total);   // waves fired so far
+      const stateStr = this._state === 'idle'    ? 'Press Start'
+                     : this._state === 'waiting' ? 'Last wave…'
+                     : this._state === 'won'     ? 'Level clear!'
+                     : this._state === 'lost'    ? 'Eliminated'
+                     : `Wave ${current} / ${total}`;
+      this._waveText.setText(stateStr);
     }
   },
 
-  _createScoreText() {
-    const cfg      = window.UIFactory.config.healthText;
-    const fontSize = Math.round(this.scene.scale.height * cfg.fontSizeRatio);
+  _createWaveText() {
+    const scale    = window.Scale;
+    const fontSize = scale.screenScaleH(this.scene, scale.baseH * 0.03);
+    const offY     = scale.screenScaleH(this.scene, scale.baseH * 0.01);
     return this.scene.add.text(
       this.arena.ARENA_X + this.arena.ARENA_W * 0.5,
-      this.arena.ARENA_Y + this.arena.ARENA_H * 0.01,
-      'Score: 0',
-      { fontSize: `${fontSize}px`, fill: cfg.fill }
-    ).setOrigin(0.5, 0);
+      this.arena.ARENA_Y + offY,
+      'Press Start',
+      { fontSize: `${fontSize}px`, fill: '#ffffff' }
+    ).setOrigin(0.5, 0).setDepth(100);
+  },
+
+  // ========================================
+  // OVERLAY HELPER
+  // ========================================
+
+  _overlayBtn(x, y, label, bgColor, onClick) {
+    const scale = window.Scale;
+    const fs    = scale.screenScaleH(this.scene, scale.baseH * 0.04);
+    const padX  = scale.screenScaleW(this.scene, scale.baseW * 0.025);
+    const padY  = scale.screenScaleH(this.scene, scale.baseH * 0.015);
+    return this.scene.add.text(x, y, label, {
+      fontSize:        `${fs}px`,
+      fill:            '#ffffff',
+      backgroundColor: bgColor,
+      padding:         { x: padX, y: padY },
+    })
+      .setOrigin(0.5).setDepth(2002)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerdown', onClick);
   },
 
   // ========================================
@@ -354,13 +346,10 @@ window.LevelManager = {
       const px = ARENA_X + ARENA_W * entry.xRatio;
       const py = ARENA_Y + ARENA_H * entry.yRatio;
 
-      // Use createLevelObject — completely separate from BuildingManager/placeableTypes.
-      // These objects are never draggable, never counted, never in placedBuildings.
       const obj = window.ObjectFactory.createLevelObject(
         this.scene, entry.type, px, py, this.arena
       );
       if (!obj) return;
-
       this._prePlaced.push(obj);
     });
   },
@@ -373,51 +362,8 @@ window.LevelManager = {
     const allowed = this.levelCfg.allowedBuildings || {};
     Object.entries(allowed).forEach(([type, cap]) => {
       const cfg = window.ObjectConfig.placeableTypes[type];
-      if (cfg) {
-        cfg.maxCount      = cap;
-      }
+      if (cfg) cfg.maxCount = cap;
     });
-  },
-
-  // ========================================
-  // FULL RESET
-  // ========================================
-
-  reset(player) {
-    window.GameLogic.resetRun();
-
-    for (const b of window.BuildingManager.getPlacedBuildings().slice()) {
-      try { window.BuildingManager.destroyBuilding(b); } catch (e) {}
-    }
-    window.BuildingManager.resetState();
-
-    this._closeOverlay();
-    if (this._gameOverText) {
-      try { this._gameOverText.destroy(); } catch (e) {}
-      this._gameOverText = null;
-    }
-
-    this._score      = 0;
-    this._runCount   = 0;
-    this._waveIndex  = 0;
-    this._waveActive = false;
-
-    const { px, py } = this._playerSpawnPx();
-
-    if (!player || !player.active) {
-      player = window.ObjectFactory.createInternal(this.scene, 'player', px, py, this.arena);
-    } else {
-      if (player.body) {
-        try {
-          Phaser.Physics.Matter.Matter.Body.setPosition(player.body, { x: px, y: py });
-          Phaser.Physics.Matter.Matter.Body.setVelocity(player.body, { x: 0, y: 0 });
-        } catch (e) {}
-      }
-    }
-
-    window.GameLogic.init(this.scene, player, this.arena);
-    this._refreshHUD();
-    return player;
   },
 
   // ========================================
@@ -432,13 +378,21 @@ window.LevelManager = {
     };
   },
 
+  _scaleWaveSpeed(waveCfg) {
+    if (waveCfg.speedRatio != null) {
+      return this.arena.ARENA_W * waveCfg.speedRatio;
+    }
+    const raw = waveCfg.speedPxPerSec ?? 0;
+    return window.Scale.arenaScaleW(this.arena, raw);
+  },
+
   _fallbackConfig() {
     return {
       playerSpawn:      { xRatio: 0.5, yRatio: 0.75 },
       platforms:        [],
       prePlaced:        [],
       allowedBuildings: {},
-      waves: [{ speedPxPerSec: 350, direction: 1, xRatio: -0.15, yRatio: 0.04 }],
+      waves: [{ speedRatio: 0.182, direction: 1, xRatio: -0.15, yRatio: 0.04 }],
     };
   },
 

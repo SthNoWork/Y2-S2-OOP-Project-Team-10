@@ -6,7 +6,7 @@ Update this file whenever you change behavior, config, or structure.
 ## High-Level Summary
 - Phaser v4 project using Matter physics.
 - index.html owns app shell and scene switching (destroys and recreates Phaser.Game each time).
-- BootScene trims sprites from a sprite sheet to create tightly-cropped textures.
+- BootScene preloads assets via SpriteFactory and builds atlases/animations from config.
 - GameScene orchestrates managers; GameLogic handles gameplay; LevelManager handles level flow.
 
 ## Runtime Flow (Happy Path)
@@ -23,11 +23,9 @@ Update this file whenever you change behavior, config, or structure.
 - Bomb crate texture is trimmed to reduce rectangle hitbox size.
 - window.DEBUG + window.logDebug enable gated debug logging.
 
-## Assets and Texture Trimming
-- BootScene loads the items sprite sheet and trims configs via TRIM_CONFIGS.
-- Each trim config produces a new texture key with a minimal opaque bounding box.
-- Current trims:
-  - bomb_crate from items sheet (sx 15, sy 25, sw 33, sh 33).
+## Assets and Atlases
+- assets.js holds all asset keys/paths and animation definitions.
+- spriteFactory.js loads assets and builds atlases/animations from assets.js config.
 
 ## Data Schemas (Fields Used)
 
@@ -43,6 +41,7 @@ Update this file whenever you change behavior, config, or structure.
 - prePlaced: [{ type, xRatio, yRatio }]
 - allowedBuildings: { [type]: maxCount }
 - waves: [{ speedPxPerSec, direction, xRatio, yRatio }]
+  - speedPxPerSec is treated as a 1920px-wide baseline and scaled to current arena width
 
 ### ScoreConfig (global)
 - playerHpWeight
@@ -61,10 +60,10 @@ Update this file whenever you change behavior, config, or structure.
 - useImage, imageKey, color
 - physics: { friction, restitution, frictionAir, label, mass, collisionFilter? }
 - health, onDeath
-- blast: { radiusRatio, force, maxDamage } (only if onDeath = explode)
+- blast: { radiusRatio, forceRatio, maxDamage } (only if onDeath = explode)
 
 ### ObjectConfig.internalTypes (ObjectFactory)
-- bomb: widthRatio, heightRatio, color, physics { friction, restitution, frictionAir, label, collisionFilter }, blastRadiusRatio, blastForce, directHitDamage, blastMaxDamage
+- bomb: widthRatio, heightRatio, color, physics { friction, restitution, frictionAir, label, collisionFilter }, blastRadiusRatio, blastForceRatio, directHitDamage, blastMaxDamage
 - plane: widthRatio, heightRatio, color, bombDropDelayRangeSec { min, max }, bombDropOffsetRatioRange { min, max }, bombDropYOffsetRatio
 - player: widthRatio, heightRatio, color, physics { friction, restitution, frictionAir, label, mass }, health, onDeath
 
@@ -72,6 +71,10 @@ Update this file whenever you change behavior, config, or structure.
 - button: { fontSizeRatio, fill, backgroundColor, paddingXRatio, paddingYRatio }
 - backButton: { fontSizeRatio, color }
 - healthText: { fontSizeRatio, fill }
+### UIFactory scaling
+- UI sizing uses `window.Scale.screenScaleW/screenScaleH` with a 1920x1080 baseline.
+### Physics scaling
+- `window.Scale.arenaScaleW/arenaScaleH` convert 1920x1080 baseline values to arena pixels.
 
 ## Global Objects
 - window.ObjectConfig: definitions for placeableTypes, levelTypes, internalTypes.
@@ -81,11 +84,13 @@ Update this file whenever you change behavior, config, or structure.
 - window.LevelManager: level loading, HUD, waves, score flow.
 - window.UIFactory: UI helpers (buttons, back button, health text).
 - window.Levels: level data in levels.js.
+- window.Scale: single scaling helper for UI and arena-based physics values.
+- window.Assets: asset + animation config registry.
+- window.SpriteFactory: preload/build helper for assets, atlases, animations.
 
 ## ObjectFactory Highlights
-- placeableTypes: draggable buildings (shortPlank, thickPlank, wall).
-- levelTypes: pre-placed objects (bomb_crate) spawned by LevelManager.
-- internalTypes: bomb, plane, player.
+- objectConfig.js holds placeableTypes, levelTypes, internalTypes.
+- objectFactory.js builds objects from ObjectConfig.
 - Use createPlaceable/createLevelObject/createInternal; legacy aliases removed.
 - Physics bodies are rectangles sized to arena ratios; image objects use display size.
 - fromTexture is disabled; rectangle is used instead.
@@ -101,6 +106,7 @@ Update this file whenever you change behavior, config, or structure.
 - Handles bombing runs and bomb drops.
 - Collision detection uses Matter collisionstart events.
 - Blast radius applies knockback and damage to player and buildings.
+- Blast radius/force scale with arena size; wave speeds scale to arena width.
 
 ## BuildingManager Highlights
 - Handles pointer drag/drop of placeable buildings.

@@ -36,7 +36,9 @@ window.GameLogic = {
   init(scene, player, arena) {
     // Remove old collision listener before rebinding.
     if (this.scene && this._onCollision && this.scene.matter?.world) {
-      try { this.scene.matter.world.off('collisionstart', this._onCollision); } catch (e) {}
+      try { this.scene.matter.world.off('collisionstart', this._onCollision); } catch (e) {
+        window.logDebug?.('[GameLogic.init] collision off failed', e);
+      }
     }
 
     this.scene        = scene;
@@ -113,6 +115,18 @@ window.GameLogic = {
     this._updateBombs();
   },
 
+  _blastRadiusPx(bombCfg) {
+    const ratio = bombCfg.blastRadiusRatio ?? 0.06;
+    return Math.max(this.arena.ARENA_W * ratio, this.arena.ARENA_H * ratio);
+  },
+
+  _blastForcePx(bombCfg) {
+    if (bombCfg.blastForceRatio != null) {
+      return this.arena.ARENA_W * bombCfg.blastForceRatio;
+    }
+    return bombCfg.blastForce ?? 0;
+  },
+
   _updatePlane(dt) {
     if (!this._run?.plane?.active) return;
 
@@ -161,7 +175,7 @@ window.GameLogic = {
     const { plane, planeVelocity, bombOffsetY } = this._run;
     const planeCfg    = window.ObjectConfig.internalTypes.plane;
     const offsetRange = planeCfg.bombDropOffsetRatioRange;
-    const planeWidth  = this.arena.W * planeCfg.widthRatio;
+    const planeWidth  = this.arena.ARENA_W * planeCfg.widthRatio;
     const offsetX     = (offsetRange.min + Math.random() * Math.max(0, offsetRange.max - offsetRange.min)) * planeWidth;
 
     const bomb = window.ObjectFactory.createInternal(
@@ -177,7 +191,8 @@ window.GameLogic = {
     }
 
     const matterStepRate = 60;
-    const speed = Math.max(120, Math.abs(planeVelocity.x));
+    const minSpeed = window.Scale.arenaScaleW(this.arena, 120);
+    const speed = Math.max(minSpeed, Math.abs(planeVelocity.x));
     Phaser.Physics.Matter.Matter.Body.setVelocity(bomb.body, {
       x: 0,
       y: (speed / matterStepRate),
@@ -201,12 +216,14 @@ window.GameLogic = {
 
       if (!bomb.active || bomb.y >= bottom) {
         if (bomb.active) {
-          const radius = Math.max(
-            this.arena.W * (bombCfg.blastRadiusRatio || 0.06),
-            this.arena.H * (bombCfg.blastRadiusRatio || 0.06)
-          );
-          try { this._createBlastRadius(bomb.x, bomb.y, radius, bombCfg.blastForce); } catch (e) {}
-          try { bomb.destroy(); } catch (e) {}
+          const radius = this._blastRadiusPx(bombCfg);
+          const force  = this._blastForcePx(bombCfg);
+          try { this._createBlastRadius(bomb.x, bomb.y, radius, force); } catch (e) {
+            window.logDebug?.('[GameLogic._updateBombs] blast failed', e);
+          }
+          try { bomb.destroy(); } catch (e) {
+            window.logDebug?.('[GameLogic._updateBombs] bomb destroy failed', e);
+          }
         }
         this._activeBombs.splice(i, 1);
       }
@@ -230,8 +247,9 @@ window.GameLogic = {
     if (!bombGO?.active) return;
 
     const bombCfg   = window.ObjectConfig.internalTypes.bomb;
-    const radius    = Math.max(40, bombCfg.blastRadiusRatio * this.scene.scale.width);
-    const force     = bombCfg.blastForce      || 50;
+    const minRadius = window.Scale.arenaScaleW(this.arena, 40);
+    const radius    = Math.max(minRadius, this._blastRadiusPx(bombCfg));
+    const force     = this._blastForcePx(bombCfg) || 50;
     const directDmg = bombCfg.directHitDamage || 50;
 
     const otherGO = otherBody?.gameObject;
@@ -252,7 +270,9 @@ window.GameLogic = {
     }
 
     this._createBlastRadius(bombGO.x, bombGO.y, radius, force);
-    try { bombGO.destroy(); } catch (e) {}
+    try { bombGO.destroy(); } catch (e) {
+      window.logDebug?.('[GameLogic._handleCollision] bomb destroy failed', e);
+    }
   },
 
   // ========================================
@@ -270,7 +290,9 @@ window.GameLogic = {
         duration:   300,
         onComplete: () => gfx.destroy(),
       });
-    } catch (e) {}
+    } catch (e) {
+      window.logDebug?.('[GameLogic._createBlastRadius] gfx failed', e);
+    }
 
     const bombCfg     = window.ObjectConfig.internalTypes.bomb;
     const blastMaxDmg = maxDamageOverride !== undefined
@@ -302,6 +324,7 @@ window.GameLogic = {
   _applyKnockback(body, bx, by, blastForce, radius) {
     const obj = body.gameObject;
     if (!obj || body.isStatic || obj.isBomb || body.label === 'bomb') return 0;
+    if (typeof obj.getVelocity !== 'function' || typeof obj.setVelocity !== 'function') return 0;
 
     const dx   = body.position.x - bx;
     const dy   = body.position.y - by;
@@ -341,7 +364,9 @@ window.GameLogic = {
       y: Math.round(obj.y),
       isLocked: obj.isLocked,
     });
-    try { window.BuildingManager.destroyBuilding(obj); } catch (e) {}
+    try { window.BuildingManager.destroyBuilding(obj); } catch (e) {
+      window.logDebug?.('[GameLogic._onBuildingDied] destroy failed', e);
+    }
     this.buildings = this.buildings.filter((b) => b !== obj);
   },
 
@@ -366,12 +391,18 @@ window.GameLogic = {
 
   resetRun() {
     if (this._run?.plane?.active) {
-      try { this._run.plane.destroy(); } catch (e) {}
+      try { this._run.plane.destroy(); } catch (e) {
+        window.logDebug?.('[GameLogic.resetRun] plane destroy failed', e);
+      }
     }
     this._run = null;
 
     for (const bomb of this._activeBombs) {
-      if (bomb?.active) try { bomb.destroy(); } catch (e) {}
+      if (bomb?.active) {
+        try { bomb.destroy(); } catch (e) {
+          window.logDebug?.('[GameLogic.resetRun] bomb destroy failed', e);
+        }
+      }
     }
     this._activeBombs = [];
 

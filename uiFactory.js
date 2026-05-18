@@ -38,9 +38,9 @@ window.UIFactory.config = {
 // Origin is top-right so buttons anchor from the right edge of the arena.
 window.UIFactory.createButton = function (scene, x, y, label, onClick) {
   const cfg      = window.UIFactory.config.button;
-  const fontSize = Math.round(scene.scale.height * cfg.fontSizeRatio);
-  const padX     = Math.round(scene.scale.width  * cfg.paddingXRatio);
-  const padY     = Math.round(scene.scale.height * cfg.paddingYRatio);
+  const fontSize = window.Scale.screenScaleH(scene, window.Scale.baseH * cfg.fontSizeRatio);
+  const padX     = window.Scale.screenScaleW(scene, window.Scale.baseW * cfg.paddingXRatio);
+  const padY     = window.Scale.screenScaleH(scene, window.Scale.baseH * cfg.paddingYRatio);
 
   return scene.add
     .text(x, y, label, {
@@ -59,9 +59,9 @@ window.UIFactory.createButton = function (scene, x, y, label, onClick) {
 // onClick receives no arguments — pass a scene-transition callback.
 window.UIFactory.addBackButton = function (scene, onClick) {
   const cfg      = window.UIFactory.config.backButton;
-  const fontSize = Math.round(scene.scale.height * cfg.fontSizeRatio);
-  const x        = Math.round(scene.scale.width  * 0.02);
-  const y        = Math.round(scene.scale.height * 0.02);
+  const fontSize = window.Scale.screenScaleH(scene, window.Scale.baseH * cfg.fontSizeRatio);
+  const x        = window.Scale.screenScaleW(scene, window.Scale.baseW * 0.02);
+  const y        = window.Scale.screenScaleH(scene, window.Scale.baseH * 0.02);
 
   return scene.add
     .text(x, y, 'Back', {
@@ -83,11 +83,13 @@ window.UIFactory.addBackButton = function (scene, onClick) {
 // Returns the text object so the caller can update it each frame.
 window.UIFactory.addHealthText = function (scene, arena) {
   const cfg      = window.UIFactory.config.healthText;
-  const fontSize = Math.round(scene.scale.height * cfg.fontSizeRatio);
+  const fontSize = window.Scale.screenScaleH(scene, window.Scale.baseH * cfg.fontSizeRatio);
+  const offX     = window.Scale.screenScaleW(scene, window.Scale.baseW * 0.01);
+  const offY     = window.Scale.screenScaleH(scene, window.Scale.baseH * 0.01);
 
   return scene.add.text(
-    arena.ARENA_X + arena.ARENA_W * 0.01,
-    arena.ARENA_Y + arena.ARENA_H * 0.01,
+    arena.ARENA_X + offX,
+    arena.ARENA_Y + offY,
     '',
     {
       fontSize: `${fontSize}px`,
@@ -105,30 +107,20 @@ window.UIFactory.addBackground = function (scene, path) {
   if (!path) return null;
 
   const key = `bg_${path.replace(/[^a-zA-Z0-9]/g, '_')}`;
-
-  const addImage = () => {
-    const W = scene.scale.width;
-    const H = scene.scale.height;
-    const img = scene.add.image(W * 0.5, H * 0.5, key).setOrigin(0.5, 0.5);
-    const src = scene.textures.get(key)?.getSourceImage?.();
-    const texW = src?.width || 1;
-    const texH = src?.height || 1;
-    const scale = Math.max(W / texW, H / texH);
-    img.setScale(scale);
-    img.setDepth(-1000);
-    img.setScrollFactor(0);
-    return img;
-  };
-
-  if (scene.textures.exists(key)) {
-    return addImage();
+  if (!scene.textures.exists(key)) {
+    window.logDebug?.(`[UIFactory.addBackground] Missing texture: ${key}`);
+    return null;
   }
 
-  scene.load.image(key, path);
-  scene.load.once('complete', () => addImage());
-  scene.load.once('loaderror', () => {
-    console.warn(`[UIFactory.addBackground] Failed to load ${path}`);
-  });
-  scene.load.start();
-  return null;
+  const W = scene.scale.width;
+  const H = scene.scale.height;
+  const img = scene.add.image(W * 0.5, H * 0.5, key).setOrigin(0.5, 0.5);
+  const src = scene.textures.get(key)?.getSourceImage?.();
+  const texW = src?.width || 1;
+  const texH = src?.height || 1;
+  const scale = Math.max(W / texW, H / texH);
+  img.setScale(scale);
+  img.setDepth(-1000);
+  img.setScrollFactor(0);
+  return img;
 };

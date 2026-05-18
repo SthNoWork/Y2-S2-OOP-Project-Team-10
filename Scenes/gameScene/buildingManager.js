@@ -53,7 +53,9 @@ window.BuildingManager = {
         this.scene.input.off('pointerdown', this._handlers.down);
         this.scene.input.off('pointermove', this._handlers.move);
         this.scene.input.off('pointerup',   this._handlers.up);
-      } catch (e) {}
+      } catch (e) {
+        window.logDebug?.('[BuildingManager.setupInputHandlers] off failed', e);
+      }
     }
 
     this._handlers = {
@@ -65,6 +67,12 @@ window.BuildingManager = {
     this.scene.input.on('pointerdown', this._handlers.down);
     this.scene.input.on('pointermove', this._handlers.move);
     this.scene.input.on('pointerup',   this._handlers.up);
+  },
+
+  _resetBody(obj) {
+    if (!obj?.body) return;
+    Phaser.Physics.Matter.Matter.Body.setVelocity(obj.body, { x: 0, y: 0 });
+    Phaser.Physics.Matter.Matter.Body.setAngularVelocity(obj.body, 0);
   },
 
   onPointerDown(pointer) {
@@ -124,9 +132,10 @@ window.BuildingManager = {
         if (building.body) {
           try {
             Phaser.Physics.Matter.Matter.Body.setPosition(building.body, { x, y });
-            Phaser.Physics.Matter.Matter.Body.setVelocity(building.body, { x: 0, y: 0 });
-            Phaser.Physics.Matter.Matter.Body.setAngularVelocity(building.body, 0);
-          } catch (e) {}
+            this._resetBody(building);
+          } catch (e) {
+            window.logDebug?.('[BuildingManager.onPointerUp] reset body failed', e);
+          }
         }
         building.x = x;
         building.y = y;
@@ -147,9 +156,10 @@ window.BuildingManager = {
 
     if (building.body) {
       try {
-        Phaser.Physics.Matter.Matter.Body.setVelocity(building.body, { x: 0, y: 0 });
-        Phaser.Physics.Matter.Matter.Body.setAngularVelocity(building.body, 0);
-      } catch (e) {}
+        this._resetBody(building);
+      } catch (e) {
+        window.logDebug?.('[BuildingManager._finaliseDrop] stop body failed', e);
+      }
     }
 
     this.draggingBuilding = null;
@@ -172,10 +182,11 @@ window.BuildingManager = {
       building.body.collisionFilter.mask = enabled ? 0 : -1;
       building.body.ignoreGravity = !!enabled;
       if (enabled) {
-        Phaser.Physics.Matter.Matter.Body.setVelocity(building.body, { x: 0, y: 0 });
-        Phaser.Physics.Matter.Matter.Body.setAngularVelocity(building.body, 0);
+        this._resetBody(building);
       }
-    } catch (e) {}
+    } catch (e) {
+      window.logDebug?.('[BuildingManager.setGhostMode] update body failed', e);
+    }
   },
 
   // ========================================
@@ -186,7 +197,10 @@ window.BuildingManager = {
     if (!building?.body) return true;
 
     const bounds = building._cachedBounds ?? building.getBounds?.() ?? null;
-    if (!bounds) return true;
+    if (!bounds) {
+      window.logDebug?.('[BuildingManager.isPlacementValid] missing bounds');
+      return false;
+    }
 
     const bodies = this.scene.matter.intersectRect(bounds.x, bounds.y, bounds.width, bounds.height) || [];
     return bodies.every((body) => {
@@ -202,9 +216,9 @@ window.BuildingManager = {
 
   _spawnAllInventoryControls() {
     const { ARENA_X, ARENA_W, ARENA_Y, ARENA_H } = this.arena;
-    let   controlX       = ARENA_X + ARENA_W * 0.02;
-    const controlY       = ARENA_Y + ARENA_H * 0.94;
-    const controlSpacing = ARENA_W * 0.12;
+    let   controlX       = ARENA_X + window.Scale.screenScaleW(this.scene, window.Scale.baseW * 0.02);
+    const controlY       = ARENA_Y + ARENA_H - window.Scale.screenScaleH(this.scene, window.Scale.baseH * 0.06);
+    const controlSpacing = window.Scale.screenScaleW(this.scene, window.Scale.baseW * 0.12);
 
     Object.keys(window.ObjectConfig.placeableTypes).forEach((type) => {
       this._spawnInventoryButton(controlX, controlY, type);
@@ -217,9 +231,9 @@ window.BuildingManager = {
     if (!cfg) return null;
 
     const bg       = '#' + cfg.color.toString(16).padStart(6, '0');
-    const fontSize = Math.round(this.scene.scale.height * 0.025);
-    const padX     = Math.round(this.scene.scale.width  * 0.01);
-    const padY     = Math.round(this.scene.scale.height * 0.008);
+    const fontSize = window.Scale.screenScaleH(this.scene, window.Scale.baseH * 0.025);
+    const padX     = window.Scale.screenScaleW(this.scene, window.Scale.baseW * 0.01);
+    const padY     = window.Scale.screenScaleH(this.scene, window.Scale.baseH * 0.008);
 
     const label = this.scene.add.text(x, y, buildingType, {
       fontSize:        `${fontSize}px`,

@@ -1,204 +1,33 @@
 // ========================================
   // OBJECT FACTORY
   // ========================================
-  // Two completely separate config sections:
-  //
-  //   ObjectConfig.placeableTypes  — player-draggable buildings (BuildingManager owns these)
-  //   ObjectConfig.levelTypes      — level-only objects: pre-placed scenery, bomb_crate, etc.
-  //                                  LevelManager spawns these directly; BuildingManager
-  //                                  never sees them and they never count toward placement caps.
-  //
-  // Engine internals (bomb, plane, player) live in ObjectConfig.internalTypes.
-  //
   // PUBLIC API:
   //   ObjectFactory.createPlaceable(scene, type, x, y, arena, options) → game object
   //   ObjectFactory.createLevelObject(scene, type, x, y, arena)        → game object
   //   ObjectFactory.createInternal(scene, type, x, y, arena, options)  → game object
   //   ObjectFactory.destroy(obj)                                        → void
   //
-
-  window.ObjectConfig  = {};
   window.ObjectFactory = {};
-
-  // ========================================
-  // PLACEABLE TYPES
-  // ========================================
-  // Player-draggable buildings.
-  // BuildingManager reads these for inventory controls and placement caps.
-
-  window.ObjectConfig.placeableTypes = {
-
-    shortPlank: {
-      widthRatio:  0.15,
-      heightRatio: 0.04,
-      scale:       1,
-      color:       0x8b4513,
-      physics: {
-        friction:    0.8,
-        restitution: 0.2,
-        frictionAir: 0.01,
-        label:       'building',
-        mass:        8,
-      },
-      health:   30,
-      onDeath:  'remove',
-      maxCount: 5,
-    },
-
-    thickPlank: {
-      widthRatio:  0.1,
-      heightRatio: 0.08,
-      scale:       1,
-      color:       0x654321,
-      physics: {
-        friction:    0.9,
-        restitution: 0.1,
-        frictionAir: 0.01,
-        label:       'building',
-        mass:        14,
-      },
-      health:   60,
-      onDeath:  'remove',
-      maxCount: 3,
-    },
-
-    wall: {
-      widthRatio:  0.06,
-      heightRatio: 0.2,
-      scale:       1,
-      color:       0x696969,
-      physics: {
-        friction:    0.8,
-        restitution: 0.0,
-        frictionAir: 0.01,
-        label:       'building',
-        mass:        30,
-      },
-      health:   80,
-      onDeath:  'remove',
-      maxCount: 2,
-    },
-
-  };
-
-  // ========================================
-  // LEVEL TYPES
-  // ========================================
-  // Objects placed by the level designer in levels.js.
-  // LevelManager spawns these via ObjectFactory.createLevelObject().
-  // They are NEVER registered with BuildingManager — no maxCount, no drag,
-  // no placement caps. They DO register with GameLogic so blasts can damage them.
-
-  window.ObjectConfig.levelTypes = {
-
-    // Explodes when destroyed — chain reactions work automatically.
-    bomb_crate: {
-      widthRatio:  0.07,
-      heightRatio: 0.07,
-      scale:       1,
-      color:       0xa0522d,
-      useImage:    true,
-      imageKey:    'bomb_crate',
-      physics: {
-        friction:    0.8,
-        restitution: 0.15,
-        frictionAir: 0.01,
-        label:       'building',
-        mass:        10,
-      },
-      health:  5,
-      onDeath: 'explode',
-      blast: {
-        radiusRatio: 0.18,
-        force:       4000,
-        maxDamage:   60,
-      },
-    },
-
-  };
-
-  // ========================================
-  // INTERNAL TYPES  (engine use only)
-  // ========================================
-  // bomb, plane, player — spawned by GameLogic / LevelManager.
-
-  window.ObjectConfig.internalTypes = {
-
-    bomb: {
-      widthRatio:       0.025,
-      heightRatio:      0.035,
-      scale:            0.8,
-      color:            0x333333,
-      useImage:         true,
-      imageKey:         'plane_atlas',
-      startFrame:       'row11_04',
-      physics: {
-        friction:       0.8,
-        restitution:    0.1,
-        frictionAir:    0.01,
-        label:          'bomb',
-        collisionFilter: {
-          category: 0x0004,
-          mask:     0x0001 | 0x0002 | 0x0008,
-        },
-      },
-      blastRadiusRatio: 0.2,
-      blastForce:       200,
-      directHitDamage:  50,
-      blastMaxDamage:   50,
-    },
-
-    plane: {
-      widthRatio:               0.12,
-      heightRatio:              0.05,
-      scale:                    1,
-      color:                    0xffaa00,
-      useImage:                 true,
-      imageKey:                 'plane_atlas',
-      animKey:                  'plane_fly',
-      startFrame:               'row01_02',
-      bombDropDelayRangeSec:    { min: 0.18, max: 0.45 },
-      bombDropOffsetRatioRange: { min: -0.35, max: 0.35 },
-      bombDropYOffsetRatio:     0.04,
-    },
-
-    player: {
-      widthRatio:  0.08,
-      heightRatio: 0.08,
-      scale:       1,
-      color:       0x00ff00,
-      useImage:    true,
-      imageKey:    'player',
-      physics: {
-        friction:    0.5,
-        restitution: 0.1,
-        frictionAir: 0.02,
-        label:       'player',
-        mass:        5,
-        shape:       { type: 'circle' },
-      },
-      health:  100,
-      onDeath: 'remove',
-    },
-
-  };
-
-
   // ========================================
   // HELPERS  (module-private)
   // ========================================
 
   function _buildVisual(scene, cfg, x, y, bodyW, bodyH) {
+    const displayScale = cfg.scale ?? 1;
+    let obj;
     if (cfg.useImage && cfg.imageKey && scene.textures.exists(cfg.imageKey)) {
       if (cfg.animKey) {
-        const sprite = scene.add.sprite(x, y, cfg.imageKey, cfg.startFrame);
+        obj = scene.add.sprite(x, y, cfg.imageKey, cfg.startFrame);
         if (scene.anims?.exists?.(cfg.animKey)) {
-          sprite.play(cfg.animKey);
+          obj.play(cfg.animKey);
         }
-        return sprite;
+      } else {
+        obj = scene.add.image(x, y, cfg.imageKey, cfg.startFrame);
       }
-      return scene.add.image(x, y, cfg.imageKey, cfg.startFrame);
+      obj.setScale(displayScale);
+      return obj;
     }
+    // Rectangle: bodyW/bodyH already include scale, so draw at those dimensions.
     return scene.add.rectangle(x, y, bodyW, bodyH, cfg.color);
   }
 
@@ -208,18 +37,20 @@
       return { ...cfg._sizeCache.size };
     }
 
+    const scale = cfg.scale ?? 1;
+
     if (cfg.useImage && cfg.imageKey && scene.textures.exists(cfg.imageKey)) {
       const frame = cfg.startFrame
         ? scene.textures.getFrame(cfg.imageKey, cfg.startFrame)
         : scene.textures.getFrame(cfg.imageKey);
       const texW  = frame?.realWidth  || frame?.width  || 32;
       const texH  = frame?.realHeight || frame?.height || 32;
-      const size = { bodyW: texW, bodyH: texH };
+      // Apply cfg.scale so the physics body matches the displayed size.
+      const size = { bodyW: texW * scale, bodyH: texH * scale };
       cfg._sizeCache = { key: cacheKey, size };
       return { ...size };
     }
 
-    const scale = cfg.scale ?? 1;
     const bodyW = arena.ARENA_W * cfg.widthRatio * scale;
     const bodyH = arena.ARENA_H * cfg.heightRatio * scale;
     const size = { bodyW, bodyH };
@@ -245,7 +76,9 @@
 
     if (obj.body) {
       if (p.mass !== undefined) {
-        try { Phaser.Physics.Matter.Matter.Body.setMass(obj.body, p.mass); } catch (e) {}
+        try { Phaser.Physics.Matter.Matter.Body.setMass(obj.body, p.mass); } catch (e) {
+          window.logDebug?.('[ObjectFactory._addPhysics] setMass failed', e);
+        }
       }
       if (p.collisionFilter && obj.body.collisionFilter) {
         obj.body.collisionFilter.category = p.collisionFilter.category;
@@ -275,8 +108,11 @@
     const radius = arena
       ? Math.max(arena.ARENA_W, arena.ARENA_H) * blastCfg.radiusRatio
       : 120;
+    const force = arena
+      ? (blastCfg.forceRatio != null ? arena.ARENA_W * blastCfg.forceRatio : blastCfg.force)
+      : blastCfg.force;
     try {
-      window.GameLogic._createBlastRadius(obj.x, obj.y, radius, blastCfg.force, blastCfg.maxDamage);
+      window.GameLogic._createBlastRadius(obj.x, obj.y, radius, force, blastCfg.maxDamage);
     } catch (e) {
       console.warn('onDeath explode error:', e);
     }
@@ -392,5 +228,7 @@
 
   window.ObjectFactory.destroy = function (obj) {
     if (!obj?.active) return;
-    try { obj.destroy(); } catch (e) {}
+    try { obj.destroy(); } catch (e) {
+      window.logDebug?.('[ObjectFactory.destroy] destroy failed', e);
+    }
   };

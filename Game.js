@@ -6,12 +6,24 @@ window.logDebug = function (...args) {
   if (window.DEBUG) console.log(...args);
 };
 
+window.Scale = {
+  baseW: 1920,
+  baseH: 1080,
+  screenScaleW(scene, valueAtBase) {
+    return Math.round((scene.scale.width / this.baseW) * valueAtBase);
+  },
+  screenScaleH(scene, valueAtBase) {
+    return Math.round((scene.scale.height / this.baseH) * valueAtBase);
+  },
+  arenaScaleW(arena, valueAtBase) {
+    return arena.ARENA_W * (valueAtBase / this.baseW);
+  },
+  arenaScaleH(arena, valueAtBase) {
+    return arena.ARENA_H * (valueAtBase / this.baseH);
+  },
+};
 
-// DELETE these 4 lines entirely:
-// const ARENA_X = 50;
-// const ARENA_Y = 50;
-// const ARENA_W = GAME_WIDTH - 100;
-// const ARENA_H = GAME_HEIGHT - 100;
+
 
 const config = {
   type: Phaser.AUTO,

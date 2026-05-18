@@ -10,14 +10,14 @@ class LevelSelectScene extends Phaser.Scene {
   create() {
     const W = this.scale.width;
     const H = this.scale.height;
+    const scale = window.Scale;
 
     this.cameras.main.setBackgroundColor('#808080');
     window.UIFactory.addBackground(this, 'asset/background/2.jpg');
-    window.UIFactory.addBackground(this);
 
     window.UIFactory.addBackButton(this, () => window.showHomeScreen());
 
-    const titleFontSize = Math.round(H * 0.08);
+    const titleFontSize = scale.screenScaleH(this, scale.baseH * 0.08);
     this.add.text(W * 0.5, H * 0.25, 'Select Level', {
       fontFamily: 'Arial, sans-serif',
       fontSize:   `${titleFontSize}px`,
@@ -25,14 +25,14 @@ class LevelSelectScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const cols        = 5;
-    const btnW        = W * 0.11;
-    const btnH        = H * 0.09;
-    const padX        = W * 0.025;
-    const padY        = H * 0.04;
+    const btnW        = scale.screenScaleW(this, scale.baseW * 0.11);
+    const btnH        = scale.screenScaleH(this, scale.baseH * 0.09);
+    const padX        = scale.screenScaleW(this, scale.baseW * 0.025);
+    const padY        = scale.screenScaleH(this, scale.baseH * 0.04);
     const totalW      = cols * btnW + (cols - 1) * padX;
     const startX      = (W - totalW) / 2;
     const startY      = H * 0.45;
-    const btnFontSize = Math.round(H * 0.035);
+    const btnFontSize = scale.screenScaleH(this, scale.baseH * 0.035);
 
     const totalLevels = Object.keys(window.Levels ?? {}).length || 10;
 
