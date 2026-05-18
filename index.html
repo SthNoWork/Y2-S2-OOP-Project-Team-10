@@ -11,7 +11,7 @@
         width: 100%;
         height: 100%;
         overflow: hidden;
-        background: #808080;
+        background:#808080;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -29,13 +29,14 @@
       #home-screen {
         width: 100vw;
         height: 100vh;
-        background: url('asset/background/6.jpg') center / cover no-repeat;
+        background: url('asset/background/menu-theme.png') center / cover no-repeat;
       }
 
       .title {
         margin: 0;
         text-align: center;
         font-size: 6vh;
+        color: gray;
       }
 
       .button-container {
@@ -58,7 +59,7 @@
         display: flex;
         align-items: center;
         gap: 1.5vw;
-        z-index: 999;
+        z-index: 2500;
       }
 
       .profile-panel button {
@@ -132,32 +133,64 @@
         z-index: 10;
       }
 
-      #start-overlay {
+      #startup-overlay {
         position: fixed;
         inset: 0;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        background: #808080;
+        background: url('asset/background/theme.png') center / cover no-repeat;
         z-index: 2000;
       }
 
-      #start-overlay button {
-        font-size: 6vh;
-        padding: 4vh 8vw;
+      #startup-loading {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3vh;
+        transform: translateY(42vh);
+        border-radius: 10px;
+      }
+
+      #startup-overlay .loading-text {
+        font-size: 3vh;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: white;
+      }
+
+      #startup-progress {
+        width: 40vw;
+        max-width: 700px;
+        height: 2.5vh;
         border: 0.4vh solid #000;
         background: #ffffff;
-        cursor: pointer;
+        overflow: hidden;
+        border-radius: 10px;
+      }
+
+      #startup-progress-bar {
+        width: 0%;
+        height: 100%;
+        background: #2ecc71;
+        border-radius: 10px;
       }
     </style>
   </head>
   <body>
 
     <!-- ================================ -->
-    <!-- START OVERLAY                    -->
+    <!-- STARTUP LOADING OVERLAY          -->
     <!-- ================================ -->
-    <div id="start-overlay">
-      <button id="start-btn">Start</button>
+    <div id="startup-overlay">
+      <div id="startup-loading">
+        <div id="startup-progress">
+          <div id="startup-progress-bar"></div>
+        </div>
+        <div class="loading-text">Loading...</div>
+      </div>
     </div>
 
     <!-- ================================ -->
@@ -222,8 +255,8 @@
       const profilePanel  = document.getElementById('profile-panel');
       const profileBtn    = document.getElementById('profile-btn');
       const fullscreenBtn = document.getElementById('fullscreen-btn');
-      const startOverlay  = document.getElementById('start-overlay');
-      const startBtn      = document.getElementById('start-btn');
+      const startupOverlay = document.getElementById('startup-overlay');
+      const startupBar     = document.getElementById('startup-progress-bar');
 
       // ================================
       // MUSIC
@@ -287,11 +320,6 @@
       document.addEventListener('pointerdown', startSharedOnFirstGesture, { once: true });
       document.addEventListener('keydown', startSharedOnFirstGesture, { once: true });
 
-      startBtn.addEventListener('click', () => {
-        window.MusicManager.playShared({ restart: false });
-        startOverlay.style.display = 'none';
-      });
-
       // Scenes listed here hide the profile panel while active.
       const HIDE_PROFILE_IN = new Set(['GameScene']);
 
@@ -313,6 +341,41 @@
         fullscreenBtn.style.display = 'none';
         window.MusicManager.playShared({ restart: window.MusicManager.mode === 'level' });
       };
+
+      function finishStartup() {
+        if (startupOverlay) startupOverlay.style.display = 'none';
+        window.showHomeScreen();
+      }
+
+      function runStartupProgress() {
+        if (!startupBar) {
+          finishStartup();
+          return;
+        }
+
+        const STARTUP_DURATION_MS = 2500;
+        const startTime = performance.now();
+
+        const tick = (now) => {
+          const elapsed = now - startTime;
+          const pct = Math.min(elapsed / STARTUP_DURATION_MS, 1);
+          startupBar.style.width = `${Math.round(pct * 100)}%`;
+
+          if (pct < 1) {
+            requestAnimationFrame(tick);
+          } else {
+            finishStartup();
+          }
+        };
+
+        requestAnimationFrame(tick);
+      }
+
+      if (document.readyState === 'complete') {
+        runStartupProgress();
+      } else {
+        window.addEventListener('load', runStartupProgress, { once: true });
+      }
 
       window.startScene = function (sceneKey) {
         destroyGame();
