@@ -1,66 +1,55 @@
-// ========================================
-// LEVEL MANAGER
-// ========================================
-// Owns: level loading, platform/prePlaced spawning, sequential wave
-//       firing with inter-wave countdown, win/lose screens, HUD.
-// Does NOT own: physics, blast logic, building drag, UI styling.
+// levelManager.js
+// Owns: level loading, platform and pre-placed object spawning, sequential wave
+//       firing with inter-wave countdown, win/lose overlay screens, and the HUD.
+// Does not own: physics, blast logic, building drag, or UI styling.
 //
-// Flow:
+// State machine:
+//   'idle'    — waiting for the Start button
+//   'running' — counting down between waves; planes may overlap mid-arena
+//   'waiting' — all waves fired; waiting for the last plane to exit
+//   'won'     — last plane cleared; shows win screen
+//   'lost'    — player HP hit zero; shows lose screen
+//
+// Usage:
 //   LevelManager.load(scene, arena, levelNum)  — call from GameScene.create()
 //   LevelManager.update(delta)                 — call from GameScene.update()
 //   LevelManager.startWave()                   — wired to the Start button
-//
-// Wave sequence (fires automatically once Start is pressed):
-//   wave[0] fires → countdown starts immediately → wave[1] fires (plane[0] may still be flying)
-//   → … → last wave fires → wait for last plane to exit → win.
-//   If player.health <= 0 at any point → lose immediately.
 
 window.LevelManager = {
-
-  // ========================================
-  // STATE
-  // ========================================
 
   scene:    null,
   arena:    null,
   levelNum: 1,
   levelCfg: null,
 
-  // 'idle'    — waiting for Start press
-  // 'running' — sequence active: countdown ticking, planes spawning (may overlap)
-  // 'waiting' — all waves fired, waiting for last plane to clear the arena
-  // 'won'     — all waves cleared
-  // 'lost'    — player health reached 0
-  _state: 'idle',
-
-  _waveIndex:      0,     // index of the NEXT wave to fire
-  _countdownMs:    0,     // ms until the next wave fires
-  _waveText:       null,  // "Wave X / Y" HUD label
-  _healthText:     null,  // HP HUD label
-  _screenShown:    false, // prevents duplicate win/lose overlays
+  _state:         'idle',
+  _waveIndex:     0,      // index of the next wave to fire
+  _countdownMs:   0,      // ms remaining until the next wave fires
+  _waveText:      null,   // "Wave X / Y" HUD label
+  _healthText:    null,   // HP HUD label
+  _screenShown:   false,  // prevents duplicate win/lose overlays
 
   _platforms:  [],        // static platform game objects
   _prePlaced:  [],        // pre-placed level object game objects
 
-  // ========================================
-  // LOAD
-  // ========================================
-
+  // Sets up the level: applies building caps, spawns platforms and pre-placed objects,
+  // creates the player, initialises GameLogic, and builds the HUD.
+  // Returns the player game object.
   load(scene, arena, levelNum) {
     this.scene    = scene;
     this.arena    = arena;
     this.levelNum = levelNum;
     this.levelCfg = window.Levels?.[levelNum] ?? this._fallbackConfig();
 
-    this._state          = 'idle';
-    this._waveIndex      = 0;
-    this._countdownMs    = 0;
-    this._screenShown    = false;
-    this._countdownText  = null;
-    this._waveText       = null;
-    this._healthText     = null;
-    this._platforms      = [];
-    this._prePlaced      = [];
+    this._state         = 'idle';
+    this._waveIndex     = 0;
+    this._countdownMs   = 0;
+    this._screenShown   = false;
+    this._countdownText = null;
+    this._waveText      = null;
+    this._healthText    = null;
+    this._platforms     = [];
+    this._prePlaced     = [];
 
     this._applyAllowedBuildings();
     this._spawnPlatforms();
@@ -76,15 +65,11 @@ window.LevelManager = {
     return player;
   },
 
-  // ========================================
-  // PER-FRAME UPDATE
-  // ========================================
-
+  // Drives the wave state machine. Call this every frame from GameScene.update().
+  // Refreshes the HUD, checks for player death, and advances through states.
   update(delta) {
-    // Always refresh HP display.
     this._refreshHUD();
 
-    // Player death takes priority — can happen in any active state.
     if (window.GameLogic.gameOver && this._state !== 'won' && this._state !== 'lost') {
       this._state = 'lost';
     }
@@ -92,72 +77,52 @@ window.LevelManager = {
     switch (this._state) {
 
       case 'idle':
-        // Waiting for the Start button — nothing to do.
         break;
 
       case 'running':
-        // Tick the countdown toward the next wave.
         this._countdownMs -= delta;
 
         if (this._countdownMs <= 0) {
           if (this._waveIndex < this.levelCfg.waves.length) {
-            // Fire the next wave and restart the countdown for the one after.
             this._fireNextWave();
             this._countdownMs = this.levelCfg.waveDelayMs ?? 3000;
           } else {
-            // All waves have been dispatched — wait for the last plane to leave.
             this._state = 'waiting';
           }
         }
         break;
 
       case 'waiting':
-        // All planes spawned. Once the last one clears, the level is won.
-        if (!window.GameLogic._run) {
-          this._state = 'won';
-        }
+        if (!window.GameLogic._run) this._state = 'won';
         break;
 
       case 'won':
-        if (!this._screenShown) {
-          this._screenShown = true;
-          this._showWinScreen();
-        }
+        if (!this._screenShown) { this._screenShown = true; this._showWinScreen(); }
         break;
 
       case 'lost':
-        if (!this._screenShown) {
-          this._screenShown = true;
-          this._showLoseScreen();
-        }
+        if (!this._screenShown) { this._screenShown = true; this._showLoseScreen(); }
         break;
     }
   },
 
-  // ========================================
-  // START — wired to the Start button in GameScene
-  // ========================================
-
+  // Fires the first wave immediately when the Start button is pressed.
+  // Transitions to 'running' if more waves remain, or 'waiting' if it was the only one.
   startWave() {
-    if (this._state !== 'idle') return;   // already running
+    if (this._state !== 'idle') return;
 
-    // Fire wave 0 immediately.
     this._fireNextWave();
 
-    // If there are more waves, start the countdown for the next one right away.
     if (this._waveIndex < this.levelCfg.waves.length) {
       this._state       = 'running';
       this._countdownMs = this.levelCfg.waveDelayMs ?? 3000;
     } else {
-      // Only one wave — go straight to waiting for it to finish.
       this._state = 'waiting';
     }
   },
 
-  // ========================================
-  // INTERNAL — WAVE FIRING
-  // ========================================
-
+  // Resolves the next wave entry's pixel position and speed, calls
+  // GameLogic.startBombingRun, then increments the wave index.
   _fireNextWave() {
     const waves = this.levelCfg.waves;
     if (!waves?.length || this._waveIndex >= waves.length) return;
@@ -167,20 +132,14 @@ window.LevelManager = {
     const spawnY  = this.arena.ARENA_Y + this.arena.ARENA_H * waveCfg.yRatio;
     const speed   = this._scaleWaveSpeed(waveCfg);
 
-    window.GameLogic.startBombingRun(
-      speed,
-      { x: spawnX, y: spawnY },
-      waveCfg.direction
-    );
+    window.GameLogic.startBombingRun(speed, { x: spawnX, y: spawnY }, waveCfg.direction);
 
     this._waveIndex++;
-    this._refreshHUD();   // update "Wave X / Y" immediately
+    this._refreshHUD();
   },
 
-  // ========================================
-  // WIN SCREEN
-  // ========================================
-
+  // Renders the win overlay: a dark panel with a 'YOU WIN!' title, a wave/HP
+  // summary, and a button that returns the player to the level select screen.
   _showWinScreen() {
     const { ARENA_X, ARENA_Y, ARENA_W, ARENA_H } = this.arena;
     const scale  = window.Scale;
@@ -198,11 +157,8 @@ window.LevelManager = {
     const hp         = Math.max(0, Math.round(window.GameLogic.player?.health ?? 0));
 
     this.scene.add.rectangle(cx, cy, panelW, panelH, 0x000000, 0.82).setDepth(2000);
-
     this.scene.add.text(cx, titleY, 'YOU WIN!', {
-      fontSize: `${fsLg}px`,
-      fill: '#44ff88',
-      align: 'center',
+      fontSize: `${fsLg}px`, fill: '#44ff88', align: 'center',
     }).setOrigin(0.5).setDepth(2001);
 
     this.scene.add.text(cx, subY,
@@ -215,10 +171,8 @@ window.LevelManager = {
     );
   },
 
-  // ========================================
-  // LOSE SCREEN
-  // ========================================
-
+  // Renders the lose overlay: a dark panel with a 'GAME OVER' title, a waves-survived
+  // counter, and a button that returns the player to the level select screen.
   _showLoseScreen() {
     const { ARENA_X, ARENA_Y, ARENA_W, ARENA_H } = this.arena;
     const scale  = window.Scale;
@@ -236,11 +190,8 @@ window.LevelManager = {
     const totalWaves    = this.levelCfg.waves.length;
 
     this.scene.add.rectangle(cx, cy, panelW, panelH, 0x000000, 0.85).setDepth(2000);
-
     this.scene.add.text(cx, titleY, 'GAME OVER', {
-      fontSize: `${fsLg}px`,
-      fill: '#ff3333',
-      align: 'center',
+      fontSize: `${fsLg}px`, fill: '#ff3333', align: 'center',
     }).setOrigin(0.5).setDepth(2001);
 
     this.scene.add.text(cx, subY,
@@ -253,10 +204,8 @@ window.LevelManager = {
     );
   },
 
-  // ========================================
-  // HUD
-  // ========================================
-
+  // Updates the HP and wave-count labels each frame.
+  // Shows a contextual string in the wave label depending on the current state.
   _refreshHUD() {
     if (this._healthText) {
       const hp = Math.max(0, Math.round(window.GameLogic.player?.health ?? 0));
@@ -264,7 +213,7 @@ window.LevelManager = {
     }
     if (this._waveText) {
       const total    = this.levelCfg?.waves?.length ?? 0;
-      const current  = Math.min(this._waveIndex, total);   // waves fired so far
+      const current  = Math.min(this._waveIndex, total);
       const stateStr = this._state === 'idle'    ? 'Press Start'
                      : this._state === 'waiting' ? 'Last wave…'
                      : this._state === 'won'     ? 'Level clear!'
@@ -274,6 +223,7 @@ window.LevelManager = {
     }
   },
 
+  // Creates the wave-counter text label centred at the top of the arena.
   _createWaveText() {
     const scale    = window.Scale;
     const fontSize = scale.screenScaleH(this.scene, scale.baseH * 0.03);
@@ -286,10 +236,7 @@ window.LevelManager = {
     ).setOrigin(0.5, 0).setDepth(100);
   },
 
-  // ========================================
-  // OVERLAY HELPER
-  // ========================================
-
+  // Creates a centred, interactive text button for use inside win/lose overlays.
   _overlayBtn(x, y, label, bgColor, onClick) {
     const scale = window.Scale;
     const fs    = scale.screenScaleH(this.scene, scale.baseH * 0.04);
@@ -306,10 +253,8 @@ window.LevelManager = {
       .on('pointerdown', onClick);
   },
 
-  // ========================================
-  // PLATFORM SPAWNING
-  // ========================================
-
+  // Creates static Matter.js rectangle bodies for each platform defined in the level config.
+  // Platforms are pinned as static bodies so physics can rest objects on them.
   _spawnPlatforms() {
     const { ARENA_X, ARENA_Y, ARENA_W, ARENA_H } = this.arena;
 
@@ -335,29 +280,22 @@ window.LevelManager = {
     });
   },
 
-  // ========================================
-  // PRE-PLACED BUILDINGS
-  // ========================================
-
+  // Spawns the locked, designer-placed objects listed in levelCfg.prePlaced
+  // (e.g. bomb crates) via ObjectFactory.createLevelObject.
   _spawnPrePlaced() {
     const { ARENA_X, ARENA_Y, ARENA_W, ARENA_H } = this.arena;
 
     (this.levelCfg.prePlaced || []).forEach((entry) => {
       const px = ARENA_X + ARENA_W * entry.xRatio;
       const py = ARENA_Y + ARENA_H * entry.yRatio;
-
-      const obj = window.ObjectFactory.createLevelObject(
-        this.scene, entry.type, px, py, this.arena
-      );
+      const obj = window.ObjectFactory.createLevelObject(this.scene, entry.type, px, py, this.arena);
       if (!obj) return;
       this._prePlaced.push(obj);
     });
   },
 
-  // ========================================
-  // ALLOWED BUILDINGS
-  // ========================================
-
+  // Applies per-level building caps from levelCfg.allowedBuildings to the
+  // global ObjectConfig so BuildingManager enforces them during the level.
   _applyAllowedBuildings() {
     const allowed = this.levelCfg.allowedBuildings || {};
     Object.entries(allowed).forEach(([type, cap]) => {
@@ -366,10 +304,7 @@ window.LevelManager = {
     });
   },
 
-  // ========================================
-  // HELPERS
-  // ========================================
-
+  // Converts the level's playerSpawn ratios to arena-relative pixel coordinates.
   _playerSpawnPx() {
     const s = this.levelCfg.playerSpawn ?? { xRatio: 0.5, yRatio: 0.75 };
     return {
@@ -378,14 +313,14 @@ window.LevelManager = {
     };
   },
 
+  // Returns a wave's speed in pixels-per-second.
+  // Prefers speedRatio (fraction of ARENA_W/s); falls back to a raw px/s value.
   _scaleWaveSpeed(waveCfg) {
-    if (waveCfg.speedRatio != null) {
-      return this.arena.ARENA_W * waveCfg.speedRatio;
-    }
-    const raw = waveCfg.speedPxPerSec ?? 0;
-    return window.Scale.arenaScaleW(this.arena, raw);
+    if (waveCfg.speedRatio != null) return this.arena.ARENA_W * waveCfg.speedRatio;
+    return window.Scale.arenaScaleW(this.arena, waveCfg.speedPxPerSec ?? 0);
   },
 
+  // Returns a minimal single-wave config used when a level number has no entry in window.Levels.
   _fallbackConfig() {
     return {
       playerSpawn:      { xRatio: 0.5, yRatio: 0.75 },
@@ -395,5 +330,4 @@ window.LevelManager = {
       waves: [{ speedRatio: 0.182, direction: 1, xRatio: -0.15, yRatio: 0.04 }],
     };
   },
-
 };

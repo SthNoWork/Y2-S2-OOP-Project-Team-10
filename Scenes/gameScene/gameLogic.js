@@ -1,19 +1,13 @@
-// ========================================
-// GAME LOGIC
-// ========================================
+// gameLogic.js
 // Central coordinator for all gameplay rules.
-// Owns: collision handling, blast physics, bombing run lifecycle,
+// Owns: collision handling, blast physics, bombing-run lifecycle,
 //       bomb spawning, per-frame update, and game-over detection.
-// Does NOT own: scene setup, UI, building config, drag logic.
+// Does not own: scene setup, UI, building config, or drag logic.
 //
-// Player health now lives on the player object itself (set by ObjectFactory
-// via cfg.health). GameLogic reads player.health directly.
+// Player health lives on the player object itself (set by ObjectFactory
+// via cfg.health). GameLogic reads and mutates player.health directly.
 
 window.GameLogic = {
-
-  // ========================================
-  // STATE
-  // ========================================
 
   scene:        null,
   player:       null,
@@ -21,20 +15,18 @@ window.GameLogic = {
   buildings:    [],
   _onCollision: null,
 
-  // Bombing run runtime state — null when no run is active.
+  // Active bombing run — null when no run is in progress.
   _run:         null,
-  // Live bomb list — cleaned up each frame.
+
+  // Live bomb list, pruned each frame.
   _activeBombs: [],
 
-  // gameOver flag — lives here.
+  // Set to true by _endGame(); checked by LevelManager to trigger overlays.
   gameOver: false,
 
-  // ========================================
-  // INITIALIZATION
-  // ========================================
-
+  // Tears down any previous collision listener, resets all state, then rebinds
+  // the collision handler and restores the player to full health.
   init(scene, player, arena) {
-    // Remove old collision listener before rebinding.
     if (this.scene && this._onCollision && this.scene.matter?.world) {
       try { this.scene.matter.world.off('collisionstart', this._onCollision); } catch (e) {
         window.logDebug?.('[GameLogic.init] collision off failed', e);
@@ -49,7 +41,6 @@ window.GameLogic = {
     this._activeBombs = [];
     this.gameOver     = false;
 
-    // Reset player health to max via config.
     const maxHp = window.ObjectConfig.internalTypes?.player?.health ?? 100;
     if (this.player) this.player.health = maxHp;
 
@@ -59,12 +50,11 @@ window.GameLogic = {
     this.scene.matter.world.on('collisionstart', this._onCollision);
   },
 
-  // ========================================
-  // BOMBING RUN — CONTROL
-  // ========================================
-
+  // Spawns a plane and begins a bombing run.
+  // Applies a vertical spawn offset from config, flips the plane sprite for
+  // right-to-left passes, and attaches a separate blade sprite on top.
   startBombingRun(velocityPxPerSec, spawnLocation, direction) {
-    const planeCfg = window.ObjectConfig.internalTypes.plane;
+    const planeCfg     = window.ObjectConfig.internalTypes.plane;
     const spawnOffsetY = this.arena.ARENA_H * (planeCfg.spawnYOffsetRatio ?? 0);
     const spawn = spawnLocation
       ? { x: spawnLocation.x, y: spawnLocation.y + spawnOffsetY }
@@ -78,23 +68,16 @@ window.GameLogic = {
     const plane = window.ObjectFactory.createInternal(
       this.scene, 'plane', 0, 0, this.arena, { spawnLocation: spawn }
     );
-    if (plane?.setFlipX) {
-      plane.setFlipX(direction > 0);
-    }
+    if (plane?.setFlipX) plane.setFlipX(direction > 0);
 
     const blade = this.scene.add.sprite(plane.x, plane.y, 'plane_atlas', 'row04_01');
     blade.setDepth((plane.depth || 0) + 1);
     blade.setFlipX(direction > 0);
-    if (this.scene.anims?.exists?.('plane_blades')) {
-      blade.play('plane_blades');
-    }
+    if (this.scene.anims?.exists?.('plane_blades')) blade.play('plane_blades');
     plane._blade = blade;
 
-    const bladeOffset = {
-      x: 9,
-      y: -plane.displayHeight * 0.50,
-    };
-    const range = planeCfg.bombDropDelayRangeSec;
+    const bladeOffset = { x: 9, y: -plane.displayHeight * 0.50 };
+    const range       = planeCfg.bombDropDelayRangeSec;
 
     this._run = {
       plane,
@@ -109,28 +92,28 @@ window.GameLogic = {
     };
   },
 
-  // ========================================
-  // PER-FRAME UPDATE
-  // ========================================
-
+  // Called every frame by GameScene. Advances the plane and cleans up spent bombs.
   update(delta) {
     const dt = delta / 1000;
     this._updatePlane(dt);
     this._updateBombs();
   },
 
+  // Converts blastRadiusRatio to pixels using the larger of arena width/height.
   _blastRadiusPx(bombCfg) {
     const ratio = bombCfg.blastRadiusRatio ?? 0.06;
     return Math.max(this.arena.ARENA_W * ratio, this.arena.ARENA_H * ratio);
   },
 
+  // Converts blastForceRatio (or a raw blastForce fallback) to a pixel-space force value.
   _blastForcePx(bombCfg) {
-    if (bombCfg.blastForceRatio != null) {
-      return this.arena.ARENA_W * bombCfg.blastForceRatio;
-    }
+    if (bombCfg.blastForceRatio != null) return this.arena.ARENA_W * bombCfg.blastForceRatio;
     return bombCfg.blastForce ?? 0;
   },
 
+  // Moves the plane, tracks its instantaneous velocity for bomb inherit-velocity,
+  // accumulates time toward the next bomb drop, and destroys the plane once it
+  // has crossed the far edge of the arena.
   _updatePlane(dt) {
     if (!this._run?.plane?.active) return;
 
@@ -139,6 +122,7 @@ window.GameLogic = {
     const prevY = run.plane.y;
 
     run.plane.x += run.speed * run.direction * dt;
+
     if (run.plane._blade?.active) {
       const off = run.bladeOffset || { x: 0, y: 0 };
       run.plane._blade.x = run.plane.x + off.x;
@@ -152,6 +136,7 @@ window.GameLogic = {
     run.spawnAccumulator += dt;
     const planeCfg = window.ObjectConfig.internalTypes.plane;
     const { min, max } = planeCfg.bombDropDelayRangeSec;
+
     while (run.spawnAccumulator >= run.nextBombDelay) {
       this._spawnBomb();
       run.spawnAccumulator -= run.nextBombDelay;
@@ -169,10 +154,8 @@ window.GameLogic = {
     }
   },
 
-  // ========================================
-  // BOMB SPAWNING
-  // ========================================
-
+  // Spawns a bomb beneath the plane with a random horizontal offset and
+  // an initial downward velocity derived from the plane's current speed.
   _spawnBomb() {
     if (!this._run?.plane?.active) return;
 
@@ -186,29 +169,28 @@ window.GameLogic = {
       this.scene, 'bomb', plane.x + offsetX, plane.y + bombOffsetY, this.arena
     );
 
+    // Nudge the bomb below the plane's visual centre so it doesn't overlap.
     const planeHalfH = plane.displayHeight ? plane.displayHeight * 0.5 : 0;
-    const bombHalfH  = bomb.displayHeight ? bomb.displayHeight * 0.5 : 0;
-    bomb.y = plane.y + bombOffsetY + planeHalfH + bombHalfH;
+    const bombHalfH  = bomb.displayHeight  ? bomb.displayHeight  * 0.5 : 0;
+    bomb.y           = plane.y + bombOffsetY + planeHalfH + bombHalfH;
 
-    if (bomb?.setFlipX) {
-      bomb.setFlipX(this._run.direction < 0);
-    }
+    if (bomb?.setFlipX) bomb.setFlipX(this._run.direction < 0);
 
     const matterStepRate = 60;
-    const minSpeed = window.Scale.arenaScaleW(this.arena, 120);
-    const speed = Math.max(minSpeed, Math.abs(planeVelocity.x));
+    const minSpeed       = window.Scale.arenaScaleW(this.arena, 120);
+    const speed          = Math.max(minSpeed, Math.abs(planeVelocity.x));
+
     Phaser.Physics.Matter.Matter.Body.setVelocity(bomb.body, {
       x: 0,
-      y: (speed / matterStepRate),
+      y: speed / matterStepRate,
     });
 
     this._activeBombs.push(bomb);
   },
 
-  // ========================================
-  // BOMB LIFECYCLE
-  // ========================================
-
+  // Checks every live bomb each frame.
+  // Bombs that have fallen off the bottom of the arena or are no longer active
+  // trigger a ground-level blast and are then cleaned up.
   _updateBombs() {
     if (!this._activeBombs.length) return;
 
@@ -234,10 +216,9 @@ window.GameLogic = {
     }
   },
 
-  // ========================================
-  // COLLISION HANDLING
-  // ========================================
-
+  // Matter.js collisionstart handler.
+  // Identifies bomb-involved pairs, applies direct-hit damage to whatever the
+  // bomb struck, fires a blast radius, then destroys the bomb.
   _handleCollision(bodyA, bodyB) {
     if (!bodyA || !bodyB) return;
 
@@ -259,8 +240,8 @@ window.GameLogic = {
     const otherGO = otherBody?.gameObject;
     window.logDebug?.('[GameLogic._handleCollision] bomb hit', {
       otherLabel: otherBody.label,
-      otherType: otherGO?.buildingType ?? otherGO?.objectType ?? 'unknown',
-      isPlayer: otherGO === this.player,
+      otherType:  otherGO?.buildingType ?? otherGO?.objectType ?? 'unknown',
+      isPlayer:   otherGO === this.player,
       directDmg,
     });
 
@@ -279,12 +260,10 @@ window.GameLogic = {
     }
   },
 
-  // ========================================
-  // BLAST PHYSICS
-  // ========================================
-
+  // Creates an expanding circle visual then queries Matter for all bodies within
+  // the blast rectangle. Applies scaled knockback and damage to each body based
+  // on its distance from the blast centre (falloff = inverse-square).
   _createBlastRadius(x, y, radius, force, maxDamageOverride) {
-    // Visual: expanding circle that fades out.
     try {
       const gfx = this.scene.add.circle(x, y, Math.max(8, radius * 0.2), 0xff6600, 0.5);
       this.scene.tweens.add({
@@ -325,6 +304,9 @@ window.GameLogic = {
     });
   },
 
+  // Applies an outward velocity impulse to a non-static body proportional to
+  // blast force and inverse-square distance falloff. Returns the falloff value
+  // so the caller can scale damage by the same factor.
   _applyKnockback(body, bx, by, blastForce, radius) {
     const obj = body.gameObject;
     if (!obj || body.isStatic || obj.isBomb || body.label === 'bomb') return 0;
@@ -339,33 +321,30 @@ window.GameLogic = {
     const falloff = (1 - dist / radius) ** 2;
     const mass    = body.mass || 1;
     const deltaV  = (blastForce * falloff) / mass;
-
-    const nx       = dx / dist;
-    const ny       = dy / dist;
+    const nx      = dx / dist;
+    const ny      = dy / dist;
     const velocity = obj.getVelocity();
     obj.setVelocity(velocity.x + nx * deltaV, velocity.y + ny * deltaV);
 
     return falloff;
   },
 
-  // ========================================
-  // DAMAGE HELPERS
-  // ========================================
-
-  // Reduce player health; trigger game-over when it hits zero.
+  // Subtracts amount from player health and triggers a game-over when it reaches zero.
   _damagePlayer(amount) {
     if (this.gameOver || !this.player) return;
     this.player.health = Math.max(0, (this.player.health || 0) - amount);
     if (this.player.health <= 0) this._endGame(false);
   },
 
-  // Called whenever a building's takeDamage() returns true (health <= 0).
+  // Called when a building's takeDamage() signals death.
+  // Delegates cleanup to BuildingManager and removes the building from the
+  // local tracking list.
   _onBuildingDied(obj) {
     window.logDebug?.('[GameLogic._onBuildingDied] building died', {
-      type: obj.buildingType,
-      health: obj.health,
-      x: Math.round(obj.x),
-      y: Math.round(obj.y),
+      type:    obj.buildingType,
+      health:  obj.health,
+      x:       Math.round(obj.x),
+      y:       Math.round(obj.y),
       isLocked: obj.isLocked,
     });
     try { window.BuildingManager.destroyBuilding(obj); } catch (e) {
@@ -374,25 +353,22 @@ window.GameLogic = {
     this.buildings = this.buildings.filter((b) => b !== obj);
   },
 
-  // ========================================
-  // BUILDING TRACKING
-  // ========================================
-
+  // Registers a building so blast queries can find and damage it.
   addBuilding(building) {
     this.buildings.push(building);
     building.isBuilding = true;
   },
 
-  // ========================================
-  // GAME STATE
-  // ========================================
-
+  // Sets the gameOver flag and logs the result.
+  // won = true means level cleared; won = false means the player died.
   _endGame(won) {
     if (this.gameOver) return;
     this.gameOver = true;
     window.logDebug?.(won ? 'Level Complete!' : 'Game Over!');
   },
 
+  // Destroys any in-flight plane and bombs, clears the run state, resets gameOver,
+  // and restores player health to maximum. Called between waves or on restart.
   resetRun() {
     if (this._run?.plane?.active) {
       try { this._run.plane.destroy(); } catch (e) {
@@ -409,12 +385,9 @@ window.GameLogic = {
       }
     }
     this._activeBombs = [];
+    this.gameOver     = false;
 
-    this.gameOver = false;
-
-    // Restore player health.
     const maxHp = window.ObjectConfig.internalTypes?.player?.health ?? 100;
     if (this.player) this.player.health = maxHp;
   },
-
 };

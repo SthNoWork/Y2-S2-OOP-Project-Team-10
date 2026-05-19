@@ -1,24 +1,19 @@
-// ========================================
-// UI FACTORY
-// ========================================
-// Creates and binds all UI elements to a given scene.
-// Owns: button styling config, createButton(), addBackButton(), addHealthText().
-// Does NOT own: game logic, scene transitions, state.
+// uiFactory.js
+// Shared UI construction helpers used by all scenes.
+// Owns button creation, the back button, HP text, and background images.
+// Does not own game logic, scene transitions, or game state.
 
 window.UIFactory = {};
 
-// ========================================
-// CONFIG
-// ========================================
-
-// Styling ratios for all text-based buttons.
+// Centralised style ratios for all UI elements.
+// Values are fractions of the viewport so they scale across resolutions.
 window.UIFactory.config = {
   button: {
-    fontSizeRatio:  0.04,   // fraction of viewport height
-    fill:           '#ffffff',
-    backgroundColor:'#333333',
-    paddingXRatio:  0.02,   // fraction of viewport width
-    paddingYRatio:  0.015,  // fraction of viewport height
+    fontSizeRatio:   0.04,
+    fill:            '#ffffff',
+    backgroundColor: '#333333',
+    paddingXRatio:   0.02,
+    paddingYRatio:   0.015,
   },
   backButton: {
     fontSizeRatio: 0.04,
@@ -30,12 +25,8 @@ window.UIFactory.config = {
   },
 };
 
-// ========================================
-// BUTTONS
-// ========================================
-
-// Create a styled interactive button at (x, y) and fire onClick on tap/click.
-// Origin is top-right so buttons anchor from the right edge of the arena.
+// Creates a styled text button at (x, y) that fires onClick on tap or click.
+// Origin is top-right so buttons anchor naturally from the right edge of the arena.
 window.UIFactory.createButton = function (scene, x, y, label, onClick) {
   const cfg      = window.UIFactory.config.button;
   const fontSize = window.Scale.screenScaleH(scene, window.Scale.baseH * cfg.fontSizeRatio);
@@ -55,8 +46,8 @@ window.UIFactory.createButton = function (scene, x, y, label, onClick) {
     .on('pointerdown', onClick);
 };
 
-// Create a Back button anchored to the top-left of the scene.
-// onClick receives no arguments — pass a scene-transition callback.
+// Adds a Back button at the top-left corner of the scene.
+// onClick should be a scene-transition callback (no arguments expected).
 window.UIFactory.addBackButton = function (scene, onClick) {
   const cfg      = window.UIFactory.config.backButton;
   const fontSize = window.Scale.screenScaleH(scene, window.Scale.baseH * cfg.fontSizeRatio);
@@ -75,12 +66,8 @@ window.UIFactory.addBackButton = function (scene, onClick) {
     .on('pointerdown', onClick);
 };
 
-// ========================================
-// HUD
-// ========================================
-
-// Create a health text label anchored to the top-left of the arena.
-// Returns the text object so the caller can update it each frame.
+// Creates an HP text label anchored to the top-left corner of the arena.
+// Returns the text object so the caller can call setText() each frame.
 window.UIFactory.addHealthText = function (scene, arena) {
   const cfg      = window.UIFactory.config.healthText;
   const fontSize = window.Scale.screenScaleH(scene, window.Scale.baseH * cfg.fontSizeRatio);
@@ -91,18 +78,13 @@ window.UIFactory.addHealthText = function (scene, arena) {
     arena.ARENA_X + offX,
     arena.ARENA_Y + offY,
     '',
-    {
-      fontSize: `${fontSize}px`,
-      fill:     cfg.fill,
-    }
+    { fontSize: `${fontSize}px`, fill: cfg.fill }
   );
 };
 
-// ========================================
-// BACKGROUND
-// ========================================
-
-// Add a background image (cover) using a file path.
+// Adds a full-cover background image to the scene using a file path.
+// Derives the texture key from the path, scales the image to fill the viewport,
+// and pins it behind everything else at depth -1000.
 window.UIFactory.addBackground = function (scene, path) {
   if (!path) return null;
 
@@ -112,13 +94,15 @@ window.UIFactory.addBackground = function (scene, path) {
     return null;
   }
 
-  const W = scene.scale.width;
-  const H = scene.scale.height;
+  const W   = scene.scale.width;
+  const H   = scene.scale.height;
   const img = scene.add.image(W * 0.5, H * 0.5, key).setOrigin(0.5, 0.5);
-  const src = scene.textures.get(key)?.getSourceImage?.();
-  const texW = src?.width || 1;
+
+  const src  = scene.textures.get(key)?.getSourceImage?.();
+  const texW = src?.width  || 1;
   const texH = src?.height || 1;
   const scale = Math.max(W / texW, H / texH);
+
   img.setScale(scale);
   img.setDepth(-1000);
   img.setScrollFactor(0);

@@ -1,10 +1,17 @@
-// ========================================
-// OBJECT CONFIG
-// ========================================
-// Central registry for placeable, level, and internal object types.
+// objectConfig.js
+// Single source of truth for every object type in the game.
+// ObjectFactory reads this to size, style, and wire up physics and health
+// for placeables (player-draggable), level objects (designer-placed), and
+// internal objects (plane, bomb, player — spawned by the engine).
+//
+// Size ratios are fractions of ARENA_W / ARENA_H unless noted.
+// Physics values feed directly into Matter.js body options.
 
 window.ObjectConfig = {
+
+  // Objects the player drags and drops during the building phase.
   placeableTypes: {
+
     shortPlank: {
       widthRatio:  0.45,
       heightRatio: 0.02,
@@ -69,11 +76,14 @@ window.ObjectConfig = {
     },
   },
 
+  // Objects spawned by the level designer (not draggable by the player).
+  // onDeath:'explode' triggers a secondary blast when health reaches zero.
   levelTypes: {
+
     bomb_crate: {
       widthRatio:  0.07,
       heightRatio: 0.07,
-      scale:       1,      // display scale multiplier (1 = native texture size)
+      scale:       1,
       color:       0xa0522d,
       useImage:    true,
       imageKey:    'bomb_crate',
@@ -94,7 +104,9 @@ window.ObjectConfig = {
     },
   },
 
+  // Objects spawned by the engine itself (not placeable or level-designed).
   internalTypes: {
+
     bomb: {
       widthRatio:       0.030,
       heightRatio:      0.045,
@@ -109,6 +121,8 @@ window.ObjectConfig = {
         restitution:    0.1,
         frictionAir:    0.01,
         label:          'bomb',
+        // Bombs collide with players (0x0001), buildings (0x0002), and platforms (0x0008)
+        // but not with each other.
         collisionFilter: {
           category: 0x0004,
           mask:     0x0001 | 0x0002 | 0x0008,
@@ -125,15 +139,15 @@ window.ObjectConfig = {
       heightRatio:              0.10,
       scale:                    1,
       sizeMode:                 'ratio',
-      spawnYOffsetRatio:        0.03,
+      spawnYOffsetRatio:        0.03,  // vertical nudge applied to the spawn position
       color:                    0xffaa00,
       useImage:                 true,
       imageKey:                 'plane_atlas',
       animKey:                  'plane_fly',
       startFrame:               'row01_02',
-      bombDropDelayRangeSec:    { min: 0.18, max: 0.45 },
-      bombDropOffsetRatioRange: { min: -0.35, max: 0.35 },
-      bombDropYOffsetRatio:     0.04,
+      bombDropDelayRangeSec:    { min: 0.18, max: 0.45 },  // random interval between bomb drops
+      bombDropOffsetRatioRange: { min: -0.35, max: 0.35 }, // horizontal jitter on the drop point
+      bombDropYOffsetRatio:     0.04,                      // how far below the plane bombs spawn
     },
 
     player: {
