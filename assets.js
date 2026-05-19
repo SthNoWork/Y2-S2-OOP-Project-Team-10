@@ -6,21 +6,24 @@
 window.Assets = {
   images: [
     { key: 'bomb_crate', path: 'asset/material/tile_0001.png' },
-    { key: 'player', path: 'asset/character/1.png' },
-    { key: 'bg_asset_background_1_jpg', path: 'asset/background/1.jpg' },
-    { key: 'bg_asset_background_2_jpg', path: 'asset/background/2.jpg' },
-    { key: 'bg_asset_background_3_jpg', path: 'asset/background/3.jpg' },
-    { key: 'bg_asset_background_4_jpg', path: 'asset/background/4.jpg' },
-    { key: 'bg_asset_background_5_jpg', path: 'asset/background/5.jpg' },
+    { key: 'player', path: 'asset/character/result.png' },
+    { key: 'bg_asset_background_1_jpg', path: 'asset/background/background.jpg' },
+    { key: 'bg_asset_background_2_jpg', path: 'asset/background/background1.jpg' },
+    { key: 'bg_asset_background_3_jpg', path: 'asset/background/background2.jpg' },
+    { key: 'bg_asset_background_4_jpg', path: 'asset/background/background3.jpg' },
+    { key: 'bg_asset_background_5_jpg', path: 'asset/background/background.jpg' },
   ],
   sheets: [
-    { key: 'plane_sheet', path: 'assets/plane/spritesheet.png' },
+    { key: 'plane_sheet', path: 'asset/plane/spritesheet.png' },
+    { key: 'block_sheet', path: 'asset/block/block.png' },
   ],
   texts: [
-    { key: 'plane_sprites', path: 'assets/plane/sprites.txt' },
+    { key: 'plane_sprites', path: 'asset/plane/sprites.txt' },
+    { key: 'block_sprites', path: 'asset/block/block.txt' },
   ],
   atlases: [
     { key: 'plane_atlas', sheetKey: 'plane_sheet', textKey: 'plane_sprites' },
+    { key: 'block_atlas', sheetKey: 'block_sheet', textKey: 'block_sprites' },
   ],
   animations: [
     {

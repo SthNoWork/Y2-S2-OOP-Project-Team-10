@@ -12,8 +12,8 @@
   // HELPERS  (module-private)
   // ========================================
 
-  function _buildVisual(scene, cfg, x, y, bodyW, bodyH) {
-    const displayScale = cfg.scale ?? 1;
+  function _buildVisual(scene, cfg, x, y, bodyW, bodyH, renderScale) {
+    const displayScale = renderScale ?? cfg.scale ?? 1;
     let obj;
     if (cfg.useImage && cfg.imageKey && scene.textures.exists(cfg.imageKey)) {
       if (cfg.animKey) {
@@ -32,12 +32,20 @@
   }
 
   function _computeSize(scene, cfg, arena) {
-    const cacheKey = `${Math.round(arena.ARENA_W)}x${Math.round(arena.ARENA_H)}`;
+    const scale = cfg.scale ?? 1;
+    const modeKey = cfg.sizeMode ?? 'texture';
+    const wRatio = cfg.widthRatio ?? 'na';
+    const hRatio = cfg.heightRatio ?? 'na';
+    const imageKey = cfg.imageKey ?? 'na';
+    const frameKey = cfg.startFrame ?? 'base';
+    const cacheKey = `${Math.round(arena.ARENA_W)}x${Math.round(arena.ARENA_H)}:${modeKey}:${scale}:${wRatio}:${hRatio}:${imageKey}:${frameKey}`;
     if (cfg._sizeCache?.key === cacheKey) {
       return { ...cfg._sizeCache.size };
     }
 
-    const scale = cfg.scale ?? 1;
+    const useRatioSize = cfg.sizeMode === 'ratio'
+      && cfg.widthRatio != null
+      && cfg.heightRatio != null;
 
     if (cfg.useImage && cfg.imageKey && scene.textures.exists(cfg.imageKey)) {
       const frame = cfg.startFrame
@@ -45,15 +53,26 @@
         : scene.textures.getFrame(cfg.imageKey);
       const texW  = frame?.realWidth  || frame?.width  || 32;
       const texH  = frame?.realHeight || frame?.height || 32;
+      if (useRatioSize) {
+        const targetW = arena.ARENA_W * cfg.widthRatio;
+        const targetH = arena.ARENA_H * cfg.heightRatio;
+        const scaleW = targetW / texW;
+        const scaleH = targetH / texH;
+        const renderScale = Math.min(scaleW, scaleH) * scale;
+        const size = { bodyW: texW * renderScale, bodyH: texH * renderScale, renderScale };
+        cfg._sizeCache = { key: cacheKey, size };
+        return { ...size };
+      }
+
       // Apply cfg.scale so the physics body matches the displayed size.
-      const size = { bodyW: texW * scale, bodyH: texH * scale };
+      const size = { bodyW: texW * scale, bodyH: texH * scale, renderScale: scale };
       cfg._sizeCache = { key: cacheKey, size };
       return { ...size };
     }
 
     const bodyW = arena.ARENA_W * cfg.widthRatio * scale;
     const bodyH = arena.ARENA_H * cfg.heightRatio * scale;
-    const size = { bodyW, bodyH };
+    const size = { bodyW, bodyH, renderScale: scale };
     cfg._sizeCache = { key: cacheKey, size };
     return { ...size };
   }
@@ -62,7 +81,13 @@
     const p     = cfg.physics;
     let shape = { type: 'rectangle', width: Math.ceil(bodyW), height: Math.ceil(bodyH) };
     if (p?.shape?.type === 'circle') {
-      const radius = Math.max(2, Math.round(Math.min(bodyW, bodyH) * 0.5));
+      const baseRadius = Math.max(2, Math.round(Math.min(bodyW, bodyH) * 0.5));
+      let radius = baseRadius;
+      if (typeof p.shape.radiusRatio === 'number') {
+        radius = Math.max(2, Math.round(baseRadius * p.shape.radiusRatio));
+      } else if (typeof p.shape.radius === 'number') {
+        radius = Math.max(2, Math.round(p.shape.radius));
+      }
       shape = { type: 'circle', radius };
     }
 
@@ -131,8 +156,8 @@
       return null;
     }
 
-    const { bodyW, bodyH } = _computeSize(scene, cfg, arena);
-    const obj = _buildVisual(scene, cfg, x, y, bodyW, bodyH);
+    const { bodyW, bodyH, renderScale } = _computeSize(scene, cfg, arena);
+    const obj = _buildVisual(scene, cfg, x, y, bodyW, bodyH, renderScale);
 
     _addPhysics(scene, obj, cfg, bodyW, bodyH);
     _addHealth(obj, cfg);
@@ -170,8 +195,8 @@
       return null;
     }
 
-    const { bodyW, bodyH } = _computeSize(scene, cfg, arena);
-    const obj = _buildVisual(scene, cfg, x, y, bodyW, bodyH);
+    const { bodyW, bodyH, renderScale } = _computeSize(scene, cfg, arena);
+    const obj = _buildVisual(scene, cfg, x, y, bodyW, bodyH, renderScale);
 
     if (cfg.physics) {
       _addPhysics(scene, obj, cfg, bodyW, bodyH);
@@ -205,8 +230,8 @@
     const spawnX = options.spawnLocation ? options.spawnLocation.x : x;
     const spawnY = options.spawnLocation ? options.spawnLocation.y : y;
 
-    const { bodyW, bodyH } = _computeSize(scene, cfg, arena);
-    const obj = _buildVisual(scene, cfg, spawnX, spawnY, bodyW, bodyH);
+    const { bodyW, bodyH, renderScale } = _computeSize(scene, cfg, arena);
+    const obj = _buildVisual(scene, cfg, spawnX, spawnY, bodyW, bodyH, renderScale);
 
     if (cfg.physics) {
       _addPhysics(scene, obj, cfg, bodyW, bodyH);

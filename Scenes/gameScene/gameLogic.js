@@ -65,6 +65,10 @@ window.GameLogic = {
 
   startBombingRun(velocityPxPerSec, spawnLocation, direction) {
     const planeCfg = window.ObjectConfig.internalTypes.plane;
+    const spawnOffsetY = this.arena.ARENA_H * (planeCfg.spawnYOffsetRatio ?? 0);
+    const spawn = spawnLocation
+      ? { x: spawnLocation.x, y: spawnLocation.y + spawnOffsetY }
+      : { x: 0, y: spawnOffsetY };
 
     if (this._run?.plane?.active) {
       if (this._run.plane._blade?.active) this._run.plane._blade.destroy();
@@ -72,7 +76,7 @@ window.GameLogic = {
     }
 
     const plane = window.ObjectFactory.createInternal(
-      this.scene, 'plane', 0, 0, this.arena, { spawnLocation }
+      this.scene, 'plane', 0, 0, this.arena, { spawnLocation: spawn }
     );
     if (plane?.setFlipX) {
       plane.setFlipX(direction > 0);
@@ -87,8 +91,8 @@ window.GameLogic = {
     plane._blade = blade;
 
     const bladeOffset = {
-      x: 0,
-      y: -plane.displayHeight * 0.25,
+      x: 9,
+      y: -plane.displayHeight * 0.50,
     };
     const range = planeCfg.bombDropDelayRangeSec;
 
