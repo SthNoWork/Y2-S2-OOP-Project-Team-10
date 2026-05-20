@@ -5,6 +5,27 @@
 
 window.SpriteFactory = {
 
+  // Plays an animation on a sprite with lifecycle behavior derived from
+  // window.Assets animation config.
+  // - Any finite animation (repeat !== -1) auto-destroys the sprite when done.
+  // - repeat: 1  → play once then destroy
+  // - repeat: 3  → play 3 times then destroy
+  // - repeat: -1 → loop forever, never destroy
+  playAnimation(sprite, animationKey) {
+    if (!sprite?.anims || !animationKey) return sprite;
+
+    const animCfg = this._getAnimationConfig(animationKey);
+
+    if (this._isFiniteAnimation(animCfg)) {
+      sprite.once('animationcomplete', () => {
+        if (sprite.active) sprite.destroy();
+      });
+    }
+
+    sprite.play(animationKey);
+    return sprite;
+  },
+
   // Queues every image, spritesheet, and text file listed in window.Assets
   // for loading by Phaser's loader. Call this inside a scene's preload().
   preloadAll(scene) {
@@ -81,8 +102,30 @@ window.SpriteFactory = {
         key:       anim.key,
         frames:    anim.frames.map((frame) => ({ key: anim.atlasKey, frame })),
         frameRate: anim.frameRate ?? 10,
-        repeat:    anim.repeat ?? -1,
+        repeat:    this._toPhaserRepeat(anim.repeat),
       });
     });
+  },
+
+  _getAnimationConfig(animationKey) {
+    const animations = window.Assets?.animations || [];
+    return animations.find((anim) => anim?.key === animationKey) || null;
+  },
+
+  // Returns true for any animation that ends (repeat !== -1).
+  // These sprites are auto-destroyed when the animation completes.
+  _isFiniteAnimation(animCfg) {
+    return animCfg != null && (animCfg.repeat ?? -1) !== -1;
+  },
+
+  // Converts config repeat to Phaser's repeat value.
+  // Config repeat = total number of full plays.
+  // Phaser repeat = extra loops AFTER the first play.
+  //   config -1 → Phaser -1  (loop forever)
+  //   config  1 → Phaser  0  (play once, no extras)
+  //   config  3 → Phaser  2  (play once + 2 more = 3 total)
+  _toPhaserRepeat(repeat) {
+    if (repeat == null || repeat === -1) return -1;
+    return Math.max(0, repeat - 1);
   },
 };

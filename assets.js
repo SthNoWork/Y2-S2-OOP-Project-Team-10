@@ -18,18 +18,21 @@ window.Assets = {
   sheets: [
     { key: 'plane_sheet', path: 'asset/plane/spritesheet.png' },
     { key: 'block_sheet', path: 'asset/block/block.png' },
+    { key: 'explosion_sheet', path: 'asset/explosion/explosion.png' },
   ],
 
   // CSV-style text files that map frame names to pixel rects on their sheet.
   texts: [
     { key: 'plane_sprites', path: 'asset/plane/sprites.txt' },
     { key: 'block_sprites', path: 'asset/block/block.txt' },
+    {key:'explosion_sprites', path: 'asset/explosion/explosion.txt' },
   ],
 
   // Pairs a sheet with its text file so SpriteFactory can build a named Phaser atlas.
   atlases: [
     { key: 'plane_atlas', sheetKey: 'plane_sheet', textKey: 'plane_sprites' },
     { key: 'block_atlas', sheetKey: 'block_sheet', textKey: 'block_sprites' },
+    {key: 'explosion_atlas', sheetKey: 'explosion_sheet', textKey: 'explosion_sprites' },
   ],
 
   // Phaser animation definitions referencing frames from an atlas.
@@ -37,16 +40,24 @@ window.Assets = {
     {
       key: 'plane_fly',
       atlasKey: 'plane_atlas',
-      frames: ['row01_02','row01_03','row01_04','row01_05','row01_06'],
+      frames: ['row01_02', 'row01_03', 'row01_04', 'row01_05', 'row01_06'],
       frameRate: 10,
       repeat: -1,
     },
     {
       key: 'plane_blades',
       atlasKey: 'plane_atlas',
-      frames: ['row04_01','row04_02','row04_03','row04_04','row04_05'],
+      frames: ['row04_01', 'row04_02', 'row04_03', 'row04_04', 'row04_05'],
       frameRate: 18,
       repeat: -1,
+    },
+    {
+      key: 'explosion',
+      atlasKey: 'explosion_atlas',
+      frames: ['explosion1', 'explosion2', 'explosion3', 'explosion4', 'explosion5', 'explosion6', 'explosion7', 'explosion8', 'explosion9', 'explosion10',
+        'explosion11', 'explosion12', 'explosion13', 'explosion13', 'explosion14', 'explosion15', 'explosion16'],
+      frameRate: 32,
+      repeat: 1,
     },
   ],
 };

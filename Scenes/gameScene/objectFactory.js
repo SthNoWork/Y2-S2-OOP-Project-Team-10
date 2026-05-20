@@ -14,87 +14,45 @@ window.ObjectFactory = {};
 // Builds a Phaser image, sprite, or rectangle for an object.
 // Uses a sprite with an animation when cfg.animKey is set, an image when cfg.useImage
 // is true, and falls back to a coloured rectangle otherwise.
-function _buildVisual(scene, cfg, x, y, bodyW, bodyH, renderScale) {
-  const displayScale = renderScale ?? cfg.scale ?? 1;
-  let obj;
-
+// scaleX / scaleY are independent axis scales so widthRatio and heightRatio can
+// stretch the texture freely (e.g. 1:2 turns a square texture into a tall rectangle).
+function _buildVisual(scene, cfg, x, y, bodyW, bodyH, scaleX, scaleY) {
   if (cfg.useImage && cfg.imageKey && scene.textures.exists(cfg.imageKey)) {
+    let obj;
     if (cfg.animKey) {
       obj = scene.add.sprite(x, y, cfg.imageKey, cfg.startFrame);
       if (scene.anims?.exists?.(cfg.animKey)) obj.play(cfg.animKey);
     } else {
       obj = scene.add.image(x, y, cfg.imageKey, cfg.startFrame);
     }
-    obj.setScale(displayScale);
+    obj.setScale(scaleX, scaleY);
+    obj._factoryScaled = true;
     return obj;
   }
 
   return scene.add.rectangle(x, y, bodyW, bodyH, cfg.color);
 }
 
-// Returns { bodyW, bodyH, renderScale } for a given config and arena.
-// When sizeMode is 'ratio', the object is fitted to the arena fraction while
-// preserving the texture's aspect ratio. Results are cached per arena size.
+// Delegates to SizeCalculator.computeSize — see sizeCalculator.js for full docs.
+// Kept as a thin wrapper so call sites inside this file stay concise.
 function _computeSize(scene, cfg, arena) {
-  const scale    = cfg.scale ?? 1;
-  const modeKey  = cfg.sizeMode ?? 'texture';
-  const wRatio   = cfg.widthRatio  ?? 'na';
-  const hRatio   = cfg.heightRatio ?? 'na';
-  const imageKey = cfg.imageKey  ?? 'na';
-  const frameKey = cfg.startFrame ?? 'base';
-  const cacheKey = `${Math.round(arena.ARENA_W)}x${Math.round(arena.ARENA_H)}:${modeKey}:${scale}:${wRatio}:${hRatio}:${imageKey}:${frameKey}`;
-
-  if (cfg._sizeCache?.key === cacheKey) return { ...cfg._sizeCache.size };
-
-  const useRatioSize = cfg.sizeMode === 'ratio'
-    && cfg.widthRatio  != null
-    && cfg.heightRatio != null;
-
-  if (cfg.useImage && cfg.imageKey && scene.textures.exists(cfg.imageKey)) {
-    const frame = cfg.startFrame
-      ? scene.textures.getFrame(cfg.imageKey, cfg.startFrame)
-      : scene.textures.getFrame(cfg.imageKey);
-    const texW = frame?.realWidth  || frame?.width  || 32;
-    const texH = frame?.realHeight || frame?.height || 32;
-
-    if (useRatioSize) {
-      const targetW    = arena.ARENA_W * cfg.widthRatio;
-      const targetH    = arena.ARENA_H * cfg.heightRatio;
-      const scaleW     = targetW / texW;
-      const scaleH     = targetH / texH;
-      const renderScale = Math.min(scaleW, scaleH) * scale;
-      const size = { bodyW: texW * renderScale, bodyH: texH * renderScale, renderScale };
-      cfg._sizeCache = { key: cacheKey, size };
-      return { ...size };
-    }
-
-    const size = { bodyW: texW * scale, bodyH: texH * scale, renderScale: scale };
-    cfg._sizeCache = { key: cacheKey, size };
-    return { ...size };
-  }
-
-  const bodyW = arena.ARENA_W * cfg.widthRatio * scale;
-  const bodyH = arena.ARENA_H * cfg.heightRatio * scale;
-  const size  = { bodyW, bodyH, renderScale: scale };
-  cfg._sizeCache = { key: cacheKey, size };
-  return { ...size };
+  return window.SizeCalculator.computeSize(scene, cfg, arena);
 }
 
 // Attaches a Matter.js physics body to obj using the options in cfg.physics.
 // Supports rectangle and circle body shapes. Sets mass and collision filter
 // if those fields are present in the config.
-function _addPhysics(scene, obj, cfg, bodyW, bodyH) {
+// dims is the result of SizeCalculator.computeSize — for circles it already
+// contains the pre-computed radius so we don't redo the inscribed-circle math.
+function _addPhysics(scene, obj, cfg, bodyW, bodyH, dims) {
   const p = cfg.physics;
   let shape = { type: 'rectangle', width: Math.ceil(bodyW), height: Math.ceil(bodyH) };
 
   if (p?.shape?.type === 'circle') {
-    const baseRadius = Math.max(2, Math.round(Math.min(bodyW, bodyH) * 0.5));
-    let radius = baseRadius;
-    if (typeof p.shape.radiusRatio === 'number') {
-      radius = Math.max(2, Math.round(baseRadius * p.shape.radiusRatio));
-    } else if (typeof p.shape.radius === 'number') {
-      radius = Math.max(2, Math.round(p.shape.radius));
-    }
+    // Use the radius already computed by SizeCalculator (inscribed circle ×
+    // resolution ratio × scale × radiusRatio). Fall back to a simple inscribed
+    // circle if dims weren't passed for some reason.
+    const radius = dims?.radius ?? Math.max(2, Math.round(Math.min(bodyW, bodyH) * 0.5));
     shape = { type: 'circle', radius };
   }
 
@@ -135,15 +93,24 @@ function _addHealth(obj, cfg) {
   }.bind(obj);
 }
 
+// Delegates to SizeCalculator.explosionRadius — see sizeCalculator.js for full docs.
+// Kept as a named function so the public export below and _triggerBlast can reference it.
+function _explosionFrameRadius(scene, arena, blastScale) {
+  return window.SizeCalculator.explosionRadius(scene, arena, blastScale);
+}
+
+// Public export — GameLogic._blastRadiusPx delegates here so every blast
+// (bomb impact, chain explosion) uses the identical sizing pipeline.
+window.ObjectFactory.explosionFrameRadius = _explosionFrameRadius;
+
 // Fires a secondary blast centred on obj using the blast sub-config.
-// Radius and force are resolved from arena ratios so they scale with the arena.
+// Radius is driven by the explosion sprite frame so visual and damage always match.
+// Force is still scaled to arena width via forceRatio (or a raw value fallback).
 function _triggerBlast(obj, blastCfg) {
   if (!obj.scene || !obj.active) return;
   const arena  = window.GameLogic?.arena;
-  const radius = arena
-    ? Math.max(arena.ARENA_W, arena.ARENA_H) * blastCfg.radiusRatio
-    : 120;
-  const force = arena
+  const radius = _explosionFrameRadius(obj.scene, arena, blastCfg.blastScale ?? 1);
+  const force  = arena
     ? (blastCfg.forceRatio != null ? arena.ARENA_W * blastCfg.forceRatio : blastCfg.force)
     : blastCfg.force;
   try {
@@ -163,10 +130,13 @@ window.ObjectFactory.createPlaceable = function (scene, type, x, y, arena, optio
     return null;
   }
 
-  const { bodyW, bodyH, renderScale } = _computeSize(scene, cfg, arena);
-  const obj = _buildVisual(scene, cfg, x, y, bodyW, bodyH, renderScale);
+  const dims = _computeSize(scene, cfg, arena);
+  const { bodyW, bodyH, scaleX, scaleY } = dims;
+  const obj = _buildVisual(scene, cfg, x, y, bodyW, bodyH, scaleX, scaleY);
+  obj._bodyW = bodyW;
+  obj._bodyH = bodyH;
 
-  _addPhysics(scene, obj, cfg, bodyW, bodyH);
+  _addPhysics(scene, obj, cfg, bodyW, bodyH, dims);
   _addHealth(obj, cfg);
 
   obj.setInteractive({ useHandCursor: true });
@@ -195,10 +165,13 @@ window.ObjectFactory.createLevelObject = function (scene, type, x, y, arena) {
     return null;
   }
 
-  const { bodyW, bodyH, renderScale } = _computeSize(scene, cfg, arena);
-  const obj = _buildVisual(scene, cfg, x, y, bodyW, bodyH, renderScale);
+  const dims = _computeSize(scene, cfg, arena);
+  const { bodyW, bodyH, scaleX, scaleY } = dims;
+  const obj = _buildVisual(scene, cfg, x, y, bodyW, bodyH, scaleX, scaleY);
+  obj._bodyW = bodyW;
+  obj._bodyH = bodyH;
 
-  if (cfg.physics)            _addPhysics(scene, obj, cfg, bodyW, bodyH);
+  if (cfg.physics)              _addPhysics(scene, obj, cfg, bodyW, bodyH, dims);
   if (cfg.health !== undefined) _addHealth(obj, cfg);
 
   obj.objectType    = type;
@@ -222,10 +195,13 @@ window.ObjectFactory.createInternal = function (scene, type, x, y, arena, option
   const spawnX = options.spawnLocation ? options.spawnLocation.x : x;
   const spawnY = options.spawnLocation ? options.spawnLocation.y : y;
 
-  const { bodyW, bodyH, renderScale } = _computeSize(scene, cfg, arena);
-  const obj = _buildVisual(scene, cfg, spawnX, spawnY, bodyW, bodyH, renderScale);
+  const dims = _computeSize(scene, cfg, arena);
+  const { bodyW, bodyH, scaleX, scaleY } = dims;
+  const obj = _buildVisual(scene, cfg, spawnX, spawnY, bodyW, bodyH, scaleX, scaleY);
+  obj._bodyW = bodyW;
+  obj._bodyH = bodyH;
 
-  if (cfg.physics)              _addPhysics(scene, obj, cfg, bodyW, bodyH);
+  if (cfg.physics)              _addPhysics(scene, obj, cfg, bodyW, bodyH, dims);
   if (cfg.health !== undefined) _addHealth(obj, cfg);
 
   obj.objectType = type;

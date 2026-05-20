@@ -13,10 +13,9 @@ window.ObjectConfig = {
   placeableTypes: {
 
     shortPlank: {
-      widthRatio:  0.45,
-      heightRatio: 0.02,
-      scale:       1,
-      sizeMode:    'ratio',
+      widthRatio:  1,
+      heightRatio: 1,
+      scale:       10,
       color:       0x8b4513,
       useImage:    true,
       imageKey:    'block_atlas',
@@ -34,10 +33,9 @@ window.ObjectConfig = {
     },
 
     thickPlank: {
-      widthRatio:  0.25,
-      heightRatio: 0.09,
-      scale:       1,
-      sizeMode:    'ratio',
+      widthRatio:  1,
+      heightRatio: 1,
+      scale:       10,
       color:       0x654321,
       useImage:    true,
       imageKey:    'block_atlas',
@@ -55,10 +53,9 @@ window.ObjectConfig = {
     },
 
     wall: {
-      widthRatio:  0.06,
-      heightRatio: 0.24,
-      scale:       1,
-      sizeMode:    'ratio',
+      widthRatio:  1,
+      heightRatio: 1,
+      scale:       10,
       color:       0x696969,
       useImage:    true,
       imageKey:    'block_atlas',
@@ -81,9 +78,9 @@ window.ObjectConfig = {
   levelTypes: {
 
     bomb_crate: {
-      widthRatio:  0.07,
-      heightRatio: 0.07,
-      scale:       1,
+      widthRatio:  1,
+      heightRatio: 1,
+      scale:       5,
       color:       0xa0522d,
       useImage:    true,
       imageKey:    'bomb_crate',
@@ -108,10 +105,9 @@ window.ObjectConfig = {
   internalTypes: {
 
     bomb: {
-      widthRatio:       0.030,
-      heightRatio:      0.045,
-      scale:            0.8,
-      sizeMode:         'ratio',
+      widthRatio:       1,
+      heightRatio:      1,
+      scale:            3,
       color:            0x333333,
       useImage:         true,
       imageKey:         'plane_atlas',
@@ -128,17 +124,16 @@ window.ObjectConfig = {
           mask:     0x0001 | 0x0002 | 0x0008,
         },
       },
-      blastRadiusRatio: 0.2,
+      blastRadiusRatio: 1,
       blastForceRatio:  0.116,
       directHitDamage:  50,
       blastMaxDamage:   50,
     },
 
     plane: {
-      widthRatio:               0.20,
-      heightRatio:              0.10,
-      scale:                    1,
-      sizeMode:                 'ratio',
+      widthRatio:               1,
+      heightRatio:              1,
+      scale:                    3,
       spawnYOffsetRatio:        0.03,  // vertical nudge applied to the spawn position
       color:                    0xffaa00,
       useImage:                 true,
@@ -151,10 +146,9 @@ window.ObjectConfig = {
     },
 
     player: {
-      widthRatio:  0.4,
-      heightRatio: 0.2,
-      scale:       0.5,
-      sizeMode:    'ratio',
+      widthRatio:  1,
+      heightRatio: 1,
+      scale:       0.3,
       color:       0x00ff00,
       useImage:    true,
       imageKey:    'player',

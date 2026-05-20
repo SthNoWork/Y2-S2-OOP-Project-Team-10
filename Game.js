@@ -4,8 +4,8 @@
 // global debug helpers, and the Phaser config object.
 // The game is instantiated by index.html via window.startScene().
 
-const GAME_WIDTH  = window.innerWidth;
-const GAME_HEIGHT = window.innerHeight;
+const GAME_WIDTH  = 1920;
+const GAME_HEIGHT = 1080;
 
 window.DEBUG    = window.DEBUG ?? false;
 // Logs to the console only when window.DEBUG is true.
@@ -50,17 +50,17 @@ const config = {
     pixelArt: true,
   },
   scale: {
-    mode: Phaser.Scale.EXPAND,
+    mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
     orientation: Phaser.Scale.Orientation.LANDSCAPE,
     fullscreenTarget: 'parent',
-    expandParent: true,
+    expandParent: false,
   },
   physics: {
     default: 'matter',
     matter: {
       gravity: { y: 1 },
-      debug: false,
+      debug: true,
     },
   },
   scene: [

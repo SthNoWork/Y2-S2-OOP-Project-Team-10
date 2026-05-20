@@ -99,10 +99,15 @@ window.GameLogic = {
     this._updateBombs();
   },
 
-  // Converts blastRadiusRatio to pixels using the larger of arena width/height.
+  // Returns bomb blast radius in pixels.
+  // Delegates to ObjectFactory.explosionFrameRadius so bomb impacts and chain
+  // explosions share the exact same sizing pipeline:
+  //   explosion first-frame inscribed circle × blastScale × arena/device ratio.
+  // Set bombCfg.blastScale in objectConfig to tune the bomb's blast size.
   _blastRadiusPx(bombCfg) {
-    const ratio = bombCfg.blastRadiusRatio ?? 0.06;
-    return Math.max(this.arena.ARENA_W * ratio, this.arena.ARENA_H * ratio);
+    return window.ObjectFactory.explosionFrameRadius(
+      this.scene, this.arena, bombCfg.blastScale ?? 1
+    );
   },
 
   // Converts blastForceRatio (or a raw blastForce fallback) to a pixel-space force value.
@@ -159,20 +164,24 @@ window.GameLogic = {
   _spawnBomb() {
     if (!this._run?.plane?.active) return;
 
-    const { plane, planeVelocity, bombOffsetY } = this._run;
+    const { plane, planeVelocity } = this._run;
     const planeCfg    = window.ObjectConfig.internalTypes.plane;
     const offsetRange = planeCfg.bombDropOffsetRatioRange;
-    const planeWidth  = this.arena.ARENA_W * planeCfg.widthRatio;
-    const offsetX     = (offsetRange.min + Math.random() * Math.max(0, offsetRange.max - offsetRange.min)) * planeWidth;
 
+    // Use the plane's actual rendered half-width so the bomb always spawns
+    // within the visible sprite, regardless of texture size or scale.
+    const planeHalfW = plane.displayWidth  * 0.5;
+    const planeHalfH = plane.displayHeight * 0.5;
+    const offsetX    = (offsetRange.min + Math.random() * Math.max(0, offsetRange.max - offsetRange.min)) * planeHalfW;
+
+    // Create bomb just below the plane's bottom edge.
     const bomb = window.ObjectFactory.createInternal(
-      this.scene, 'bomb', plane.x + offsetX, plane.y + bombOffsetY, this.arena
+      this.scene, 'bomb', plane.x + offsetX, plane.y + planeHalfH, this.arena
     );
 
-    // Nudge the bomb below the plane's visual centre so it doesn't overlap.
-    const planeHalfH = plane.displayHeight ? plane.displayHeight * 0.5 : 0;
-    const bombHalfH  = bomb.displayHeight  ? bomb.displayHeight  * 0.5 : 0;
-    bomb.y           = plane.y + bombOffsetY + planeHalfH + bombHalfH;
+    // Push bomb down by its own half-height so it starts fully below the plane.
+    const bombHalfH = bomb.displayHeight * 0.5;
+    bomb.y = plane.y + planeHalfH + bombHalfH;
 
     if (bomb?.setFlipX) bomb.setFlipX(this._run.direction < 0);
 
@@ -264,17 +273,32 @@ window.GameLogic = {
   // the blast rectangle. Applies scaled knockback and damage to each body based
   // on its distance from the blast centre (falloff = inverse-square).
   _createBlastRadius(x, y, radius, force, maxDamageOverride) {
-    try {
-      const gfx = this.scene.add.circle(x, y, Math.max(8, radius * 0.2), 0xff6600, 0.5);
-      this.scene.tweens.add({
-        targets:    gfx,
-        alpha:      0,
-        scale:      2,
-        duration:   300,
-        onComplete: () => gfx.destroy(),
-      });
-    } catch (e) {
-      window.logDebug?.('[GameLogic._createBlastRadius] gfx failed', e);
+    // Spawn explosion sprite and scale it so its half-width matches the blast radius.
+    // The actual rendered size then drives all damage/knockback calculations,
+    // so visual and physics are always in sync.
+    const explosion = this.scene.add.sprite(x, y, 'explosion_atlas', 'explosion1');
+    explosion.setDepth(100);
+
+    const frame      = this.scene.textures.getFrame('explosion_atlas', 'explosion1');
+    const frameHalfW = ((frame?.realWidth || frame?.width || 32) * 0.5);
+    const expScale   = radius / frameHalfW;
+    explosion.setScale(expScale);
+
+    window.SpriteFactory.playAnimation(explosion, 'explosion');
+
+    // Derive the actual pixel radius from the scaled sprite so damage area
+    // always matches what the player sees.
+    const actualRadius = explosion.displayWidth * 0.5;
+
+    // Debug overlay: draw a red circle showing the exact damage boundary.
+    // Destroyed after the explosion animation finishes (~600 ms at 32 fps × 17 frames).
+    // Only rendered when window.DEBUG is true; zero cost in production.
+    if (window.DEBUG) {
+      const g = this.scene.add.graphics();
+      g.lineStyle(2, 0xff0000, 1);
+      g.strokeCircle(x, y, actualRadius);
+      g.setDepth(500);
+      this.scene.time.delayedCall(600, () => { if (g.active) g.destroy(); });
     }
 
     const bombCfg     = window.ObjectConfig.internalTypes.bomb;
@@ -282,13 +306,23 @@ window.GameLogic = {
       ? maxDamageOverride
       : (bombCfg.blastMaxDamage || 50);
 
-    const bodies = this.scene.matter.intersectRect(x - radius, y - radius, radius * 2, radius * 2) || [];
+    // Broad-phase rect query, then filter to circle using centre distance.
+    const bodies = this.scene.matter.intersectRect(
+      x - actualRadius, y - actualRadius,
+      actualRadius * 2,  actualRadius * 2
+    ) || [];
 
     bodies.forEach((body) => {
       const obj = body.gameObject;
       if (!obj || obj.isBomb || body.label === 'bomb') return;
 
-      const falloff = this._applyKnockback(body, x, y, force, radius);
+      // Reject bodies whose centre lies outside the circle.
+      const dx   = body.position.x - x;
+      const dy   = body.position.y - y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > actualRadius) return;
+
+      const falloff = this._applyKnockback(body, x, y, force, actualRadius);
       if (falloff <= 0) return;
 
       const damage = Math.round(blastMaxDmg * falloff);
