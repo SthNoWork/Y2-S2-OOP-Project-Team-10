@@ -7,7 +7,7 @@
 const GAME_WIDTH  = 1920;
 const GAME_HEIGHT = 1080;
 
-window.DEBUG    = window.DEBUG ?? false;
+window.DEBUG    = true; // Toggled on to see blast radii and other debug logs
 // Logs to the console only when window.DEBUG is true.
 window.logDebug = function (...args) {
   if (window.DEBUG) console.log(...args);

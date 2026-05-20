@@ -109,7 +109,7 @@ window.ObjectFactory.explosionFrameRadius = _explosionFrameRadius;
 function _triggerBlast(obj, blastCfg) {
   if (!obj.scene || !obj.active) return;
   const arena  = window.GameLogic?.arena;
-  const radius = _explosionFrameRadius(obj.scene, arena, blastCfg.blastScale ?? 1);
+  const radius = _explosionFrameRadius(obj.scene, arena, blastCfg.radiusRatio ?? 1);
   const force  = arena
     ? (blastCfg.forceRatio != null ? arena.ARENA_W * blastCfg.forceRatio : blastCfg.force)
     : blastCfg.force;

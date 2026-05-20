@@ -125,7 +125,7 @@ window.ObjectConfig = {
         },
       },
       blastRadiusRatio: 1,
-      blastForceRatio:  0.116,
+      blastForceRatio:  1,
       directHitDamage:  50,
       blastMaxDamage:   50,
     },

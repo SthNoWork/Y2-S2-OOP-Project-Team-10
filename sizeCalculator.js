@@ -212,7 +212,7 @@ window.SizeCalculator = {
   // Used by ObjectFactory.explosionFrameRadius and GameLogic._blastRadiusPx.
   explosionRadius(scene, arena, blastScale) {
     const ATLAS       = 'explosion_atlas';
-    const FIRST_FRAME = 'explosion1';
+    const FIRST_FRAME = 'explosion6';
 
     let frameW = 64, frameH = 64;
     if (scene?.textures?.exists(ATLAS)) {
@@ -223,12 +223,9 @@ window.SizeCalculator = {
       }
     }
 
-    const inscribed = Math.min(frameW, frameH) / 2;
-    const resX      = arena ? arena.ARENA_W / this.BASE_W : 1;
-    const resY      = arena ? arena.ARENA_H / this.BASE_H : 1;
-    const resFactor = (resX + resY) * 0.5;
-
-    return inscribed * (blastScale ?? 1) * resFactor;
+    // Explicitly ignoring resFactor so the radius is consistently absolute
+    const baseRadius = frameW;
+    return baseRadius * (blastScale ?? 1);
   },
 
   // ─────────────────────────────────────────────────────────

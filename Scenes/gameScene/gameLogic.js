@@ -103,10 +103,10 @@ window.GameLogic = {
   // Delegates to ObjectFactory.explosionFrameRadius so bomb impacts and chain
   // explosions share the exact same sizing pipeline:
   //   explosion first-frame inscribed circle × blastScale × arena/device ratio.
-  // Set bombCfg.blastScale in objectConfig to tune the bomb's blast size.
+  // Uses bombCfg.blastRadiusRatio to tune the bomb's blast size.
   _blastRadiusPx(bombCfg) {
     return window.ObjectFactory.explosionFrameRadius(
-      this.scene, this.arena, bombCfg.blastScale ?? 1
+      this.scene, this.arena, bombCfg.blastRadiusRatio ?? 1
     );
   },
 
@@ -276,20 +276,29 @@ window.GameLogic = {
     // Spawn explosion sprite and scale it so its half-width matches the blast radius.
     // The actual rendered size then drives all damage/knockback calculations,
     // so visual and physics are always in sync.
-    const explosion = this.scene.add.sprite(x, y, 'explosion_atlas', 'explosion1');
+    const explosion = this.scene.add.sprite(x, y, 'explosion_atlas', 'explosion6');
     explosion.setDepth(100);
 
-    const frame      = this.scene.textures.getFrame('explosion_atlas', 'explosion1');
-    const frameHalfW = ((frame?.realWidth || frame?.width || 32) * 0.5);
-    const expScale   = radius / frameHalfW;
-    explosion.setScale(expScale);
+    const frame  = this.scene.textures.getFrame('explosion_atlas', 'explosion6');
+    const frameW = frame?.cutWidth || 189;
+    
+    // Scale the explosion so its radius matches the calculated blast radius.
+    // Display width becomes radius * 2 to cover the full circle diameter.
+    explosion.setScale((radius * 2) / frameW);
 
+    // Capture the radius BEFORE the animation starts so it uses explosion6 width!
+    const actualRadius = explosion.displayWidth * 0.5;
+    
     window.SpriteFactory.playAnimation(explosion, 'explosion');
 
-    // Derive the actual pixel radius from the scaled sprite so damage area
-    // always matches what the player sees.
-    const actualRadius = explosion.displayWidth * 0.5;
-
+    if (window.DEBUG) {
+      console.log(`%c💣 [Blast Debug]`, 'color: #ff5500; font-weight: bold; font-size: 14px;');
+      console.log(`   Expected Radius (from config math): ${radius}`);
+      console.log(`   Final Hitbox Radius:                ${actualRadius}`);
+      console.log(`   Final Width/Diameter:               ${actualRadius * 2}`);
+      console.log(`   Applied Force:                      ${force}`);
+    }
+    
     // Debug overlay: draw a red circle showing the exact damage boundary.
     // Destroyed after the explosion animation finishes (~600 ms at 32 fps × 17 frames).
     // Only rendered when window.DEBUG is true; zero cost in production.
@@ -341,10 +350,15 @@ window.GameLogic = {
   // Applies an outward velocity impulse to a non-static body proportional to
   // blast force and inverse-square distance falloff. Returns the falloff value
   // so the caller can scale damage by the same factor.
+  //
+  // Uses Matter.Body.setVelocity + body.velocity directly rather than
+  // Phaser's obj.getVelocity / obj.setVelocity wrappers, because Phaser's
+  // matter.add.gameObject mixin only adds setVelocity — getVelocity is absent
+  // on most game objects, which previously caused this method to always return 0
+  // (blocking all blast damage).
   _applyKnockback(body, bx, by, blastForce, radius) {
     const obj = body.gameObject;
     if (!obj || body.isStatic || obj.isBomb || body.label === 'bomb') return 0;
-    if (typeof obj.getVelocity !== 'function' || typeof obj.setVelocity !== 'function') return 0;
 
     const dx   = body.position.x - bx;
     const dy   = body.position.y - by;
@@ -357,8 +371,13 @@ window.GameLogic = {
     const deltaV  = (blastForce * falloff) / mass;
     const nx      = dx / dist;
     const ny      = dy / dist;
-    const velocity = obj.getVelocity();
-    obj.setVelocity(velocity.x + nx * deltaV, velocity.y + ny * deltaV);
+
+    // body.velocity is always present on a Matter body; no Phaser wrapper needed.
+    const cv = body.velocity;
+    Phaser.Physics.Matter.Matter.Body.setVelocity(body, {
+      x: cv.x + nx * deltaV,
+      y: cv.y + ny * deltaV,
+    });
 
     return falloff;
   },
