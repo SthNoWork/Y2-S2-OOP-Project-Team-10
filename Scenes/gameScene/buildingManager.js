@@ -199,7 +199,13 @@ window.BuildingManager = {
     const controlY       = ARENA_Y + ARENA_H - 65; 
     const controlSpacing = 230;                    
 
-    Object.keys(window.ObjectConfig.placeableTypes).forEach((type) => {
+    const levelCfg   = window.LevelManager?.levelCfg;
+    const allowed    = levelCfg?.allowedBuildings ?? {};
+    const typesToShow = Object.keys(allowed).filter(
+      (type) => window.ObjectConfig.placeableTypes[type]
+    );
+
+    typesToShow.forEach((type) => {
       this._spawnInventoryButton(controlX, controlY, type);
       controlX += controlSpacing;
     });

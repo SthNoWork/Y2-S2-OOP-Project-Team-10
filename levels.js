@@ -1,8 +1,6 @@
 window.Levels = {
 
-  
-  
-  
+  // ── Level 1 ── Tutorial: just light wood, one slow wave ───────────────────
   1: {
     playerSpawn: { x: 960, y: 810 },
     waveDelayMs: 6000,
@@ -15,34 +13,32 @@ window.Levels = {
       { type: 'bomb_crate', x: 614,  y: 897 },
       { type: 'bomb_crate', x: 1306, y: 897 },
     ],
-    allowedBuildings: { shortPlank: 3, thickPlank: 2, wall: 2 },
+    allowedBuildings: { shortPlank: 4, whitePlank: 3, leaf: 4 },
     waves: [
       { speed: 314, direction:  1, x: -163, y: 120 },
     ],
   },
 
-  
-  
+  // ── Level 2 ── Introduce dirt/grass, two waves ────────────────────────────
   2: {
     playerSpawn: { x: 960, y: 810 },
     waveDelayMs: 5000,
     platforms: [],
     prePlaced:  [],
-    allowedBuildings: { shortPlank: 4, thickPlank: 2, wall: 2 },
+    allowedBuildings: { shortPlank: 3, thickPlank: 2, dirt: 3, grass: 3 },
     waves: [
       { speed: 360, direction:  1, x: -163, y: 120 },
       { speed: 378, direction: -1, x: 2083, y: 120 },
     ],
   },
 
-  
-  
+  // ── Level 3 ── Sand + gravel, three waves ────────────────────────────────
   3: {
     playerSpawn: { x: 960, y: 810 },
     waveDelayMs: 5000,
     platforms: [],
     prePlaced:  [],
-    allowedBuildings: { shortPlank: 5, thickPlank: 3, wall: 3 },
+    allowedBuildings: { thickPlank: 3, plank: 3, sand: 3, gravel: 2 },
     waves: [
       { speed: 404, direction:  1, x: -163, y: 120 },
       { speed: 423, direction: -1, x: 2083, y: 120 },
@@ -50,7 +46,7 @@ window.Levels = {
     ],
   },
 
-  
+  // ── Level 4 ── Stone enters, multi-platform ───────────────────────────────
   4: {
     playerSpawn: { x: 960, y: 781 },
     waveDelayMs: 4500,
@@ -65,7 +61,7 @@ window.Levels = {
       { type: 'bomb_crate', x: 960,  y: 606 },
       { type: 'bomb_crate', x: 1478, y: 470 },
     ],
-    allowedBuildings: { shortPlank: 4, thickPlank: 3, wall: 3 },
+    allowedBuildings: { thickPlank: 2, wall: 2, stone: 3, sandstone: 2 },
     waves: [
       { speed: 432, direction:  1, x: -163, y: 120 },
       { speed: 449, direction: -1, x: 2083, y: 120 },
@@ -74,7 +70,7 @@ window.Levels = {
     ],
   },
 
-  
+  // ── Level 5 ── Ice level: slippery blocks, tight platform ─────────────────
   5: {
     playerSpawn: { x: 960, y: 810 },
     waveDelayMs: 4500,
@@ -86,7 +82,7 @@ window.Levels = {
       { type: 'bomb_crate', x: 960,  y: 918 },
       { type: 'bomb_crate', x: 1444, y: 918 },
     ],
-    allowedBuildings: { shortPlank: 5, thickPlank: 3, wall: 3 },
+    allowedBuildings: { snow: 4, ice: 3, thickIce: 2, stone: 2 },
     waves: [
       { speed: 468, direction:  1, x: -163, y: 120 },
       { speed: 486, direction: -1, x: 2083, y: 120 },
@@ -95,7 +91,7 @@ window.Levels = {
     ],
   },
 
-  
+  // ── Level 6 ── TNT is available, use it carefully ─────────────────────────
   6: {
     playerSpawn: { x: 960, y: 742 },
     waveDelayMs: 4000,
@@ -110,7 +106,7 @@ window.Levels = {
       { type: 'bomb_crate', x: 303,  y: 918 },
       { type: 'bomb_crate', x: 1617, y: 918 },
     ],
-    allowedBuildings: { shortPlank: 4, thickPlank: 4, wall: 4 },
+    allowedBuildings: { wall: 3, stone: 2, sandstone: 2, tnt: 2 },
     waves: [
       { speed: 494, direction:  1, x: -163, y: 120 },
       { speed: 513, direction: -1, x: 2083, y: 120 },
@@ -120,7 +116,7 @@ window.Levels = {
     ],
   },
 
-  
+  // ── Level 7 ── Coal and iron, start of ore blocks ─────────────────────────
   7: {
     playerSpawn: { x: 960, y: 878 },
     waveDelayMs: 4000,
@@ -137,7 +133,7 @@ window.Levels = {
       { type: 'bomb_crate', x: 701,  y: 918 },
       { type: 'bomb_crate', x: 1219, y: 918 },
     ],
-    allowedBuildings: { shortPlank: 5, thickPlank: 4, wall: 4 },
+    allowedBuildings: { stone: 3, coal: 3, iron: 2, tnt: 2 },
     waves: [
       { speed: 522, direction:  1, x: -163, y: 120 },
       { speed: 541, direction: -1, x: 2083, y: 120 },
@@ -147,7 +143,7 @@ window.Levels = {
     ],
   },
 
-  
+  // ── Level 8 ── Gold and diamond unlocked ─────────────────────────────────
   8: {
     playerSpawn: { x: 960, y: 761 },
     waveDelayMs: 3500,
@@ -164,7 +160,7 @@ window.Levels = {
       { type: 'bomb_crate', x: 1565, y: 918 },
       { type: 'bomb_crate', x: 960,  y: 509 },
     ],
-    allowedBuildings: { shortPlank: 5, thickPlank: 4, wall: 5 },
+    allowedBuildings: { iron: 3, gold: 2, diamond: 2, tnt: 2 },
     waves: [
       { speed: 541, direction:  1, x: -163, y: 120 },
       { speed: 558, direction: -1, x: 2083, y: 295 },
@@ -175,7 +171,7 @@ window.Levels = {
     ],
   },
 
-  
+  // ── Level 9 ── Obsidian available, fast multi-wave ────────────────────────
   9: {
     playerSpawn: { x: 960, y: 664 },
     waveDelayMs: 3500,
@@ -196,7 +192,7 @@ window.Levels = {
       { type: 'bomb_crate', x: 407,  y: 839 },
       { type: 'bomb_crate', x: 1513, y: 839 },
     ],
-    allowedBuildings: { shortPlank: 5, thickPlank: 5, wall: 5 },
+    allowedBuildings: { diamond: 2, obsidian: 2, iron: 2, tnt: 2 },
     waves: [
       { speed: 558, direction:  1, x: -163, y: 120 },
       { speed: 576, direction: -1, x: 2083, y: 120 },
@@ -208,7 +204,7 @@ window.Levels = {
     ],
   },
 
-  
+  // ── Level 10 ── Final: obsidian + TNT, all-out chaos ─────────────────────
   10: {
     playerSpawn: { x: 960, y: 616 },
     waveDelayMs: 3000,
@@ -232,7 +228,7 @@ window.Levels = {
       { type: 'bomb_crate', x: 1617, y: 761 },
       { type: 'bomb_crate', x: 960,  y: 781 },
     ],
-    allowedBuildings: { shortPlank: 5, thickPlank: 5, wall: 5 },
+    allowedBuildings: { obsidian: 2, diamond: 2, tnt: 2, ice: 2 },
     waves: [
       { speed: 586, direction:  1, x: -163, y: 120 },
       { speed: 603, direction: -1, x: 2083, y: 120 },

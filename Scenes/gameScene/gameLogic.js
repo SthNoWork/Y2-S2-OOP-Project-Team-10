@@ -127,14 +127,25 @@ window.GameLogic = {
     return renderedRadius * blastScale;
   },
 
-  // Pure falloff: 1 at ground-zero, 0 at the edge of the blast radius.
-  // Returns 0 when the target is outside the radius or at the exact origin.
-  _calcFalloff(bombX, bombY, targetX, targetY, radius) {
-    const dx   = targetX - bombX;
-    const dy   = targetY - bombY;
-    const dist = Math.sqrt(dx * dx + dy * dy);
+  // Returns the nearest point on a Matter body's AABB to (bombX, bombY).
+  _closestPointOnAABB(bombX, bombY, body) {
+    const { min, max } = body.bounds;
+    return {
+      x: Math.max(min.x, Math.min(bombX, max.x)),
+      y: Math.max(min.y, Math.min(bombY, max.y)),
+    };
+  },
+
+  // Falloff based on the closest point on the body's AABB rather than its
+  // centre of mass. Large objects partially inside the blast radius now take
+  // appropriate damage instead of being ignored because their centre is far away.
+  // Returns 1 at ground-zero / fully-inside, 0 when fully outside the radius.
+  _calcFalloff(bombX, bombY, body, radius) {
+    const closest  = this._closestPointOnAABB(bombX, bombY, body);
+    const dx       = closest.x - bombX;
+    const dy       = closest.y - bombY;
+    const dist     = Math.sqrt(dx * dx + dy * dy);
     if (dist >= radius) return 0;
-    // dist === 0 means dead-centre — full force, direction resolved later
     return 1 - (dist / radius);
   },
 
@@ -292,9 +303,9 @@ window.GameLogic = {
       const obj = body.gameObject;
       if (!obj || obj.isBomb || body.label === 'bomb') continue;
       if (obj._dying || !obj.active)                   continue;
-      if (!body.position)                               continue;
+      if (!body.bounds)                                 continue;
 
-      const falloff = this._calcFalloff(bombX, bombY, body.position.x, body.position.y, radius);
+      const falloff = this._calcFalloff(bombX, bombY, body, radius);
       if (falloff <= 0) continue;
 
       this._applyKnockback(body, falloff, bombX, bombY, blastForce);
