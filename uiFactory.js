@@ -1,11 +1,5 @@
-// uiFactory.js
-// Shared UI construction helpers used by all scenes.
-// All values are fixed px authored at 1920×1080 — Phaser Scale.FIT handles display scaling.
-
 window.UIFactory = {};
 
-// Creates a styled text button at (x, y) that fires onClick on tap or click.
-// Origin is top-right so buttons anchor naturally from the right edge of the arena.
 window.UIFactory.createButton = function (scene, x, y, label, onClick) {
   return scene.add
     .text(x, y, label, {
@@ -20,7 +14,6 @@ window.UIFactory.createButton = function (scene, x, y, label, onClick) {
     .on('pointerdown', onClick);
 };
 
-// Adds a Back button at the top-left corner of the scene.
 window.UIFactory.addBackButton = function (scene, onClick) {
   return scene.add
     .text(38, 22, 'Back', {
@@ -34,8 +27,6 @@ window.UIFactory.addBackButton = function (scene, onClick) {
     .on('pointerdown', onClick);
 };
 
-// Creates an HP text label anchored to the top-left corner of the arena.
-// Returns the text object so the caller can call setText() each frame.
 window.UIFactory.addHealthText = function (scene, arena) {
   return scene.add.text(
     arena.ARENA_X + 19,
@@ -45,8 +36,6 @@ window.UIFactory.addHealthText = function (scene, arena) {
   );
 };
 
-// Adds a full-cover background image to the scene using a file path.
-// Scales the image to fill the 1920×1080 viewport and pins it at depth -1000.
 window.UIFactory.addBackground = function (scene, path) {
   if (!path) return null;
 

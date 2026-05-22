@@ -1,7 +1,3 @@
-// Game.js
-// Entry point for the Phaser game instance.
-// Fixed at 1920×1080. Phaser Scale.FIT handles all display scaling.
-
 window.DEBUG    = true;
 window.logDebug = function (...args) {
   if (window.DEBUG) console.log(...args);

@@ -1,8 +1,3 @@
-// gameScene.js
-// Thin orchestrator. All gameplay delegated to managers.
-// Phaser is configured at 1920×1080 with Scale.FIT — all coordinates live in
-// that fixed space. No resize handling or screen-ratio math needed here.
-
 class GameScene extends Phaser.Scene {
 
   constructor() {
@@ -12,9 +7,9 @@ class GameScene extends Phaser.Scene {
     this.player      = null;
   }
 
-  // ========================================
-  // SCENE SETUP
-  // ========================================
+  
+  
+  
 
   create() {
     this.cameras.main.setBackgroundColor('#808080');
@@ -27,28 +22,28 @@ class GameScene extends Phaser.Scene {
       ARENA_H: 972,
     };
 
-    // Physics world is wider than the viewport so planes can enter and exit off-screen.
+    
     this.matter.world.setBounds(-1920, 0, 5760, 1080, 32);
 
     this._drawArenaBorder();
 
-    // Load level — creates player, platforms, pre-placed buildings, HUD.
+    
     const levelNum = window._currentLevel ?? 1;
     this.player    = window.LevelManager.load(this, this.arena, levelNum);
 
-    // BuildingManager still needs init for drag/inventory.
+    
     window.BuildingManager.init(this, this.arena);
 
-    // Action buttons.
+    
     this._createActionButtons();
 
-    // Back button.
+    
     window.UIFactory.addBackButton(this, () => window.startScene('LevelSelectScene'));
   }
 
-  // ========================================
-  // GAME LOOP
-  // ========================================
+  
+  
+  
 
   update(_time, delta) {
     window.GameLogic.update(delta);
@@ -58,15 +53,15 @@ class GameScene extends Phaser.Scene {
     window.ObjectFactory.updateDebugLabels([...placed, ...prePlaced]);
   }
 
-  // ========================================
-  // ACTION BUTTONS
-  // ========================================
+  
+  
+  
 
   _createActionButtons() {
     const { ARENA_X, ARENA_W, ARENA_Y } = this.arena;
-    const btnX   = ARENA_X + ARENA_W - 19;  // right edge of arena minus small margin
-    const btnY   = ARENA_Y + 22;            // top of arena plus margin
-    const btnGap = 59;                       // vertical gap between buttons
+    const btnX   = ARENA_X + ARENA_W - 19;  
+    const btnY   = ARENA_Y + 22;            
+    const btnGap = 59;                       
 
     window.UIFactory.createButton(this, btnX, btnY, 'Start', () => {
       window.LevelManager.startWave();
@@ -93,9 +88,9 @@ class GameScene extends Phaser.Scene {
     }
   }
 
-  // ========================================
-  // ARENA BORDER
-  // ========================================
+  
+  
+  
 
   _drawArenaBorder() {
     if (this.arenaBorder) {

@@ -1,26 +1,8 @@
-// levels.js
-// Blueprint for every playable level.
-// LevelManager reads this at load time to configure platforms, pre-placed objects,
-// building allowances, and wave sequences.
-//
-// All positions and sizes are absolute pixels in the fixed 1920×1080 space.
-// Arena reference: X=96  Y=81  W=1728  H=972
-//
-// Per-level schema:
-//   playerSpawn      { x, y }
-//   platforms        [{ x, y, w, h }]
-//   prePlaced        [{ type, x, y }]   — locked, not player-draggable
-//   allowedBuildings { type: maxCount } — overrides global maxCount per type
-//   waveDelayMs      ms gap between consecutive wave spawns
-//   waves            [{ speed, direction, x, y }]
-//                      speed     = px per second
-//                      direction = 1 (left→right) or -1 (right→left)
-
 window.Levels = {
 
-  // Level 1 — Tutorial
-  // Single slow wave, two side platforms for elevated placement practice.
-  // Two pre-placed bomb crates teach the player about chain explosions.
+  
+  
+  
   1: {
     playerSpawn: { x: 960, y: 810 },
     waveDelayMs: 6000,
@@ -39,8 +21,8 @@ window.Levels = {
     ],
   },
 
-  // Level 2 — Double pass
-  // Two waves from opposite directions on an open field.
+  
+  
   2: {
     playerSpawn: { x: 960, y: 810 },
     waveDelayMs: 5000,
@@ -53,8 +35,8 @@ window.Levels = {
     ],
   },
 
-  // Level 3 — Triple threat
-  // Three waves with escalating speed.
+  
+  
   3: {
     playerSpawn: { x: 960, y: 810 },
     waveDelayMs: 5000,
@@ -68,7 +50,7 @@ window.Levels = {
     ],
   },
 
-  // Level 4 — Staircase platforms
+  
   4: {
     playerSpawn: { x: 960, y: 781 },
     waveDelayMs: 4500,
@@ -92,7 +74,7 @@ window.Levels = {
     ],
   },
 
-  // Level 5 — Gauntlet
+  
   5: {
     playerSpawn: { x: 960, y: 810 },
     waveDelayMs: 4500,
@@ -113,7 +95,7 @@ window.Levels = {
     ],
   },
 
-  // Level 6 — The Bridge
+  
   6: {
     playerSpawn: { x: 960, y: 742 },
     waveDelayMs: 4000,
@@ -138,7 +120,7 @@ window.Levels = {
     ],
   },
 
-  // Level 7 — Tower Defense
+  
   7: {
     playerSpawn: { x: 960, y: 878 },
     waveDelayMs: 4000,
@@ -165,7 +147,7 @@ window.Levels = {
     ],
   },
 
-  // Level 8 — Crossfire
+  
   8: {
     playerSpawn: { x: 960, y: 761 },
     waveDelayMs: 3500,
@@ -193,7 +175,7 @@ window.Levels = {
     ],
   },
 
-  // Level 9 — Siege
+  
   9: {
     playerSpawn: { x: 960, y: 664 },
     waveDelayMs: 3500,
@@ -226,7 +208,7 @@ window.Levels = {
     ],
   },
 
-  // Level 10 — Apocalypse
+  
   10: {
     playerSpawn: { x: 960, y: 616 },
     waveDelayMs: 3000,

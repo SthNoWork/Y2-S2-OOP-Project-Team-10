@@ -1,8 +1,3 @@
-// assets.js
-// Central registry for every asset the game uses.
-// SpriteFactory reads this at boot to preload images, spritesheets,
-// text-atlas descriptors, and to build Phaser atlases and animations.
-
 window.Assets = {
   images: [
     { key: 'bomb_crate', path: 'asset/material/tile_0001.png' },
@@ -14,28 +9,28 @@ window.Assets = {
     { key: 'bg_asset_background_5_jpg', path: 'asset/background/background.jpg' },
   ],
 
-  // Raw spritesheets — loaded as plain images, then sliced into atlases via the .txt files below.
+  
   sheets: [
     { key: 'plane_sheet', path: 'asset/plane/spritesheet.png' },
     { key: 'block_sheet', path: 'asset/block/block.png' },
     { key: 'explosion_sheet', path: 'asset/explosion/explosion.png' },
   ],
 
-  // CSV-style text files that map frame names to pixel rects on their sheet.
+  
   texts: [
     { key: 'plane_sprites', path: 'asset/plane/sprites.txt' },
     { key: 'block_sprites', path: 'asset/block/block.txt' },
     {key:'explosion_sprites', path: 'asset/explosion/explosion.txt' },
   ],
 
-  // Pairs a sheet with its text file so SpriteFactory can build a named Phaser atlas.
+  
   atlases: [
     { key: 'plane_atlas', sheetKey: 'plane_sheet', textKey: 'plane_sprites' },
     { key: 'block_atlas', sheetKey: 'block_sheet', textKey: 'block_sprites' },
     {key: 'explosion_atlas', sheetKey: 'explosion_sheet', textKey: 'explosion_sprites' },
   ],
 
-  // Phaser animation definitions referencing frames from an atlas.
+  
   animations: [
     {
       key: 'plane_fly',

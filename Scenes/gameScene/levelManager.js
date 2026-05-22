@@ -1,17 +1,3 @@
-// levelManager.js
-// Owns: level loading, platform and pre-placed object spawning, sequential wave
-//       firing with inter-wave countdown, win/lose overlay screens, and the HUD.
-// Does not own: physics, blast logic, building drag, or UI styling.
-//
-// All positions are fixed 1920×1080 px — Phaser Scale.FIT handles display scaling.
-//
-// State machine:
-//   'idle'    — waiting for the Start button
-//   'running' — counting down between waves; planes may overlap mid-arena
-//   'waiting' — all waves fired; waiting for the last plane to exit
-//   'won'     — last plane cleared; shows win screen
-//   'lost'    — player HP hit zero; shows lose screen
-
 window.LevelManager = {
 
   scene:    null,
@@ -20,18 +6,18 @@ window.LevelManager = {
   levelCfg: null,
 
   _state:         'idle',
-  _waveIndex:     0,      // index of the next wave to fire
-  _countdownMs:   0,      // ms remaining until the next wave fires
-  _waveText:      null,   // "Wave X / Y" HUD label
-  _healthText:    null,   // HP HUD label
-  _screenShown:   false,  // prevents duplicate win/lose overlays
+  _waveIndex:     0,      
+  _countdownMs:   0,      
+  _waveText:      null,   
+  _healthText:    null,   
+  _screenShown:   false,  
 
-  _platforms:  [],        // static platform game objects
-  _prePlaced:  [],        // pre-placed level object game objects
+  _platforms:  [],        
+  _prePlaced:  [],        
 
-  // Sets up the level: applies building caps, spawns platforms and pre-placed objects,
-  // creates the player, initialises GameLogic, and builds the HUD.
-  // Returns the player game object.
+  
+  
+  
   load(scene, arena, levelNum) {
     this.scene    = scene;
     this.arena    = arena;
@@ -62,7 +48,7 @@ window.LevelManager = {
     return player;
   },
 
-  // Drives the wave state machine. Call this every frame from GameScene.update().
+  
   update(delta) {
     this._refreshHUD();
 
@@ -101,7 +87,7 @@ window.LevelManager = {
     }
   },
 
-  // Fires the first wave immediately when the Start button is pressed.
+  
   startWave() {
     if (this._state !== 'idle') return;
     this._fireNextWave();
@@ -113,7 +99,7 @@ window.LevelManager = {
     }
   },
 
-  // Passes the wave's pixel position and speed directly to GameLogic, then increments the index.
+  
   _fireNextWave() {
     const waves = this.levelCfg.waves;
     if (!waves?.length || this._waveIndex >= waves.length) return;
@@ -125,11 +111,11 @@ window.LevelManager = {
     this._refreshHUD();
   },
 
-  // Renders the win overlay.
+  
   _showWinScreen() {
     const { ARENA_X, ARENA_Y, ARENA_W, ARENA_H } = this.arena;
-    const cx = ARENA_X + ARENA_W * 0.5;  // 960
-    const cy = ARENA_Y + ARENA_H * 0.5;  // 567
+    const cx = ARENA_X + ARENA_W * 0.5;  
+    const cy = ARENA_Y + ARENA_H * 0.5;  
 
     const totalWaves = this.levelCfg.waves.length;
     const hp         = Math.max(0, Math.round(window.GameLogic.player?.health ?? 0));
@@ -150,11 +136,11 @@ window.LevelManager = {
     );
   },
 
-  // Renders the lose overlay.
+  
   _showLoseScreen() {
     const { ARENA_X, ARENA_Y, ARENA_W, ARENA_H } = this.arena;
-    const cx = ARENA_X + ARENA_W * 0.5;  // 960
-    const cy = ARENA_Y + ARENA_H * 0.5;  // 567
+    const cx = ARENA_X + ARENA_W * 0.5;  
+    const cy = ARENA_Y + ARENA_H * 0.5;  
 
     const wavesSurvived = Math.max(0, this._waveIndex - 1);
     const totalWaves    = this.levelCfg.waves.length;
@@ -175,7 +161,7 @@ window.LevelManager = {
     );
   },
 
-  // Updates the HP and wave-count labels each frame.
+  
   _refreshHUD() {
     if (this._healthText) {
       const hp = Math.max(0, Math.round(window.GameLogic.player?.health ?? 0));
@@ -193,7 +179,7 @@ window.LevelManager = {
     }
   },
 
-  // Creates the wave-counter text label centred at the top of the arena.
+  
   _createWaveText() {
     return this.scene.add.text(
       this.arena.ARENA_X + this.arena.ARENA_W * 0.5,
@@ -203,7 +189,7 @@ window.LevelManager = {
     ).setOrigin(0.5, 0).setDepth(100);
   },
 
-  // Creates a centred, interactive text button for use inside win/lose overlays.
+  
   _overlayBtn(x, y, label, bgColor, onClick) {
     return this.scene.add.text(x, y, label, {
       fontSize:        '43px',
@@ -216,7 +202,7 @@ window.LevelManager = {
       .on('pointerdown', onClick);
   },
 
-  // Creates static Matter.js rectangle bodies for each platform defined in the level config.
+  
   _spawnPlatforms() {
     (this.levelCfg.platforms || []).forEach((p) => {
       const platform = this.scene.add.rectangle(p.x, p.y, p.w, p.h, 0x888888);
@@ -235,7 +221,7 @@ window.LevelManager = {
     });
   },
 
-  // Spawns the locked, designer-placed objects listed in levelCfg.prePlaced.
+  
   _spawnPrePlaced() {
     (this.levelCfg.prePlaced || []).forEach((entry) => {
       const obj = window.ObjectFactory.createLevelObject(
@@ -246,7 +232,7 @@ window.LevelManager = {
     });
   },
 
-  // Applies per-level building caps from levelCfg.allowedBuildings.
+  
   _applyAllowedBuildings() {
     const allowed = this.levelCfg.allowedBuildings || {};
     Object.entries(allowed).forEach(([type, cap]) => {
@@ -255,7 +241,7 @@ window.LevelManager = {
     });
   },
 
-  // Returns a minimal single-wave config used when a level number has no entry in window.Levels.
+  
   _fallbackConfig() {
     return {
       playerSpawn:      { x: 960, y: 810 },
