@@ -463,8 +463,8 @@ window.ObjectConfig = {
       imageKey:                 'plane_atlas',
       animKey:                  'plane_fly',
       startFrame:               'row01_02',
-      spawnYOffsetY:            29,
-      bladeOffsetX:             9,       // px offset from plane centre to blade sprite
+      spawnYOffsetY:            50,
+      bladeOffsetX:             20,       // px offset from plane centre to blade sprite
       bladeOffsetY:             -0.50,   // ratio of plane rendered height (negative = upward)
       bombDropDelayRangeSec:    { min: 0.18, max: 0.45 },
       bombDropOffsetRatioRange: { min: -0.35, max: 0.35 },

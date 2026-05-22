@@ -25,10 +25,10 @@ class GameScene extends Phaser.Scene {
     
     this.matter.world.setBounds(-1920, 0, 5760, 1080, 32);
 
-    this._drawArenaBorder();
+    // this._drawArenaBorder();
 
     
-    const levelNum = window._currentLevel ?? 1;
+    const levelNum = window._currentLevel;
     this.player    = window.LevelManager.load(this, this.arena, levelNum);
 
     

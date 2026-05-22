@@ -1,15 +1,15 @@
 window.BuildingManager = {
 
-  scene:            null,
-  arena:            null,
+  scene: null,
+  arena: null,
   draggingBuilding: null,
-  placedBuildings:  [],
-  buildingCounts:   {},
-  _handlers:        null,
-  dragMoveThreshold: 1,  
+  placedBuildings: [],
+  buildingCounts: {},
+  _handlers: null,
+  dragMoveThreshold: 1,
 
-  
-  
+
+
   init(scene, arena) {
     this.scene = scene;
     this.arena = arena;
@@ -18,22 +18,22 @@ window.BuildingManager = {
     this.setupInputHandlers();
   },
 
-  
+
   resetState() {
     this.draggingBuilding = null;
-    this.placedBuildings  = [];
+    this.placedBuildings = [];
     Object.keys(window.ObjectConfig.placeableTypes).forEach((type) => {
       this.buildingCounts[type] = 0;
     });
   },
 
-  
+
   setupInputHandlers() {
     if (this._handlers && this.scene?.input) {
       try {
         this.scene.input.off('pointerdown', this._handlers.down);
         this.scene.input.off('pointermove', this._handlers.move);
-        this.scene.input.off('pointerup',   this._handlers.up);
+        this.scene.input.off('pointerup', this._handlers.up);
       } catch (e) {
         window.logDebug?.('[BuildingManager.setupInputHandlers] off failed', e);
       }
@@ -42,23 +42,23 @@ window.BuildingManager = {
     this._handlers = {
       down: (p) => this.onPointerDown(p),
       move: (p) => this.onPointerMove(p),
-      up:   (p) => this.onPointerUp(p),
+      up: (p) => this.onPointerUp(p),
     };
 
     this.scene.input.on('pointerdown', this._handlers.down);
     this.scene.input.on('pointermove', this._handlers.move);
-    this.scene.input.on('pointerup',   this._handlers.up);
+    this.scene.input.on('pointerup', this._handlers.up);
   },
 
-  
+
   _resetBody(obj) {
     if (!obj?.body) return;
     Phaser.Physics.Matter.Matter.Body.setVelocity(obj.body, { x: 0, y: 0 });
     Phaser.Physics.Matter.Matter.Body.setAngularVelocity(obj.body, 0);
   },
 
-  
-  
+
+
   onPointerDown(pointer) {
     const gameObjects = this._getPointerHits(pointer);
     if (!gameObjects.length) return;
@@ -66,10 +66,10 @@ window.BuildingManager = {
     for (const obj of gameObjects) {
       if (obj.isLevelObject) continue;
       if (obj.isBuilding || obj.buildingConfig) {
-        this.draggingBuilding      = obj;
-        obj.isDragging             = true;
-        obj._lastDragPos           = { x: pointer.x, y: pointer.y };
-        obj._cachedBounds          = obj.getBounds?.() ?? null;
+        this.draggingBuilding = obj;
+        obj.isDragging = true;
+        obj._lastDragPos = { x: pointer.x, y: pointer.y };
+        obj._cachedBounds = obj.getBounds?.() ?? null;
         this.setGhostMode(obj, true);
         obj.setDepth(1000);
         break;
@@ -77,8 +77,8 @@ window.BuildingManager = {
     }
   },
 
-  
-  
+
+
   onPointerMove(pointer) {
     if (!this.draggingBuilding?.isDragging) return;
 
@@ -98,18 +98,18 @@ window.BuildingManager = {
       this.draggingBuilding.y = pointer.y;
     }
 
-    this.draggingBuilding._lastDragPos   = { x: pointer.x, y: pointer.y };
-    this.draggingBuilding._cachedBounds  = this.draggingBuilding.getBounds?.() ?? null;
+    this.draggingBuilding._lastDragPos = { x: pointer.x, y: pointer.y };
+    this.draggingBuilding._cachedBounds = this.draggingBuilding.getBounds?.() ?? null;
   },
 
-  
-  
-  
+
+
+
   onPointerUp() {
     if (!this.draggingBuilding) return;
 
     const building = this.draggingBuilding;
-    const valid    = this.isPlacementValid(building);
+    const valid = this.isPlacementValid(building);
 
     this.setGhostMode(building, false);
 
@@ -136,11 +136,11 @@ window.BuildingManager = {
     this._finaliseDrop(building);
   },
 
-  
+
   _finaliseDrop(building) {
-    building.isDragging    = false;
+    building.isDragging = false;
     building.setDepth(0);
-    building._lastDragPos  = null;
+    building._lastDragPos = null;
     building._cachedBounds = null;
 
     if (building.body) {
@@ -152,28 +152,28 @@ window.BuildingManager = {
     this.draggingBuilding = null;
   },
 
-  
+
   _getPointerHits(pointer) {
     if (!this.placedBuildings?.length) return [];
     return this.scene.input.hitTestPointer(pointer, this.placedBuildings) || [];
   },
 
-  
-  
-  
+
+
+
   setGhostMode(building, enabled) {
     if (!building?.body) return;
     try {
       building.body.collisionFilter.mask = enabled ? 0 : -1;
-      building.body.ignoreGravity        = !!enabled;
+      building.body.ignoreGravity = !!enabled;
       if (enabled) this._resetBody(building);
     } catch (e) {
       window.logDebug?.('[BuildingManager.setGhostMode] update body failed', e);
     }
   },
 
-  
-  
+
+
   isPlacementValid(building) {
     if (!building?.body) return true;
 
@@ -191,16 +191,16 @@ window.BuildingManager = {
     });
   },
 
-  
-  
+
+
   _spawnAllInventoryControls() {
     const { ARENA_X, ARENA_Y, ARENA_H } = this.arena;
-    let   controlX       = ARENA_X + 38;         
-    const controlY       = ARENA_Y + ARENA_H - 65; 
-    const controlSpacing = 230;                    
+    let controlX = ARENA_X + 38;
+    const controlY = ARENA_Y + ARENA_H - 65;
+    const controlSpacing = 230;
 
-    const levelCfg   = window.LevelManager?.levelCfg;
-    const allowed    = levelCfg?.allowedBuildings ?? {};
+    const levelCfg = window.LevelManager?.levelCfg;
+    const allowed = levelCfg?.allowedBuildings ?? {};
     const typesToShow = Object.keys(allowed).filter(
       (type) => window.ObjectConfig.placeableTypes[type]
     );
@@ -211,8 +211,8 @@ window.BuildingManager = {
     });
   },
 
-  
-  
+
+
   _spawnInventoryButton(x, y, buildingType) {
     const cfg = window.ObjectConfig.placeableTypes[buildingType];
     if (!cfg) return null;
@@ -220,10 +220,10 @@ window.BuildingManager = {
     const bg = '#' + cfg.color.toString(16).padStart(6, '0');
 
     const label = this.scene.add.text(x, y, buildingType, {
-      fontSize:        '27px',
-      fill:            '#ffffff',
+      fontSize: '27px',
+      fill: '#ffffff',
       backgroundColor: bg,
-      padding:         { x: 19, y: 9 },
+      padding: { x: 19, y: 9 },
     });
 
     label.setInteractive({ useHandCursor: true });
@@ -233,7 +233,7 @@ window.BuildingManager = {
       const b = this._spawnBuilding(buildingType, x, y, { fromInventory: true });
       if (b) {
         this.draggingBuilding = b;
-        b.isDragging          = true;
+        b.isDragging = true;
         this.setGhostMode(b, true);
         b.setDepth(1000);
       }
@@ -242,8 +242,8 @@ window.BuildingManager = {
     return label;
   },
 
-  
-  
+
+
   _spawnBuilding(buildingType, x, y, options = {}) {
     const cfg = window.ObjectConfig.placeableTypes[buildingType];
     if (!cfg) return null;
@@ -264,8 +264,8 @@ window.BuildingManager = {
     return building;
   },
 
-  
-  
+
+
   destroyBuilding(building) {
     if (!building?.active) return;
 
@@ -278,9 +278,9 @@ window.BuildingManager = {
     if (i > -1) this.placedBuildings.splice(i, 1);
   },
 
-  
+
   getPlacedBuildings() { return this.placedBuildings; },
 
-  
+
   getBuildingCount(type) { return this.buildingCounts[type] || 0; },
 };

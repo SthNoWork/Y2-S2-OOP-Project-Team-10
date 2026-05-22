@@ -1,4 +1,4 @@
-window.DEBUG    = true;
+window.DEBUG    = false;
 window.logDebug = function (...args) {
   if (window.DEBUG) console.log(...args);
 };
@@ -23,7 +23,7 @@ const config = {
     default: 'matter',
     matter: {
       gravity: { y: 1 },
-      debug:   true,
+      debug:   false,
     },
   },
   scene: [
