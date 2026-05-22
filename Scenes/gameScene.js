@@ -1,8 +1,7 @@
-// ========================================
-// GAME SCENE
-// ========================================
+// gameScene.js
 // Thin orchestrator. All gameplay delegated to managers.
-// GameScene only owns: arena setup, physics bounds, resize, button wiring.
+// Phaser is configured at 1920×1080 with Scale.FIT — all coordinates live in
+// that fixed space. No resize handling or screen-ratio math needed here.
 
 class GameScene extends Phaser.Scene {
 
@@ -11,7 +10,6 @@ class GameScene extends Phaser.Scene {
     this.arena       = null;
     this.arenaBorder = null;
     this.player      = null;
-    this._levelNum   = 1;   // set by LevelSelectScene before starting
   }
 
   // ========================================
@@ -22,21 +20,21 @@ class GameScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#808080');
     window.UIFactory.addBackground(this, 'asset/background/1.jpg');
 
-    this.arena = this._buildArena(this.scale.width, this.scale.height);
+    this.arena = {
+      ARENA_X: 96,
+      ARENA_Y: 81,
+      ARENA_W: 1728,
+      ARENA_H: 972,
+    };
 
-    this.matter.world.setBounds(
-      this.arena.PHYSICS_X, this.arena.PHYSICS_Y,
-      this.arena.PHYSICS_W, this.arena.PHYSICS_H,
-      32
-    );
+    // Physics world is wider than the viewport so planes can enter and exit off-screen.
+    this.matter.world.setBounds(-1920, 0, 5760, 1080, 32);
 
     this._drawArenaBorder();
 
-    this.scale.on('resize',  this._onResize, this);
-
     // Load level — creates player, platforms, pre-placed buildings, HUD.
-    const levelNum  = window._currentLevel ?? 1;
-    this.player     = window.LevelManager.load(this, this.arena, levelNum);
+    const levelNum = window._currentLevel ?? 1;
+    this.player    = window.LevelManager.load(this, this.arena, levelNum);
 
     // BuildingManager still needs init for drag/inventory.
     window.BuildingManager.init(this, this.arena);
@@ -54,7 +52,10 @@ class GameScene extends Phaser.Scene {
 
   update(_time, delta) {
     window.GameLogic.update(delta);
-    window.LevelManager.update(delta);   // delta needed for between-wave countdown
+    window.LevelManager.update(delta);
+    const placed    = window.BuildingManager.getPlacedBuildings();
+    const prePlaced = window.LevelManager._prePlaced;
+    window.ObjectFactory.updateDebugLabels([...placed, ...prePlaced]);
   }
 
   // ========================================
@@ -63,21 +64,18 @@ class GameScene extends Phaser.Scene {
 
   _createActionButtons() {
     const { ARENA_X, ARENA_W, ARENA_Y } = this.arena;
-    const btnX   = ARENA_X + ARENA_W - window.Scale.screenScaleW(this, window.Scale.baseW * 0.01);
-    const btnY   = ARENA_Y + window.Scale.screenScaleH(this, window.Scale.baseH * 0.02);
-    const btnGap = window.Scale.screenScaleH(this, window.Scale.baseH * 0.055);
+    const btnX   = ARENA_X + ARENA_W - 19;  // right edge of arena minus small margin
+    const btnY   = ARENA_Y + 22;            // top of arena plus margin
+    const btnGap = 59;                       // vertical gap between buttons
 
-    // Start — fires the first wave and begins the auto sequence.
     window.UIFactory.createButton(this, btnX, btnY, 'Start', () => {
       window.LevelManager.startWave();
     });
 
-    // Reset — full scene reload, returns to placement phase.
     window.UIFactory.createButton(this, btnX, btnY + btnGap, 'Reset', () => {
       window.startScene('GameScene');
     });
 
-    // Debug — log placed objects (only in debug mode).
     if (window.DEBUG) {
       window.UIFactory.createButton(this, btnX, btnY + btnGap * 2, 'Debug', () => {
         const placed = window.BuildingManager.getPlacedBuildings();
@@ -106,42 +104,10 @@ class GameScene extends Phaser.Scene {
       this.arenaBorder = this.add.graphics();
     }
     if (!this.arena) return;
+    const { ARENA_X, ARENA_Y, ARENA_W, ARENA_H } = this.arena;
     this.arenaBorder
       .lineStyle(2, 0xffffff, 1)
-      .strokeRect(
-        this.arena.PHYSICS_X, this.arena.PHYSICS_Y,
-        this.arena.PHYSICS_W, this.arena.PHYSICS_H
-      );
-  }
-
-  // ========================================
-  // RESIZE
-  // ========================================
-
-  _onResize(gameSize) {
-    this.arena = this._buildArena(gameSize.width, gameSize.height);
-    this.matter.world.setBounds(
-      this.arena.PHYSICS_X, this.arena.PHYSICS_Y,
-      this.arena.PHYSICS_W, this.arena.PHYSICS_H,
-      32
-    );
-    this._drawArenaBorder();
-  }
-
-  // ========================================
-  // HELPERS
-  // ========================================
-
-  _buildArena(W, H) {
-    const ARENA_X   = W * 0.05;
-    const ARENA_Y   = H * 0.075;
-    const ARENA_W   = W * 0.9;
-    const ARENA_H   = H * 0.9;
-    const PHYSICS_X = -W;
-    const PHYSICS_Y = ARENA_Y;
-    const PHYSICS_W = 3 * W;
-    const PHYSICS_H = ARENA_H;
-    return { W, H, ARENA_X, ARENA_Y, ARENA_W, ARENA_H, PHYSICS_X, PHYSICS_Y, PHYSICS_W, PHYSICS_H };
+      .strokeRect(ARENA_X, ARENA_Y, ARENA_W, ARENA_H);
   }
 
 }

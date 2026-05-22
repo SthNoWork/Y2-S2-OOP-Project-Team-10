@@ -3,6 +3,12 @@
 // Reads sizing, visual, and physics config from objectConfig.js.
 // Does not track state — that belongs to BuildingManager and GameLogic.
 //
+// Object sizing pipeline:
+//   For sprites:  bodyW = frame.realWidth  × scale
+//                 bodyH = frame.realHeight × scale
+//   For circles:  radius = (min(texW, texH) / 2) × scale × radiusRatio
+//   For fallback: uses cfg.width / cfg.height in px (plain rectangles)
+//
 // Public API:
 //   ObjectFactory.createPlaceable(scene, type, x, y, arena, options) → game object
 //   ObjectFactory.createLevelObject(scene, type, x, y, arena)        → game object
@@ -11,11 +17,75 @@
 
 window.ObjectFactory = {};
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SIZE CALCULATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Computes physics body dimensions and sprite display scale from the texture
+// frame size and the per-object scale multiplier.
+//
+// For sprites (cfg.useImage = true):
+//   scaleX = scaleY = cfg.scale
+//   bodyW  = frame.realWidth  × scale
+//   bodyH  = frame.realHeight × scale
+//
+// For circles (cfg.physics.shape.type = 'circle'):
+//   radius = max(2, round(min(texW, texH) / 2 × scale × radiusRatio))
+//   bodyW = bodyH = radius × 2
+function _computeSize(scene, cfg) {
+  const scale = cfg.scale ?? 1;
+
+  if (cfg.useImage && cfg.imageKey) {
+    if (!scene.textures.exists(cfg.imageKey)) {
+      console.error(`[ObjectFactory._computeSize] texture "${cfg.imageKey}" not loaded`);
+      return null;
+    }
+
+    const frame = cfg.startFrame
+      ? scene.textures.getFrame(cfg.imageKey, cfg.startFrame)
+      : scene.textures.getFrame(cfg.imageKey);
+
+    if (!frame) {
+      console.error(`[ObjectFactory._computeSize] frame "${cfg.startFrame ?? '(base)'}" not found in texture "${cfg.imageKey}"`);
+      return null;
+    }
+
+    const texW = frame.realWidth  || frame.width;
+    const texH = frame.realHeight || frame.height;
+
+    if (!texW || !texH) {
+      console.error(`[ObjectFactory._computeSize] frame "${cfg.startFrame ?? '(base)'}" in "${cfg.imageKey}" has zero dimensions`);
+      return null;
+    }
+
+    if (cfg.physics?.shape?.type === 'circle') {
+      const inscribed   = Math.min(texW, texH) / 2;
+      const radiusRatio = cfg.physics.shape.radiusRatio ?? 1;
+      const radius      = Math.max(2, Math.round(inscribed * scale * radiusRatio));
+      return { bodyW: radius * 2, bodyH: radius * 2, scaleX: scale, scaleY: scale, radius };
+    }
+
+    return {
+      bodyW:  texW * scale,
+      bodyH:  texH * scale,
+      scaleX: scale,
+      scaleY: scale,
+    };
+  }
+
+  // Plain rectangle — uses explicit px dimensions from config.
+  if (cfg.width == null || cfg.height == null) {
+    console.error('[ObjectFactory._computeSize] cfg has no useImage and no explicit width/height', cfg);
+    return null;
+  }
+  return { bodyW: cfg.width, bodyH: cfg.height, scaleX: 1, scaleY: 1 };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VISUAL BUILDER
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Builds a Phaser image, sprite, or rectangle for an object.
-// Uses a sprite with an animation when cfg.animKey is set, an image when cfg.useImage
-// is true, and falls back to a coloured rectangle otherwise.
-// scaleX / scaleY are independent axis scales so widthRatio and heightRatio can
-// stretch the texture freely (e.g. 1:2 turns a square texture into a tall rectangle).
 function _buildVisual(scene, cfg, x, y, bodyW, bodyH, scaleX, scaleY) {
   if (cfg.useImage && cfg.imageKey && scene.textures.exists(cfg.imageKey)) {
     let obj;
@@ -33,25 +103,16 @@ function _buildVisual(scene, cfg, x, y, bodyW, bodyH, scaleX, scaleY) {
   return scene.add.rectangle(x, y, bodyW, bodyH, cfg.color);
 }
 
-// Delegates to SizeCalculator.computeSize — see sizeCalculator.js for full docs.
-// Kept as a thin wrapper so call sites inside this file stay concise.
-function _computeSize(scene, cfg, arena) {
-  return window.SizeCalculator.computeSize(scene, cfg, arena);
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// PHYSICS
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Attaches a Matter.js physics body to obj using the options in cfg.physics.
-// Supports rectangle and circle body shapes. Sets mass and collision filter
-// if those fields are present in the config.
-// dims is the result of SizeCalculator.computeSize — for circles it already
-// contains the pre-computed radius so we don't redo the inscribed-circle math.
 function _addPhysics(scene, obj, cfg, bodyW, bodyH, dims) {
   const p = cfg.physics;
   let shape = { type: 'rectangle', width: Math.ceil(bodyW), height: Math.ceil(bodyH) };
 
   if (p?.shape?.type === 'circle') {
-    // Use the radius already computed by SizeCalculator (inscribed circle ×
-    // resolution ratio × scale × radiusRatio). Fall back to a simple inscribed
-    // circle if dims weren't passed for some reason.
     const radius = dims?.radius ?? Math.max(2, Math.round(Math.min(bodyW, bodyH) * 0.5));
     shape = { type: 'circle', radius };
   }
@@ -77,9 +138,11 @@ function _addPhysics(scene, obj, cfg, bodyW, bodyH, dims) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// HEALTH
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Adds health, maxHealth, and a takeDamage(amount) method to obj.
-// takeDamage returns true when health drops to zero (signals death to the caller).
-// If cfg.onDeath is 'explode' and cfg.blast exists, the secondary blast fires on death.
 function _addHealth(obj, cfg) {
   obj.health    = cfg.health;
   obj.maxHealth = cfg.health;
@@ -87,50 +150,151 @@ function _addHealth(obj, cfg) {
   obj.takeDamage = function (amount) {
     if (!this.active) return false;
     this.health -= amount;
+
+    if (this._hpLabel?.active) {
+      if (this.health > 0) {
+        this._hpLabel.setText(`HP:${Math.max(0, Math.round(this.health))}`);
+        this._hpLabel.x = this.x;
+        this._hpLabel.y = this.y - (this.displayHeight ?? 0) * 0.5;
+      } else {
+        this._hpLabel.destroy();
+        this._hpLabel = null;
+      }
+    }
+
     if (this.health > 0) return false;
-    if (cfg.onDeath === 'explode' && cfg.blast) _triggerBlast(this, cfg.blast);
     return true;
   }.bind(obj);
 }
 
-// Delegates to SizeCalculator.explosionRadius — see sizeCalculator.js for full docs.
-// Kept as a named function so the public export below and _triggerBlast can reference it.
-function _explosionFrameRadius(scene, arena, blastScale) {
-  return window.SizeCalculator.explosionRadius(scene, arena, blastScale);
-}
+// Repositions and syncs a debug HP label above its owner each frame.
+function _updateHpLabel(obj) {
+  if (!obj?.active) return;
 
-// Public export — GameLogic._blastRadiusPx delegates here so every blast
-// (bomb impact, chain explosion) uses the identical sizing pipeline.
-window.ObjectFactory.explosionFrameRadius = _explosionFrameRadius;
-
-// Fires a secondary blast centred on obj using the blast sub-config.
-// Radius is driven by the explosion sprite frame so visual and damage always match.
-// Force is still scaled to arena width via forceRatio (or a raw value fallback).
-function _triggerBlast(obj, blastCfg) {
-  if (!obj.scene || !obj.active) return;
-  const arena  = window.GameLogic?.arena;
-  const radius = _explosionFrameRadius(obj.scene, arena, blastCfg.radiusRatio ?? 1);
-  const force  = arena
-    ? (blastCfg.forceRatio != null ? arena.ARENA_W * blastCfg.forceRatio : blastCfg.force)
-    : blastCfg.force;
-  try {
-    window.GameLogic._createBlastRadius(obj.x, obj.y, radius, force, blastCfg.maxDamage);
-  } catch (e) {
-    console.warn('onDeath explode error:', e);
+  if (!window.DEBUG) {
+    if (obj._hpLabel?.active) {
+      obj._hpLabel.destroy();
+      obj._hpLabel = null;
+    }
+    return;
   }
+
+  if (!obj._hpLabel?.active) {
+    if (!obj.scene) return;
+    const label = obj.scene.add.text(obj.x, obj.y, `HP:${Math.max(0, Math.round(obj.health))}`, {
+      fontSize:        '18px',
+      fill:            '#ffffff',
+      backgroundColor: '#000000',
+      padding:         { x: 3, y: 2 },
+    });
+    label.setOrigin(0.5, 1);
+    label.setDepth(3000);
+    obj._hpLabel = label;
+  }
+
+  obj._hpLabel.x = obj.x;
+  obj._hpLabel.y = obj.y - (obj.displayHeight ?? 0) * 0.5;
+  obj._hpLabel.setText(`HP:${Math.max(0, Math.round(obj.health))}`);
 }
 
-// Creates a player-draggable building and registers it with GameLogic.
-// Marks the object with isBuilding, buildingType, and drag-related flags
-// so BuildingManager can pick it up and move it.
-window.ObjectFactory.createPlaceable = function (scene, type, x, y, arena, options = {}) {
-  const cfg = window.ObjectConfig.placeableTypes[type];
-  if (!cfg) {
-    console.warn(`ObjectFactory.createPlaceable: unknown placeable type "${type}"`);
+// Updates all debug HP labels for a list of objects each frame.
+window.ObjectFactory.updateDebugLabels = function (objects) {
+  for (const obj of objects) _updateHpLabel(obj);
+};
+
+// Destroys the HP label attached to an object, if any.
+window.ObjectFactory.destroyDebugLabel = function (obj) {
+  if (obj?._hpLabel?.active) {
+    obj._hpLabel.destroy();
+    obj._hpLabel = null;
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EXPLOSION RADIUS
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Returns the blast radius in px for an explosion effect.
+//
+// Pipeline:
+//   1. Scan every frame of the animation for the largest raw dimension (maxRawDim).
+//   2. displayScale = explosionCfg.scale
+//   3. renderedRadius = (maxRawDim × displayScale) / 2
+//   4. blastRadius    = renderedRadius × explosionCfg.blastScale
+//
+// Returns null if the animation or texture isn't available.
+function _explosionFrameRadius(scene, _unused, explosionCfg) {
+  if (!explosionCfg?.animKey) {
+    console.error('[ObjectFactory._explosionFrameRadius] explosionCfg.animKey is required');
+    return null;
+  }
+  const animKey = explosionCfg.animKey;
+  if (!scene.anims.exists(animKey)) {
+    console.error(`[ObjectFactory._explosionFrameRadius] animation "${animKey}" does not exist`);
     return null;
   }
 
-  const dims = _computeSize(scene, cfg, arena);
+  const anim = scene.anims.get(animKey);
+  let maxRawDim = 0;
+  for (const f of anim.frames) {
+    const w = f.frame.realWidth  || f.frame.width  || 0;
+    const h = f.frame.realHeight || f.frame.height || 0;
+    maxRawDim = Math.max(maxRawDim, w, h);
+  }
+
+  if (maxRawDim === 0) {
+    console.error(`[ObjectFactory._explosionFrameRadius] all frames in "${animKey}" have zero dimensions`);
+    return null;
+  }
+
+  const displayScale   = explosionCfg.scale ?? 1;
+  const renderedRadius = (maxRawDim * displayScale) / 2;
+  return renderedRadius * (explosionCfg.blastScale ?? 1);
+}
+
+// Public export — GameLogic._blastRadiusPx delegates here.
+window.ObjectFactory.explosionFrameRadius = _explosionFrameRadius;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CHAIN EXPLOSION (onDeath: 'explode')
+// ─────────────────────────────────────────────────────────────────────────────
+
+function _triggerBlast(obj, blastCfg) {
+  if (!obj.scene || !obj.active) return;
+
+  if (!blastCfg?.animKey) {
+    console.error('[ObjectFactory._triggerBlast] blastCfg.animKey is required — blast suppressed');
+    return;
+  }
+
+  const radius = _explosionFrameRadius(obj.scene, null, blastCfg);
+  if (radius === null) {
+    console.error('[ObjectFactory._triggerBlast] could not compute blast radius — blast suppressed', blastCfg);
+    return;
+  }
+
+  try {
+    window.GameLogic._createBlastRadius(obj.x, obj.y, radius, blastCfg.blastForce, blastCfg.maxDamage, blastCfg);
+  } catch (e) {
+    console.warn('[ObjectFactory._triggerBlast] _createBlastRadius failed:', e);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PUBLIC CREATE / DESTROY
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Creates a player-draggable building and registers it with GameLogic.
+window.ObjectFactory.createPlaceable = function (scene, type, x, y, arena, options = {}) {
+  const cfg = window.ObjectConfig.placeableTypes[type];
+  if (!cfg) {
+    console.error(`ObjectFactory.createPlaceable: unknown placeable type "${type}"`);
+    return null;
+  }
+
+  const dims = _computeSize(scene, cfg);
+  if (!dims) return null;
+
   const { bodyW, bodyH, scaleX, scaleY } = dims;
   const obj = _buildVisual(scene, cfg, x, y, bodyW, bodyH, scaleX, scaleY);
   obj._bodyW = bodyW;
@@ -156,16 +320,16 @@ window.ObjectFactory.createPlaceable = function (scene, type, x, y, arena, optio
 };
 
 // Creates a level-designer object (e.g. bomb_crate) and registers it with GameLogic.
-// Sets isLevelObject = true so BuildingManager ignores it on pointer events.
-// Never registered with BuildingManager's count or drag system.
 window.ObjectFactory.createLevelObject = function (scene, type, x, y, arena) {
   const cfg = window.ObjectConfig.levelTypes[type];
   if (!cfg) {
-    console.warn(`ObjectFactory.createLevelObject: unknown level type "${type}"`);
+    console.error(`ObjectFactory.createLevelObject: unknown level type "${type}"`);
     return null;
   }
 
-  const dims = _computeSize(scene, cfg, arena);
+  const dims = _computeSize(scene, cfg);
+  if (!dims) return null;
+
   const { bodyW, bodyH, scaleX, scaleY } = dims;
   const obj = _buildVisual(scene, cfg, x, y, bodyW, bodyH, scaleX, scaleY);
   obj._bodyW = bodyW;
@@ -183,19 +347,19 @@ window.ObjectFactory.createLevelObject = function (scene, type, x, y, arena) {
 };
 
 // Creates an engine-internal object: 'bomb', 'plane', or 'player'.
-// Bombs are tagged with isBomb = true for collision filtering.
-// Accepts an optional spawnLocation override in options.
 window.ObjectFactory.createInternal = function (scene, type, x, y, arena, options = {}) {
   const cfg = window.ObjectConfig.internalTypes[type];
   if (!cfg) {
-    console.warn(`ObjectFactory.createInternal: unknown internal type "${type}"`);
+    console.error(`ObjectFactory.createInternal: unknown internal type "${type}"`);
     return null;
   }
 
   const spawnX = options.spawnLocation ? options.spawnLocation.x : x;
   const spawnY = options.spawnLocation ? options.spawnLocation.y : y;
 
-  const dims = _computeSize(scene, cfg, arena);
+  const dims = _computeSize(scene, cfg);
+  if (!dims) return null;
+
   const { bodyW, bodyH, scaleX, scaleY } = dims;
   const obj = _buildVisual(scene, cfg, spawnX, spawnY, bodyW, bodyH, scaleX, scaleY);
   obj._bodyW = bodyW;
@@ -210,10 +374,10 @@ window.ObjectFactory.createInternal = function (scene, type, x, y, arena, option
   return obj;
 };
 
-// Destroys a game object safely, catching any Phaser errors that occur if the
-// object has already been removed from the scene.
+// Destroys a game object safely, cleaning up its debug HP label first.
 window.ObjectFactory.destroy = function (obj) {
   if (!obj?.active) return;
+  window.ObjectFactory.destroyDebugLabel(obj);
   try { obj.destroy(); } catch (e) {
     window.logDebug?.('[ObjectFactory.destroy] destroy failed', e);
   }

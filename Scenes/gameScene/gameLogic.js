@@ -6,6 +6,8 @@
 //
 // Player health lives on the player object itself (set by ObjectFactory
 // via cfg.health). GameLogic reads and mutates player.health directly.
+//
+// All fixed px values are authored at 1920×1080 — Phaser Scale.FIT handles display scaling.
 
 window.GameLogic = {
 
@@ -20,6 +22,20 @@ window.GameLogic = {
 
   // Live bomb list, pruned each frame.
   _activeBombs: [],
+
+  // Cascading chain-explosion wave queue.
+  //
+  // When a crate dies, its blast is pushed here instead of firing immediately.
+  // Each frame, _flushExplosionWave() snapshots the queue, clears it, then fires
+  // every blast in the snapshot.  Those blasts may kill more crates, whose blasts
+  // land in the (now-empty) queue.  Next frame the same thing repeats until the
+  // queue stays empty — meaning the full chain has resolved.
+  //
+  // One frame of separation between each wave guarantees Matter.js has fully
+  // removed the previous wave's bodies before the next blast queries the world.
+  //
+  // Entry shape: { x, y, radius, force, maxDamage, explosionCfg }
+  _explosionWaveQueue: [],
 
   // Set to true by _endGame(); checked by LevelManager to trigger overlays.
   gameOver: false,
@@ -36,10 +52,11 @@ window.GameLogic = {
     this.scene        = scene;
     this.player       = player;
     this.arena        = arena;
-    this.buildings    = [];
-    this._run         = null;
-    this._activeBombs = [];
-    this.gameOver     = false;
+    this.buildings           = [];
+    this._run                = null;
+    this._activeBombs        = [];
+    this._explosionWaveQueue = [];
+    this.gameOver            = false;
 
     const maxHp = window.ObjectConfig.internalTypes?.player?.health ?? 100;
     if (this.player) this.player.health = maxHp;
@@ -51,11 +68,9 @@ window.GameLogic = {
   },
 
   // Spawns a plane and begins a bombing run.
-  // Applies a vertical spawn offset from config, flips the plane sprite for
-  // right-to-left passes, and attaches a separate blade sprite on top.
   startBombingRun(velocityPxPerSec, spawnLocation, direction) {
     const planeCfg     = window.ObjectConfig.internalTypes.plane;
-    const spawnOffsetY = this.arena.ARENA_H * (planeCfg.spawnYOffsetRatio ?? 0);
+    const spawnOffsetY = planeCfg.spawnYOffsetY ?? 0;
     const spawn = spawnLocation
       ? { x: spawnLocation.x, y: spawnLocation.y + spawnOffsetY }
       : { x: 0, y: spawnOffsetY };
@@ -68,6 +83,8 @@ window.GameLogic = {
     const plane = window.ObjectFactory.createInternal(
       this.scene, 'plane', 0, 0, this.arena, { spawnLocation: spawn }
     );
+    if (!plane) return;
+
     if (plane?.setFlipX) plane.setFlipX(direction > 0);
 
     const blade = this.scene.add.sprite(plane.x, plane.y, 'plane_atlas', 'row04_01');
@@ -87,38 +104,41 @@ window.GameLogic = {
       planeVelocity:    { x: velocityPxPerSec * direction, y: 0 },
       spawnAccumulator: 0,
       nextBombDelay:    range.min + Math.random() * Math.max(0, range.max - range.min),
-      bombOffsetY:      this.arena.ARENA_H * (planeCfg.bombDropYOffsetRatio ?? 0.04),
-      endX:             direction > 0 ? this.arena.W * 2 : -this.arena.W,
+      bombOffsetY:      planeCfg.bombDropYOffsetY ?? 39,
+      endX:             direction > 0 ? 3840 : -1920,
     };
   },
 
-  // Called every frame by GameScene. Advances the plane and cleans up spent bombs.
+  // Called every frame by GameScene.
   update(delta) {
     const dt = delta / 1000;
+    // Fire the next wave of chain explosions (if any).  One wave per frame keeps
+    // the physics world clean between each blast — no stale body reads.
+    this._flushExplosionWave();
     this._updatePlane(dt);
     this._updateBombs();
   },
 
-  // Returns bomb blast radius in pixels.
-  // Delegates to ObjectFactory.explosionFrameRadius so bomb impacts and chain
-  // explosions share the exact same sizing pipeline:
-  //   explosion first-frame inscribed circle × blastScale × arena/device ratio.
-  // Uses bombCfg.blastRadiusRatio to tune the bomb's blast size.
+  // Returns bomb blast radius in px, derived from the explosion config embedded in bombCfg.
+  // bombCfg.explosion holds animKey, scale, blastScale.
+  // Returns null on failure — callers must check before using.
   _blastRadiusPx(bombCfg) {
+    if (!bombCfg?.explosion) {
+      console.error('[GameLogic._blastRadiusPx] bombCfg.explosion is not defined');
+      return null;
+    }
     return window.ObjectFactory.explosionFrameRadius(
-      this.scene, this.arena, bombCfg.blastRadiusRatio ?? 1
+      this.scene, null, bombCfg.explosion
     );
   },
 
-  // Converts blastForceRatio (or a raw blastForce fallback) to a pixel-space force value.
+  // Returns the raw blast force for a bomb.
   _blastForcePx(bombCfg) {
-    if (bombCfg.blastForceRatio != null) return this.arena.ARENA_W * bombCfg.blastForceRatio;
-    return bombCfg.blastForce ?? 0;
+    return bombCfg.blastForce;
   },
 
-  // Moves the plane, tracks its instantaneous velocity for bomb inherit-velocity,
-  // accumulates time toward the next bomb drop, and destroys the plane once it
-  // has crossed the far edge of the arena.
+  // Moves the plane, accumulates time toward the next bomb drop, and destroys
+  // the plane once it has crossed the far edge of the arena.
   _updatePlane(dt) {
     if (!this._run?.plane?.active) return;
 
@@ -159,8 +179,7 @@ window.GameLogic = {
     }
   },
 
-  // Spawns a bomb beneath the plane with a random horizontal offset and
-  // an initial downward velocity derived from the plane's current speed.
+  // Spawns a bomb beneath the plane with a random horizontal offset.
   _spawnBomb() {
     if (!this._run?.plane?.active) return;
 
@@ -168,26 +187,25 @@ window.GameLogic = {
     const planeCfg    = window.ObjectConfig.internalTypes.plane;
     const offsetRange = planeCfg.bombDropOffsetRatioRange;
 
-    // Use the plane's actual rendered half-width so the bomb always spawns
-    // within the visible sprite, regardless of texture size or scale.
     const planeHalfW = plane.displayWidth  * 0.5;
     const planeHalfH = plane.displayHeight * 0.5;
     const offsetX    = (offsetRange.min + Math.random() * Math.max(0, offsetRange.max - offsetRange.min)) * planeHalfW;
 
-    // Create bomb just below the plane's bottom edge.
     const bomb = window.ObjectFactory.createInternal(
       this.scene, 'bomb', plane.x + offsetX, plane.y + planeHalfH, this.arena
     );
+    if (!bomb) return;
 
-    // Push bomb down by its own half-height so it starts fully below the plane.
     const bombHalfH = bomb.displayHeight * 0.5;
     bomb.y = plane.y + planeHalfH + bombHalfH;
 
     if (bomb?.setFlipX) bomb.setFlipX(this._run.direction < 0);
 
     const matterStepRate = 60;
-    const minSpeed       = window.Scale.arenaScaleW(this.arena, 120);
-    const speed          = Math.max(minSpeed, Math.abs(planeVelocity.x));
+    const speed          = Math.abs(planeVelocity.x);
+    if (speed === 0) {
+      console.warn('[GameLogic._spawnBomb] plane velocity is zero — bomb will drop straight down with no speed');
+    }
 
     Phaser.Physics.Matter.Matter.Body.setVelocity(bomb.body, {
       x: 0,
@@ -197,9 +215,7 @@ window.GameLogic = {
     this._activeBombs.push(bomb);
   },
 
-  // Checks every live bomb each frame.
-  // Bombs that have fallen off the bottom of the arena or are no longer active
-  // trigger a ground-level blast and are then cleaned up.
+  // Checks every live bomb each frame and triggers a blast when one hits the ground.
   _updateBombs() {
     if (!this._activeBombs.length) return;
 
@@ -211,9 +227,15 @@ window.GameLogic = {
 
       if (!bomb.active || bomb.y >= bottom) {
         if (bomb.active) {
-          const radius = this._blastRadiusPx(bombCfg);
-          const force  = this._blastForcePx(bombCfg);
-          try { this._createBlastRadius(bomb.x, bomb.y, radius, force); } catch (e) {
+          const radius  = this._blastRadiusPx(bombCfg);
+          if (radius === null) {
+            console.error('[GameLogic._updateBombs] blast radius is null — blast suppressed for ground-hit bomb');
+            try { bomb.destroy(); } catch (e) { /* ignore */ }
+            this._activeBombs.splice(i, 1);
+            continue;
+          }
+          const force = this._blastForcePx(bombCfg);
+          try { this._createBlastRadius(bomb.x, bomb.y, radius, force, undefined, bombCfg.explosion); } catch (e) {
             window.logDebug?.('[GameLogic._updateBombs] blast failed', e);
           }
           try { bomb.destroy(); } catch (e) {
@@ -226,8 +248,6 @@ window.GameLogic = {
   },
 
   // Matter.js collisionstart handler.
-  // Identifies bomb-involved pairs, applies direct-hit damage to whatever the
-  // bomb struck, fires a blast radius, then destroys the bomb.
   _handleCollision(bodyA, bodyB) {
     if (!bodyA || !bodyB) return;
 
@@ -240,72 +260,77 @@ window.GameLogic = {
     const bombGO = bombBody.gameObject;
     if (!bombGO?.active) return;
 
-    const bombCfg   = window.ObjectConfig.internalTypes.bomb;
-    const minRadius = window.Scale.arenaScaleW(this.arena, 40);
-    const radius    = Math.max(minRadius, this._blastRadiusPx(bombCfg));
-    const force     = this._blastForcePx(bombCfg) || 50;
-    const directDmg = bombCfg.directHitDamage || 50;
+    const bombCfg = window.ObjectConfig.internalTypes.bomb;
+    if (!bombCfg?.explosion?.animKey) {
+      console.error('[GameLogic._handleCollision] bombCfg.explosion.animKey is not set — blast suppressed');
+      try { bombGO.destroy(); } catch (e) { /* ignore */ }
+      return;
+    }
+    const radius  = this._blastRadiusPx(bombCfg);
+    if (radius === null) {
+      console.error('[GameLogic._handleCollision] blast radius is null — blast suppressed for collision bomb');
+      try { bombGO.destroy(); } catch (e) { /* ignore */ }
+      return;
+    }
+
+    const force = this._blastForcePx(bombCfg);
 
     const otherGO = otherBody?.gameObject;
     window.logDebug?.('[GameLogic._handleCollision] bomb hit', {
       otherLabel: otherBody.label,
       otherType:  otherGO?.buildingType ?? otherGO?.objectType ?? 'unknown',
       isPlayer:   otherGO === this.player,
-      directDmg,
     });
 
-    if (otherGO) {
-      if (otherGO === this.player) {
-        this._damagePlayer(directDmg);
-      } else if (typeof otherGO.takeDamage === 'function') {
-        const died = otherGO.takeDamage(directDmg);
-        if (died) this._onBuildingDied(otherGO);
-      }
-    }
-
-    this._createBlastRadius(bombGO.x, bombGO.y, radius, force);
+    this._createBlastRadius(bombGO.x, bombGO.y, radius, force, undefined, bombCfg.explosion);
     try { bombGO.destroy(); } catch (e) {
       window.logDebug?.('[GameLogic._handleCollision] bomb destroy failed', e);
     }
   },
 
-  // Creates an expanding circle visual then queries Matter for all bodies within
-  // the blast rectangle. Applies scaled knockback and damage to each body based
-  // on its distance from the blast centre (falloff = inverse-square).
-  _createBlastRadius(x, y, radius, force, maxDamageOverride) {
-    // Spawn explosion sprite and scale it so its half-width matches the blast radius.
-    // The actual rendered size then drives all damage/knockback calculations,
-    // so visual and physics are always in sync.
-    const explosion = this.scene.add.sprite(x, y, 'explosion_atlas', 'explosion6');
+  // Creates an expanding circle visual and applies blast damage/knockback to all
+  // bodies within the radius.
+  //
+  // explosionCfg is the .explosion sub-object from the bomb/blast config.
+  // It carries animKey, imageKey, scale, blastScale.
+  // Sprite scale is derived from the same formula as _explosionFrameRadius so
+  // the visual and the damage zone are always in sync.
+  _createBlastRadius(x, y, radius, force, maxDamageOverride, explosionCfg) {
+    if (radius == null || radius <= 0) {
+      console.error(`[GameLogic._createBlastRadius] invalid radius (${radius}) — blast suppressed`);
+      return;
+    }
+
+    const animKey    = explosionCfg.animKey;
+    const anim       = this.scene.anims.get(animKey);
+    const firstFrame = anim.frames[0].frame;
+    const atlasKey   = firstFrame.textureKey;
+    const frameKey   = firstFrame.name;
+
+    const explosion = this.scene.add.sprite(x, y, atlasKey, frameKey);
     explosion.setDepth(100);
 
-    const frame  = this.scene.textures.getFrame('explosion_atlas', 'explosion6');
-    const frameW = frame?.cutWidth || 189;
-    
-    // Scale the explosion so its radius matches the calculated blast radius.
-    // Display width becomes radius * 2 to cover the full circle diameter.
-    explosion.setScale((radius * 2) / frameW);
-
-    // Capture the radius BEFORE the animation starts so it uses explosion6 width!
-    const actualRadius = explosion.displayWidth * 0.5;
-    
-    window.SpriteFactory.playAnimation(explosion, 'explosion');
-
-    if (window.DEBUG) {
-      console.log(`%c💣 [Blast Debug]`, 'color: #ff5500; font-weight: bold; font-size: 14px;');
-      console.log(`   Expected Radius (from config math): ${radius}`);
-      console.log(`   Final Hitbox Radius:                ${actualRadius}`);
-      console.log(`   Final Width/Diameter:               ${actualRadius * 2}`);
-      console.log(`   Applied Force:                      ${force}`);
+    // displayScale must exactly match the formula in ObjectFactory._explosionFrameRadius.
+    let maxRawDim = 0;
+    for (const f of anim.frames) {
+      const w = f.frame.realWidth  || f.frame.width  || 0;
+      const h = f.frame.realHeight || f.frame.height || 0;
+      maxRawDim = Math.max(maxRawDim, w, h);
     }
-    
-    // Debug overlay: draw a red circle showing the exact damage boundary.
-    // Destroyed after the explosion animation finishes (~600 ms at 32 fps × 17 frames).
-    // Only rendered when window.DEBUG is true; zero cost in production.
+
+    if (maxRawDim === 0) {
+      console.error(`[GameLogic._createBlastRadius] animation "${animKey}" has zero-dimension frames`);
+    } else {
+      const displayScale = explosionCfg.scale ?? 1;
+      explosion.setScale(displayScale);
+    }
+
+    window.SpriteFactory.playAnimation(explosion, animKey);
+
     if (window.DEBUG) {
       const g = this.scene.add.graphics();
       g.lineStyle(2, 0xff0000, 1);
-      g.strokeCircle(x, y, actualRadius);
+      g.strokeCircle(x, y, radius);
       g.setDepth(500);
       this.scene.time.delayedCall(600, () => { if (g.active) g.destroy(); });
     }
@@ -313,25 +338,29 @@ window.GameLogic = {
     const bombCfg     = window.ObjectConfig.internalTypes.bomb;
     const blastMaxDmg = maxDamageOverride !== undefined
       ? maxDamageOverride
-      : (bombCfg.blastMaxDamage || 50);
+      : bombCfg.blastMaxDamage;
 
-    // Broad-phase rect query, then filter to circle using centre distance.
     const bodies = this.scene.matter.intersectRect(
-      x - actualRadius, y - actualRadius,
-      actualRadius * 2,  actualRadius * 2
+      x - radius, y - radius,
+      radius * 2,  radius * 2
     ) || [];
 
     bodies.forEach((body) => {
       const obj = body.gameObject;
       if (!obj || obj.isBomb || body.label === 'bomb') return;
 
-      // Reject bodies whose centre lies outside the circle.
+      // Skip objects already in the process of being destroyed (e.g. chain-exploding crates).
+      if (obj._dying || !obj.active) return;
+
+      // Guard: body may have been removed from the physics world mid-blast.
+      if (!body.position) return;
+
       const dx   = body.position.x - x;
       const dy   = body.position.y - y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist > actualRadius) return;
+      if (dist > radius) return;
 
-      const falloff = this._applyKnockback(body, x, y, force, actualRadius);
+      const falloff = this._applyKnockback(body, x, y, force, radius);
       if (falloff <= 0) return;
 
       const damage = Math.round(blastMaxDmg * falloff);
@@ -347,18 +376,14 @@ window.GameLogic = {
     });
   },
 
-  // Applies an outward velocity impulse to a non-static body proportional to
-  // blast force and inverse-square distance falloff. Returns the falloff value
-  // so the caller can scale damage by the same factor.
-  //
-  // Uses Matter.Body.setVelocity + body.velocity directly rather than
-  // Phaser's obj.getVelocity / obj.setVelocity wrappers, because Phaser's
-  // matter.add.gameObject mixin only adds setVelocity — getVelocity is absent
-  // on most game objects, which previously caused this method to always return 0
-  // (blocking all blast damage).
+  // Applies an outward velocity impulse proportional to blast force and distance falloff.
+  // Returns the falloff value so the caller can scale damage by the same factor.
   _applyKnockback(body, bx, by, blastForce, radius) {
     const obj = body.gameObject;
     if (!obj || body.isStatic || obj.isBomb || body.label === 'bomb') return 0;
+
+    // Guard: body may have been removed mid-blast.
+    if (!body.position) return 0;
 
     const dx   = body.position.x - bx;
     const dy   = body.position.y - by;
@@ -366,13 +391,12 @@ window.GameLogic = {
 
     if (dist >= radius || dist <= 0) return 0;
 
-    const falloff = (1 - dist / radius) ** 2;
+    const falloff = 1 - (dist / radius);
     const mass    = body.mass || 1;
     const deltaV  = (blastForce * falloff) / mass;
     const nx      = dx / dist;
     const ny      = dy / dist;
 
-    // body.velocity is always present on a Matter body; no Phaser wrapper needed.
     const cv = body.velocity;
     Phaser.Physics.Matter.Matter.Body.setVelocity(body, {
       x: cv.x + nx * deltaV,
@@ -390,20 +414,84 @@ window.GameLogic = {
   },
 
   // Called when a building's takeDamage() signals death.
-  // Delegates cleanup to BuildingManager and removes the building from the
-  // local tracking list.
+  //
+  // Order of operations — important for chain safety:
+  //   1. Capture position and blast config from the live object.
+  //   2. Mark _dying so no in-progress blast query can pick it up again.
+  //   3. Destroy the game object immediately — physics body leaves the world now.
+  //   4. Push its explosion into _explosionWaveQueue if it chain-blasts.
+  //      The blast fires on the NEXT frame via _flushExplosionWave(), by which
+  //      time Matter.js has fully settled and removed this body.
   _onBuildingDied(obj) {
     window.logDebug?.('[GameLogic._onBuildingDied] building died', {
-      type:    obj.buildingType,
-      health:  obj.health,
-      x:       Math.round(obj.x),
-      y:       Math.round(obj.y),
+      type:     obj.buildingType,
+      health:   obj.health,
+      x:        Math.round(obj.x),
+      y:        Math.round(obj.y),
       isLocked: obj.isLocked,
     });
+
+    // 1. Capture before destruction.
+    const savedX         = obj.x;
+    const savedY         = obj.y;
+    const cfg            = obj.buildingConfig;
+    const willChainBlast = cfg?.onDeath === 'explode' && cfg?.blast;
+
+    // 2. Mark dying so concurrent blast queries skip it.
+    obj._dying = true;
+
+    // 3. Destroy immediately — body is removed from Matter.js world here.
     try { window.BuildingManager.destroyBuilding(obj); } catch (e) {
       window.logDebug?.('[GameLogic._onBuildingDied] destroy failed', e);
     }
     this.buildings = this.buildings.filter((b) => b !== obj);
+
+    // 4. Enqueue chain explosion for the next frame's wave flush.
+    if (willChainBlast && this.scene) {
+      const blastCfg = cfg.blast;
+      const radius   = window.ObjectFactory.explosionFrameRadius(
+        this.scene, null, blastCfg
+      );
+      if (radius !== null) {
+        this._explosionWaveQueue.push({
+          x:            savedX,
+          y:            savedY,
+          radius,
+          force:        blastCfg.blastForce ?? blastCfg.force ?? 0,
+          maxDamage:    blastCfg.maxDamage,
+          explosionCfg: blastCfg,
+        });
+      }
+    }
+  },
+
+  // Processes one wave of chain explosions per frame.
+  //
+  // Wave model:
+  //   Frame N   — bomb lands, damages crate A → A dies → A's blast pushed to queue
+  //   Frame N+1 — _flushExplosionWave snapshots queue ([A]), clears it, fires A's blast
+  //               → A's blast kills crate B → B dies → B's blast pushed to (now-empty) queue
+  //   Frame N+2 — snapshots [B], clears, fires B's blast → nothing new dies → queue stays empty
+  //   Frame N+3 — queue empty, chain fully resolved, nothing fires
+  //
+  // Snapshotting before iterating is the key: any new entries pushed by _onBuildingDied
+  // during this pass land in the freshly-cleared queue and are held for the next frame,
+  // never processed in the same pass as the blast that caused them.
+  _flushExplosionWave() {
+    if (!this._explosionWaveQueue.length) return;
+
+    const wave = this._explosionWaveQueue;  // grab reference to current wave
+    this._explosionWaveQueue = [];          // new entries from THIS wave land here, fired next frame
+
+    for (const exp of wave) {
+      try {
+        this._createBlastRadius(
+          exp.x, exp.y, exp.radius, exp.force, exp.maxDamage, exp.explosionCfg
+        );
+      } catch (e) {
+        window.logDebug?.('[GameLogic._flushExplosionWave] blast failed', e);
+      }
+    }
   },
 
   // Registers a building so blast queries can find and damage it.
@@ -413,7 +501,6 @@ window.GameLogic = {
   },
 
   // Sets the gameOver flag and logs the result.
-  // won = true means level cleared; won = false means the player died.
   _endGame(won) {
     if (this.gameOver) return;
     this.gameOver = true;

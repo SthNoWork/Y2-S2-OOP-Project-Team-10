@@ -4,7 +4,7 @@
 // for placeables (player-draggable), level objects (designer-placed), and
 // internal objects (plane, bomb, player — spawned by the engine).
 //
-// Size ratios are fractions of ARENA_W / ARENA_H unless noted.
+// Sizing: scale multiplies the sprite's native texture frame dimensions.
 // Physics values feed directly into Matter.js body options.
 
 window.ObjectConfig = {
@@ -13,13 +13,11 @@ window.ObjectConfig = {
   placeableTypes: {
 
     shortPlank: {
-      widthRatio:  1,
-      heightRatio: 1,
-      scale:       10,
-      color:       0x8b4513,
-      useImage:    true,
-      imageKey:    'block_atlas',
-      startFrame:  'brownwood',
+      scale:    10,
+      color:    0x8b4513,
+      useImage: true,
+      imageKey: 'block_atlas',
+      startFrame: 'brownwood',
       physics: {
         friction:    0.8,
         restitution: 0.2,
@@ -33,13 +31,11 @@ window.ObjectConfig = {
     },
 
     thickPlank: {
-      widthRatio:  1,
-      heightRatio: 1,
-      scale:       10,
-      color:       0x654321,
-      useImage:    true,
-      imageKey:    'block_atlas',
-      startFrame:  'smallwood',
+      scale:    10,
+      color:    0x654321,
+      useImage: true,
+      imageKey: 'block_atlas',
+      startFrame: 'smallwood',
       physics: {
         friction:    0.9,
         restitution: 0.1,
@@ -53,13 +49,11 @@ window.ObjectConfig = {
     },
 
     wall: {
-      widthRatio:  1,
-      heightRatio: 1,
-      scale:       10,
-      color:       0x696969,
-      useImage:    true,
-      imageKey:    'block_atlas',
-      startFrame:  'brick',
+      scale:    10,
+      color:    0x696969,
+      useImage: true,
+      imageKey: 'block_atlas',
+      startFrame: 'brick',
       physics: {
         friction:    0.8,
         restitution: 0.0,
@@ -78,12 +72,10 @@ window.ObjectConfig = {
   levelTypes: {
 
     bomb_crate: {
-      widthRatio:  1,
-      heightRatio: 1,
-      scale:       5,
-      color:       0xa0522d,
-      useImage:    true,
-      imageKey:    'bomb_crate',
+      scale:    5,
+      color:    0xa0522d,
+      useImage: true,
+      imageKey: 'bomb_crate',
       physics: {
         friction:    0.8,
         restitution: 0.15,
@@ -94,9 +86,12 @@ window.ObjectConfig = {
       health:  5,
       onDeath: 'explode',
       blast: {
-        radiusRatio: 0.18,
-        forceRatio:  2.315,
-        maxDamage:   60,
+        animKey:    'explosion',
+        imageKey:   'explosion_atlas',
+        scale:      1,
+        blastScale: 5,
+        blastForce: 100,
+        maxDamage:  100,
       },
     },
   },
@@ -105,18 +100,16 @@ window.ObjectConfig = {
   internalTypes: {
 
     bomb: {
-      widthRatio:       1,
-      heightRatio:      1,
-      scale:            3,
-      color:            0x333333,
-      useImage:         true,
-      imageKey:         'plane_atlas',
-      startFrame:       'row11_04',
+      scale:    3,
+      color:    0x333333,
+      useImage: true,
+      imageKey: 'plane_atlas',
+      startFrame: 'row11_04',
       physics: {
-        friction:       0.8,
-        restitution:    0.1,
-        frictionAir:    0.01,
-        label:          'bomb',
+        friction:    0.8,
+        restitution: 0.1,
+        frictionAir: 0.01,
+        label:       'bomb',
         // Bombs collide with players (0x0001), buildings (0x0002), and platforms (0x0008)
         // but not with each other.
         collisionFilter: {
@@ -124,34 +117,34 @@ window.ObjectConfig = {
           mask:     0x0001 | 0x0002 | 0x0008,
         },
       },
-      blastRadiusRatio: 1,
-      blastForceRatio:  1,
-      directHitDamage:  50,
-      blastMaxDamage:   50,
+      explosion: {
+        animKey:    'explosion',
+        imageKey:   'explosion_atlas',
+        scale:      2,
+        blastScale: 0.8,
+      },
+      blastForce:    50,
+      blastMaxDamage: 100,
     },
 
     plane: {
-      widthRatio:               1,
-      heightRatio:              1,
-      scale:                    3,
-      spawnYOffsetRatio:        0.03,  // vertical nudge applied to the spawn position
-      color:                    0xffaa00,
-      useImage:                 true,
-      imageKey:                 'plane_atlas',
-      animKey:                  'plane_fly',
-      startFrame:               'row01_02',
-      bombDropDelayRangeSec:    { min: 0.18, max: 0.45 },  // random interval between bomb drops
-      bombDropOffsetRatioRange: { min: -0.35, max: 0.35 }, // horizontal jitter on the drop point
-      bombDropYOffsetRatio:     0.04,                      // how far below the plane bombs spawn
+      scale:             3,
+      color:             0xffaa00,
+      useImage:          true,
+      imageKey:          'plane_atlas',
+      animKey:           'plane_fly',
+      startFrame:        'row01_02',
+      spawnYOffsetY:     29,   // px nudge applied to the spawn Y position
+      bombDropDelayRangeSec:    { min: 0.18, max: 0.45 },
+      bombDropOffsetRatioRange: { min: -0.35, max: 0.35 }, // fraction of plane half-width
+      bombDropYOffsetY:  39,   // px below the plane centre where bombs spawn
     },
 
     player: {
-      widthRatio:  1,
-      heightRatio: 1,
-      scale:       0.3,
-      color:       0x00ff00,
-      useImage:    true,
-      imageKey:    'player',
+      scale:    0.3,
+      color:    0x00ff00,
+      useImage: true,
+      imageKey: 'player',
       physics: {
         friction:    0.5,
         restitution: 0.1,
@@ -164,4 +157,5 @@ window.ObjectConfig = {
       onDeath: 'remove',
     },
   },
+
 };

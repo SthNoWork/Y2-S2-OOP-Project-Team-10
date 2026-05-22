@@ -7,6 +7,8 @@
 // Building creation delegates to ObjectFactory.createPlaceable.
 // Building destruction delegates to ObjectFactory.destroy.
 // This manager only adds count bookkeeping and the placed-object list on top.
+//
+// All sizes and positions are fixed 1920×1080 px — Phaser Scale.FIT handles display scaling.
 
 window.BuildingManager = {
 
@@ -171,8 +173,6 @@ window.BuildingManager = {
   // Enables or disables ghost mode on a building.
   // Ghost mode disables collision (mask = 0) and gravity so the building floats
   // freely while being dragged, without disrupting other physics bodies.
-  // The body is never removed from the world — removing it with the deep flag
-  // corrupts compound body parts and causes NaN positions on collision.
   setGhostMode(building, enabled) {
     if (!building?.body) return;
     try {
@@ -206,10 +206,10 @@ window.BuildingManager = {
   // Creates inventory buttons for every placeable type, spaced evenly along the
   // bottom-left of the arena. Tapping a button spawns a building and begins dragging it.
   _spawnAllInventoryControls() {
-    const { ARENA_X, ARENA_W, ARENA_Y, ARENA_H } = this.arena;
-    let   controlX       = ARENA_X + window.Scale.screenScaleW(this.scene, window.Scale.baseW * 0.02);
-    const controlY       = ARENA_Y + ARENA_H - window.Scale.screenScaleH(this.scene, window.Scale.baseH * 0.06);
-    const controlSpacing = window.Scale.screenScaleW(this.scene, window.Scale.baseW * 0.12);
+    const { ARENA_X, ARENA_Y, ARENA_H } = this.arena;
+    let   controlX       = ARENA_X + 38;         // left margin inside arena
+    const controlY       = ARENA_Y + ARENA_H - 65; // near the bottom of the arena
+    const controlSpacing = 230;                    // px between each inventory button
 
     Object.keys(window.ObjectConfig.placeableTypes).forEach((type) => {
       this._spawnInventoryButton(controlX, controlY, type);
@@ -223,16 +223,13 @@ window.BuildingManager = {
     const cfg = window.ObjectConfig.placeableTypes[buildingType];
     if (!cfg) return null;
 
-    const bg       = '#' + cfg.color.toString(16).padStart(6, '0');
-    const fontSize = window.Scale.screenScaleH(this.scene, window.Scale.baseH * 0.025);
-    const padX     = window.Scale.screenScaleW(this.scene, window.Scale.baseW * 0.01);
-    const padY     = window.Scale.screenScaleH(this.scene, window.Scale.baseH * 0.008);
+    const bg = '#' + cfg.color.toString(16).padStart(6, '0');
 
     const label = this.scene.add.text(x, y, buildingType, {
-      fontSize:        `${fontSize}px`,
+      fontSize:        '27px',
       fill:            '#ffffff',
       backgroundColor: bg,
-      padding:         { x: padX, y: padY },
+      padding:         { x: 19, y: 9 },
     });
 
     label.setInteractive({ useHandCursor: true });
