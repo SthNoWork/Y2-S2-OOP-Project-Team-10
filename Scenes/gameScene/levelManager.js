@@ -14,6 +14,7 @@ window.LevelManager = {
 
   _platforms:  [],        
   _prePlaced:  [],        
+  _progressKey: 'bts_unlocked_level',
 
   
   
@@ -119,6 +120,8 @@ window.LevelManager = {
 
     const totalWaves = this.levelCfg.waves.length;
     const hp         = Math.max(0, Math.round(window.GameLogic.player?.health ?? 0));
+
+    this.unlockNextLevel(this.levelNum);
 
     this.scene.add.rectangle(cx, cy, 960, 454, 0x000000, 0.82).setDepth(2000);
 
@@ -239,6 +242,47 @@ window.LevelManager = {
       const cfg = window.ObjectConfig.placeableTypes[type];
       if (cfg) cfg.maxCount = cap;
     });
+  },
+
+  _getTotalLevels() {
+    return Object.keys(window.Levels ?? {}).length || 1;
+  },
+
+  getMaxUnlockedLevel() {
+    const total = this._getTotalLevels();
+    let unlocked = 1;
+    try {
+      unlocked = parseInt(localStorage.getItem(this._progressKey), 10);
+    } catch (err) {
+      unlocked = NaN;
+    }
+    if (!Number.isFinite(unlocked) || unlocked < 1) unlocked = 1;
+    if (unlocked > total) unlocked = total;
+    try {
+      localStorage.setItem(this._progressKey, String(unlocked));
+    } catch (err) {
+      // Ignore storage errors (private mode, disabled storage).
+    }
+    return unlocked;
+  },
+
+  setMaxUnlockedLevel(level) {
+    const total = this._getTotalLevels();
+    const next  = Math.min(Math.max(1, Math.floor(level || 1)), total);
+    try {
+      localStorage.setItem(this._progressKey, String(next));
+    } catch (err) {
+      // Ignore storage errors (private mode, disabled storage).
+    }
+    return next;
+  },
+
+  unlockNextLevel(currentLevel) {
+    const total   = this._getTotalLevels();
+    const target  = Math.min(total, (currentLevel || 1) + 1);
+    const current = this.getMaxUnlockedLevel();
+    if (target > current) this.setMaxUnlockedLevel(target);
+    return this.getMaxUnlockedLevel();
   },
 
   

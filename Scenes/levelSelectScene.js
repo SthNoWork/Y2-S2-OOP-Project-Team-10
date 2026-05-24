@@ -25,6 +25,7 @@ class LevelSelectScene extends Phaser.Scene {
     const startX      = (1920 - totalW) / 2;
     const startY      = 486;   
     const totalLevels = Object.keys(window.Levels ?? {}).length || 10;
+    const maxUnlocked = window.LevelManager?.getMaxUnlockedLevel?.() ?? 1;
 
     for (let i = 0; i < totalLevels; i++) {
       const col        = i % cols;
@@ -32,7 +33,7 @@ class LevelSelectScene extends Phaser.Scene {
       const x          = startX + col * (btnW + padX);
       const y          = startY + row * (btnH + padY);
       const level      = i + 1;
-      const isUnlocked = !!(window.Levels?.[level]?.waves?.length);
+      const isUnlocked = level <= maxUnlocked;
 
       const box = this.add
         .rectangle(x + btnW / 2, y + btnH / 2, btnW, btnH, isUnlocked ? 0xffffff : 0xaaaaaa)
