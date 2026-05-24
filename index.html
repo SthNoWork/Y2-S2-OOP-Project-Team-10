@@ -23,7 +23,6 @@
       }
 
       /* ── 16:9 shell ──────────────────────────────────────────────────── */
-      /* Outer layer: full viewport, grey bars fill the spare space.        */
       #screen-shell {
         position: fixed;
         inset: 0;
@@ -33,9 +32,6 @@
         background: #808080;
       }
 
-      /* Inner 16:9 box: the actual "screen" for both home and game.        */
-      /* width  = whichever is smaller: full viewport width, or 16/9 × vh  */
-      /* height = whichever is smaller: full viewport height, or 9/16 × vw */
       #screen-box {
         position: relative;
         width:  min(100vw, calc(100vh * 16 / 9));
@@ -59,9 +55,6 @@
       .title {
         margin: 0;
         text-align: center;
-        /* font-size relative to the 16:9 box width via vmin trick:
-           on a landscape 16:9 box the height is the short axis,
-           so 1vmin ≈ 1% of box height which is what we want.           */
         font-size: 5.5vmin;
         color: gray;
       }
@@ -73,8 +66,6 @@
         gap: 1.5%;
       }
 
-      /* Buttons sized relative to the 16:9 box using vmin so they stay
-         proportional regardless of screen shape.                         */
       .home-btn {
         width: 18vmin;
         height: 5vmin;
@@ -88,7 +79,6 @@
       .home-btn:hover { background: rgba(255,255,255,1); }
 
       /* ── Profile pill ────────────────────────────────────────────────── */
-      /* Sits inside #screen-box so it stays within the 16:9 area.        */
       .profile-panel {
         position: absolute;
         right: 2%;
@@ -115,7 +105,6 @@
       .profile-panel .profile-name span { font-weight: 700; }
 
       /* ── Game container ──────────────────────────────────────────────── */
-      /* Phaser renders into #screen-box directly when a scene is active.  */
       #game-container {
         position: absolute;
         inset: 0;
@@ -125,9 +114,7 @@
         overflow: hidden;
       }
 
-      #game-container canvas {
-        display: block;
-      }
+      #game-container canvas { display: block; }
 
       /* ── Fullscreen button ───────────────────────────────────────────── */
       #fullscreen-btn {
@@ -230,7 +217,7 @@
           </div>
         </div>
 
-        <!-- Profile pill — inside the 16:9 box -->
+        <!-- Profile pill -->
         <div class="profile-panel" id="profile-panel" style="display:none;">
           <button class="profile-btn" id="profile-btn" aria-label="Profile"></button>
           <div class="profile-name">Logged in as <span>Name</span></div>
@@ -241,31 +228,48 @@
           <div id="loading-overlay"></div>
         </div>
 
-        <!-- Fullscreen button inside the 16:9 box -->
+        <!-- Fullscreen button -->
         <button id="fullscreen-btn">Fullscreen</button>
 
       </div><!-- /screen-box -->
     </div><!-- /screen-shell -->
 
-    <!-- Load order: Phaser → data → factories → scenes → game config -->
-    <script src="phaser.js"></script>
-    <script src="assets.js"></script>
-    <script src="spriteFactory.js"></script>
-    <script src="Scenes/bootScene.js"></script>
-    <script src="Scenes/gameScene/objectConfig.js"></script>
-    <script src="sizeCalculator.js"></script>
-    <script src="Scenes/gameScene/objectFactory.js"></script>
-    <script src="uiFactory.js"></script>
-    <script src="Scenes/gameScene/gameLogic.js"></script>
-    <script src="Scenes/gameScene/buildingManager.js"></script>
-    <script src="levels.js"></script>
-    <script src="Scenes/gameScene/levelManager.js"></script>
-    <script src="Scenes/gameScene.js"></script>
-    <script src="Scenes/levelSelectScene.js"></script>
-    <script src="Scenes/settingsScene.js"></script>
-    <script src="Scenes/savesScene.js"></script>
-    <script src="Scenes/profileScene.js"></script>
-    <script src="Game.js"></script>
+    <!--
+      Script load order:
+        1. Library
+        2. Debug flag (needed by everything)
+        3. Config data (no dependencies)
+        4. Factories (depend on config)
+        5. Core systems (depend on factories + config)
+        6. Scenes (depend on core systems)
+        7. Game config (must be LAST — references all scene classes)
+    -->
+    <script src="lib/phaser.js"></script>
+
+    <script src="core/debug.js"></script>
+
+    <script src="config/assets.config.js"></script>
+    <script src="config/levels.config.js"></script>
+    <script src="config/objects.config.js"></script>
+
+    <script src="factories/spriteFactory.js"></script>
+    <script src="factories/hudFactory.js"></script>
+    <script src="factories/uiFactory.js"></script>
+    <script src="factories/objectFactory.helpers.js"></script>
+    <script src="factories/objectFactory.js"></script>
+
+    <script src="core/gameLogic.js"></script>
+    <script src="core/buildingManager.js"></script>
+    <script src="core/levelManager.js"></script>
+
+    <script src="scenes/bootScene.js"></script>
+    <script src="scenes/gameScene.js"></script>
+    <script src="scenes/levelSelectScene.js"></script>
+    <script src="scenes/settingsScene.js"></script>
+    <script src="scenes/savesScene.js"></script>
+    <script src="scenes/profileScene.js"></script>
+
+    <script src="config/game.config.js"></script>
 
     <script>
       const homeScreen     = document.getElementById('home-screen');
@@ -317,7 +321,7 @@
         };
       })();
 
-      // Start audio on first gesture (satisfies browser autoplay policy).
+      // Start audio on first user gesture (satisfies browser autoplay policy).
       const startAudioOnGesture = () => window.MusicManager.playShared({ restart: false });
       document.addEventListener('pointerdown', startAudioOnGesture, { once: true });
       document.addEventListener('keydown',     startAudioOnGesture, { once: true });

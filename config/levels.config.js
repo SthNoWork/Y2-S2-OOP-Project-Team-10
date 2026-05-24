@@ -1,9 +1,13 @@
+// config/levels.config.js
+// Defines every level: spawn points, platforms, pre-placed objects,
+// allowed building types, and wave sequences.
+
 window.Levels = {
 
-  // ── Level 1 ── Tutorial: just light wood, one slow wave ───────────────────
+  // ── Level 1 ── Tutorial: just light wood, one slow wave ──────────────────
   1: {
-    playerSpawn: { x: 960, y: 810 },
-    waveDelayMs: 6000,
+    playerSpawn:      { x: 960, y: 810 },
+    waveDelayMs:      6000,
     platforms: [
       { x: 960,  y: 936, w: 1382, h: 29 },
       { x: 407,  y: 713, w: 346,  h: 24 },
@@ -21,10 +25,10 @@ window.Levels = {
 
   // ── Level 2 ── Introduce dirt/grass, two waves ────────────────────────────
   2: {
-    playerSpawn: { x: 960, y: 810 },
-    waveDelayMs: 5000,
-    platforms: [],
-    prePlaced:  [],
+    playerSpawn:      { x: 960, y: 810 },
+    waveDelayMs:      5000,
+    platforms:        [],
+    prePlaced:        [],
     allowedBuildings: { shortPlank: 3, thickPlank: 2, dirt: 3, grass: 3 },
     waves: [
       { speed: 360, direction:  1, x: -163, y: 120 },
@@ -32,12 +36,12 @@ window.Levels = {
     ],
   },
 
-  // ── Level 3 ── Sand + gravel, three waves ────────────────────────────────
+  // ── Level 3 ── Sand + gravel, three waves ─────────────────────────────────
   3: {
-    playerSpawn: { x: 960, y: 810 },
-    waveDelayMs: 5000,
-    platforms: [],
-    prePlaced:  [],
+    playerSpawn:      { x: 960, y: 810 },
+    waveDelayMs:      5000,
+    platforms:        [],
+    prePlaced:        [],
     allowedBuildings: { thickPlank: 3, plank: 3, sand: 3, gravel: 2 },
     waves: [
       { speed: 404, direction:  1, x: -163, y: 120 },
@@ -48,8 +52,8 @@ window.Levels = {
 
   // ── Level 4 ── Stone enters, multi-platform ───────────────────────────────
   4: {
-    playerSpawn: { x: 960, y: 781 },
-    waveDelayMs: 4500,
+    playerSpawn:  { x: 960, y: 781 },
+    waveDelayMs:  4500,
     platforms: [
       { x: 960,  y: 956, w: 1555, h: 24 },
       { x: 442,  y: 781, w: 380,  h: 24 },
@@ -72,8 +76,8 @@ window.Levels = {
 
   // ── Level 5 ── Ice level: slippery blocks, tight platform ─────────────────
   5: {
-    playerSpawn: { x: 960, y: 810 },
-    waveDelayMs: 4500,
+    playerSpawn:  { x: 960, y: 810 },
+    waveDelayMs:  4500,
     platforms: [
       { x: 960, y: 956, w: 1555, h: 24 },
     ],
@@ -93,8 +97,8 @@ window.Levels = {
 
   // ── Level 6 ── TNT is available, use it carefully ─────────────────────────
   6: {
-    playerSpawn: { x: 960, y: 742 },
-    waveDelayMs: 4000,
+    playerSpawn:  { x: 960, y: 742 },
+    waveDelayMs:  4000,
     platforms: [
       { x: 960,  y: 781, w: 605, h: 24 },
       { x: 303,  y: 956, w: 311, h: 24 },
@@ -118,8 +122,8 @@ window.Levels = {
 
   // ── Level 7 ── Coal and iron, start of ore blocks ─────────────────────────
   7: {
-    playerSpawn: { x: 960, y: 878 },
-    waveDelayMs: 4000,
+    playerSpawn:  { x: 960, y: 878 },
+    waveDelayMs:  4000,
     platforms: [
       { x: 355,  y: 567, w: 311, h: 24 },
       { x: 355,  y: 761, w: 311, h: 24 },
@@ -145,8 +149,8 @@ window.Levels = {
 
   // ── Level 8 ── Gold and diamond unlocked ─────────────────────────────────
   8: {
-    playerSpawn: { x: 960, y: 761 },
-    waveDelayMs: 3500,
+    playerSpawn:  { x: 960, y: 761 },
+    waveDelayMs:  3500,
     platforms: [
       { x: 960,  y: 956, w: 1469, h: 24 },
       { x: 528,  y: 742, w: 346,  h: 24 },
@@ -173,8 +177,8 @@ window.Levels = {
 
   // ── Level 9 ── Obsidian available, fast multi-wave ────────────────────────
   9: {
-    playerSpawn: { x: 960, y: 664 },
-    waveDelayMs: 3500,
+    playerSpawn:  { x: 960, y: 664 },
+    waveDelayMs:  3500,
     platforms: [
       { x: 960,  y: 713, w: 518, h: 24 },
       { x: 407,  y: 586, w: 277, h: 24 },
@@ -206,8 +210,8 @@ window.Levels = {
 
   // ── Level 10 ── Final: obsidian + TNT, all-out chaos ─────────────────────
   10: {
-    playerSpawn: { x: 960, y: 616 },
-    waveDelayMs: 3000,
+    playerSpawn:  { x: 960, y: 616 },
+    waveDelayMs:  3000,
     platforms: [
       { x: 960,  y: 664, w: 415, h: 24 },
       { x: 442,  y: 528, w: 311, h: 24 },

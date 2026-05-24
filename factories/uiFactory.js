@@ -1,5 +1,10 @@
+// factories/uiFactory.js
+// Generic reusable UI controls (buttons, back button).
+// HUD-specific elements (health text, backgrounds) live in hudFactory.js.
+
 window.UIFactory = {};
 
+// Creates a right-aligned action button (e.g. Start, Reset).
 window.UIFactory.createButton = function (scene, x, y, label, onClick) {
   return scene.add
     .text(x, y, label, {
@@ -14,6 +19,7 @@ window.UIFactory.createButton = function (scene, x, y, label, onClick) {
     .on('pointerdown', onClick);
 };
 
+// Adds a "Back" link in the top-left corner of the current scene.
 window.UIFactory.addBackButton = function (scene, onClick) {
   return scene.add
     .text(38, 22, 'Back', {
@@ -27,33 +33,12 @@ window.UIFactory.addBackButton = function (scene, onClick) {
     .on('pointerdown', onClick);
 };
 
+// Keep addHealthText and addBackground accessible via UIFactory for backwards
+// compatibility — they now delegate to HUDFactory.
 window.UIFactory.addHealthText = function (scene, arena) {
-  return scene.add.text(
-    arena.ARENA_X + 19,
-    arena.ARENA_Y + 11,
-    '',
-    { fontSize: '32px', fill: '#ffffff' }
-  );
+  return window.HUDFactory.addHealthText(scene, arena);
 };
 
 window.UIFactory.addBackground = function (scene, path) {
-  if (!path) return null;
-
-  const key = `bg_${path.replace(/[^a-zA-Z0-9]/g, '_')}`;
-  if (!scene.textures.exists(key)) {
-    window.logDebug?.(`[UIFactory.addBackground] Missing texture: ${key}`);
-    return null;
-  }
-
-  const img = scene.add.image(960, 540, key).setOrigin(0.5, 0.5);
-
-  const src   = scene.textures.get(key)?.getSourceImage?.();
-  const texW  = src?.width  || 1;
-  const texH  = src?.height || 1;
-  const scale = Math.max(1920 / texW, 1080 / texH);
-
-  img.setScale(scale);
-  img.setDepth(-1000);
-  img.setScrollFactor(0);
-  return img;
+  return window.HUDFactory.addBackground(scene, path);
 };
