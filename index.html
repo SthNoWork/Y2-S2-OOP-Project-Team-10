@@ -226,6 +226,7 @@
         <div class="button-container">
           <button class="home-btn" id="play-btn">Play</button>
           <button class="home-btn" id="saves-btn">Saves</button>
+          <button class="home-btn" id="leaderboard-btn">Leaderboard</button>
           <button class="home-btn" id="settings-btn">Settings</button>
         </div>
       </div>
@@ -261,6 +262,9 @@
 
   <script src="debug.js"></script>
 
+  <script src="firebase/gameData.js"></script>
+  <script type="module" src="firebase/init.js"></script>
+
   <script src="config/assets.config.js"></script>
   <script src="config/levels.config.js"></script>
   <script src="config/objects.config.js"></script>
@@ -281,19 +285,20 @@
   <script src="scenes/settingsScene.js"></script>
   <script src="scenes/savesScene.js"></script>
   <script src="scenes/profileScene.js"></script>
-
+  <script src="scenes/leaderboardScene.js"></script>
   <script src="config/game.config.js"></script>
 
   <script>
-    const homeScreen     = document.getElementById('home-screen');
-    const profilePanel   = document.getElementById('profile-panel');
-    const gameContainer  = document.getElementById('game-container');
+    const homeScreen = document.getElementById('home-screen');
+    const profilePanel = document.getElementById('profile-panel');
+    const gameContainer = document.getElementById('game-container');
     const loadingOverlay = document.getElementById('loading-overlay');
-    const fullscreenBtn  = document.getElementById('fullscreen-btn');
+    const fullscreenBtn = document.getElementById('fullscreen-btn');
     const startupOverlay = document.getElementById('startup-overlay');
-    const startupBar     = document.getElementById('startup-progress-bar');
-    const profileBtn     = document.getElementById('profile-btn');
-
+    const startupBar = document.getElementById('startup-progress-bar');
+    const profileBtn = document.getElementById('profile-btn');
+    const leaderboardBtn = document.getElementById('leaderboard-btn');
+  
     // ── MusicManager ────────────────────────────────────────────────────
     // Per-level music path from levels config (restructured); volume
     // persistence and getVolume/setVolume kept from HEAD.
@@ -307,9 +312,9 @@
         // Ignore storage errors (private mode, disabled storage).
       }
 
-      const sharedPath  = 'asset/music/Forest Drift.mp3';
+      const sharedPath = 'asset/music/Forest Drift.mp3';
       const sharedAudio = new Audio(sharedPath);
-      sharedAudio.loop   = true;
+      sharedAudio.loop = true;
       sharedAudio.volume = volume;
 
       return {
@@ -338,7 +343,7 @@
           if (this.mode === 'shared' && !restart && !this.sharedAudio.paused) return;
           if (this.levelAudio) { this.levelAudio.pause(); this.levelAudio.currentTime = 0; }
           if (restart) this.sharedAudio.currentTime = 0;
-          this.sharedAudio.play().catch(() => {});
+          this.sharedAudio.play().catch(() => { });
           this.mode = 'shared';
         },
 
@@ -350,14 +355,14 @@
           this.sharedAudio.currentTime = 0;
           if (!this.levelAudio || this.currentLevelPath !== path) {
             if (this.levelAudio) { this.levelAudio.pause(); this.levelAudio.currentTime = 0; }
-            this.levelAudio       = new Audio(path);
-            this.levelAudio.loop  = true;
+            this.levelAudio = new Audio(path);
+            this.levelAudio.loop = true;
             this.levelAudio.volume = volume;
             this.currentLevelPath = path;
           } else {
             this.levelAudio.currentTime = 0;
           }
-          this.levelAudio.play().catch(() => {});
+          this.levelAudio.play().catch(() => { });
           this.mode = 'level';
         },
       };
@@ -366,7 +371,7 @@
     // Start audio on first user gesture (satisfies browser autoplay policy).
     const startAudioOnGesture = () => window.MusicManager.playShared({ restart: false });
     document.addEventListener('pointerdown', startAudioOnGesture, { once: true });
-    document.addEventListener('keydown',     startAudioOnGesture, { once: true });
+    document.addEventListener('keydown', startAudioOnGesture, { once: true });
 
     // Scenes listed here hide the profile panel while active.
     const HIDE_PROFILE_IN = new Set(['GameScene']);
@@ -380,10 +385,10 @@
     // ── showHomeScreen ───────────────────────────────────────────────────
     window.showHomeScreen = function () {
       destroyGame();
-      gameContainer.style.display  = 'none';
-      homeScreen.style.display     = 'flex';
-      profilePanel.style.display   = 'flex';
-      fullscreenBtn.style.display  = 'none';
+      gameContainer.style.display = 'none';
+      homeScreen.style.display = 'flex';
+      profilePanel.style.display = 'flex';
+      fullscreenBtn.style.display = 'none';
       window.MusicManager.playShared({ restart: window.MusicManager.mode === 'level' });
     };
 
@@ -415,10 +420,10 @@
     window.startScene = function (sceneKey) {
       destroyGame();
 
-      homeScreen.style.display     = 'none';
-      gameContainer.style.display  = 'flex';
+      homeScreen.style.display = 'none';
+      gameContainer.style.display = 'flex';
       loadingOverlay.style.display = 'block';
-      profilePanel.style.display   = HIDE_PROFILE_IN.has(sceneKey) ? 'none' : 'flex';
+      profilePanel.style.display = HIDE_PROFILE_IN.has(sceneKey) ? 'none' : 'flex';
 
       window._bootTarget = sceneKey;
 
@@ -441,8 +446,9 @@
     };
 
     // ── Button wiring ────────────────────────────────────────────────────
-    document.getElementById('play-btn')    .addEventListener('click', () => window.startScene('LevelSelectScene'));
-    document.getElementById('saves-btn')   .addEventListener('click', () => window.startScene('SavesScene'));
+    document.getElementById('play-btn').addEventListener('click', () => window.startScene('LevelSelectScene'));
+    document.getElementById('saves-btn').addEventListener('click', () => window.startScene('SavesScene'));
+    document.getElementById('leaderboard-btn') .addEventListener('click', () => window.startScene('LeaderboardScene'));
     document.getElementById('settings-btn').addEventListener('click', () => window.startScene('SettingsScene'));
     if (profileBtn) profileBtn.addEventListener('click', () => window.startScene('ProfileScene'));
 
@@ -451,11 +457,11 @@
 
     function requestFullscreenAndLandscape() {
       const el = document.documentElement;
-      const p  = el.requestFullscreen       ? el.requestFullscreen()
-               : el.mozRequestFullScreen    ? el.mozRequestFullScreen()
-               : el.webkitRequestFullscreen ? el.webkitRequestFullscreen()
-               : el.msRequestFullscreen     ? el.msRequestFullscreen()
-               : Promise.reject('not supported');
+      const p = el.requestFullscreen ? el.requestFullscreen()
+        : el.mozRequestFullScreen ? el.mozRequestFullScreen()
+          : el.webkitRequestFullscreen ? el.webkitRequestFullscreen()
+            : el.msRequestFullscreen ? el.msRequestFullscreen()
+              : Promise.reject('not supported');
       p.catch(e => console.log('Fullscreen error:', e));
       screen.orientation?.lock?.('landscape').catch(e => console.log('Orientation error:', e));
     }

@@ -35,6 +35,7 @@ const config = {
     LevelSelectScene,
     SettingsScene,
     SavesScene,
+    LeaderboardScene,
     ProfileScene,
   ],
 };

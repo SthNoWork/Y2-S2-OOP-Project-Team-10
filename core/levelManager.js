@@ -30,6 +30,23 @@ window.LevelManager = {
 
   getMaxUnlockedLevel() {
     if (window.DEBUG) return this._getTotalLevels();
+
+    // When logged in, derive unlock status from beaten levels in the server cache
+    // so progress syncs across devices.
+    if (window.FirebaseAuth?.currentUser) {
+      const total = this._getTotalLevels();
+      let max = 1;
+      for (let i = 1; i <= total; i++) {
+        if (window.GameData?.isLevelBeaten(i)) {
+          max = Math.min(i + 1, total);
+        } else {
+          break;
+        }
+      }
+      return max;
+    }
+
+    // Logged out — fall back to localStorage as before.
     let unlocked = 1;
     try {
       const stored = parseInt(localStorage.getItem(this._progressKey), 10);
@@ -44,6 +61,11 @@ window.LevelManager = {
 
   _unlockNextLevel(currentLevel) {
     if (window.DEBUG) return;
+
+    // Firebase tracks unlock state for logged-in users via beaten level scores,
+    // so localStorage only needs updating for logged-out players.
+    if (window.FirebaseAuth?.currentUser) return;
+
     const total  = this._getTotalLevels();
     const target = Math.min(total, (currentLevel || 1) + 1);
     if (target > this.getMaxUnlockedLevel()) {
@@ -238,9 +260,13 @@ window.LevelManager = {
   _showWinScreen() {
     this._unlockNextLevel(this.levelNum);
 
+    const { objectScore, playerBonus, total } = this._calculateScore();
+
+    // ── Save score to Firebase (or offline bucket if logged out) ──────────
+    window.FirebaseStore?.recordWin(this.levelNum, total);
+
     const hp    = Math.max(0, Math.round(window.GameLogic.player?.health ?? 0));
     const maxHp = window.ObjectConfig.internalTypes?.player?.health ?? 100;
-    const { objectScore, playerBonus, total } = this._calculateScore();
     const currentLevel = this.levelNum;
     const hasNext      = !!(window.Levels?.[(currentLevel + 1)]?.waves?.length);
 
