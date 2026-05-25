@@ -7,235 +7,245 @@
      as the player moves between the HTML home screen and Phaser scenes.
 -->
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" href="data:," />
-    <title>Home Screen</title>
-    <style>
-      /* ── Reset ───────────────────────────────────────────────────────── */
-      html, body {
-        margin: 0;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-        background: #808080;
-        font-family: Arial, sans-serif;
-      }
 
-      /* ── 16:9 shell ──────────────────────────────────────────────────── */
-      #screen-shell {
-        position: fixed;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #808080;
-      }
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="data:," />
+  <title>Home Screen</title>
+  <style>
+    /* ── Reset ───────────────────────────────────────────────────────── */
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #808080;
+      font-family: Arial, sans-serif;
+    }
 
-      #screen-box {
-        position: relative;
-        width:  min(100vw, calc(100vh * 16 / 9));
-        height: min(100vh, calc(100vw * 9 / 16));
-        overflow: hidden;
-        background: #808080;
-      }
+    /* ── 16:9 shell ──────────────────────────────────────────────────── */
+    #screen-shell {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #808080;
+    }
 
-      /* ── Home screen ─────────────────────────────────────────────────── */
-      #home-screen {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 3%;
-        background: url('asset/background/menu-theme.png') center / cover no-repeat;
-      }
+    #screen-box {
+      position: relative;
+      width: min(100vw, calc(100vh * 16 / 9));
+      height: min(100vh, calc(100vw * 9 / 16));
+      overflow: hidden;
+      background: #808080;
+    }
 
-      .title {
-        margin: 0;
-        text-align: center;
-        font-size: 5.5vmin;
-        color: gray;
-      }
+    /* ── Home screen ─────────────────────────────────────────────────── */
+    #home-screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3%;
+      background: url('asset/background/menu-theme.png') center / cover no-repeat;
+    }
 
-      .button-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 1.5%;
-      }
+    .button-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5%;
+      position: relative;
+      left: 30.5%;
+    }
 
-      .home-btn {
-        width: 18vmin;
-        height: 5vmin;
-        font-size: 2.2vmin;
-        cursor: pointer;
-        border: 2px solid #555;
-        border-radius: 6px;
-        background: rgba(255,255,255,0.85);
-        font-family: Arial, sans-serif;
-      }
-      .home-btn:hover { background: rgba(255,255,255,1); }
+    .home-btn {
+      width: 18vmin;
+      height: 5vmin;
+      font-size: 2.2vmin;
+      cursor: pointer;
+      border: 2px solid #555;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.85);
+      font-family: Arial, sans-serif;
+    }
 
-      /* ── Profile pill ────────────────────────────────────────────────── */
-      .profile-panel {
-        position: absolute;
-        right: 2%;
-        bottom: 2%;
-        display: flex;
-        align-items: center;
-        gap: 1%;
-        z-index: 2500;
-      }
+    .home-btn:hover {
+      background: rgba(255, 255, 255, 1);
+    }
 
-      .profile-panel .profile-btn {
-        width: 5vmin;
-        height: 5vmin;
-        min-width: 0;
-        min-height: 0;
-        border-radius: 50%;
-        border: 1px solid #000;
-        padding: 0;
-        cursor: pointer;
-        background: #ccc;
-      }
+    /* ── Profile pill ────────────────────────────────────────────────── */
+    .profile-panel {
+      position: absolute;
+      right: 2%;
+      bottom: 2%;
+      display: flex;
+      align-items: center;
+      gap: 1%;
+      z-index: 2500;
+    }
 
-      .profile-panel .profile-name      { font-size: 1.8vmin; }
-      .profile-panel .profile-name span { font-weight: 700; }
+    .profile-panel .profile-btn {
+      width: 5vmin;
+      height: 5vmin;
+      min-width: 0;
+      min-height: 0;
+      border-radius: 50%;
+      border: 1px solid #000;
+      padding: 0;
+      cursor: pointer;
+      background: #ccc;
+    }
 
-      /* ── Game container ──────────────────────────────────────────────── */
-      #game-container {
-        position: absolute;
-        inset: 0;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-      }
+    .profile-panel .profile-name {
+      font-size: 1.8vmin;
+    }
 
-      #game-container canvas { display: block; }
+    .profile-panel .profile-name span {
+      font-weight: 700;
+    }
 
-      /* ── Fullscreen button ───────────────────────────────────────────── */
-      #fullscreen-btn {
-        position: absolute;
-        bottom: 2%;
-        left: 2%;
-        z-index: 999;
-        padding: 1% 2%;
-        font-size: 1.8vmin;
-        background: rgba(0,0,0,0.6);
-        color: white;
-        border: 1px solid white;
-        border-radius: 4px;
-        cursor: pointer;
-        display: none;
-        min-width: 0;
-        min-height: 0;
-        width: auto;
-        height: auto;
-      }
-      #fullscreen-btn:hover { background: rgba(0,0,0,0.85); }
+    /* ── Game container ──────────────────────────────────────────────── */
+    #game-container {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
 
-      /* ── Loading overlay ─────────────────────────────────────────────── */
-      #loading-overlay {
-        display: none;
-        position: absolute;
-        inset: 0;
-        background: #808080;
-        z-index: 10;
-      }
+    #game-container canvas {
+      display: block;
+    }
 
-      /* ── Startup splash ──────────────────────────────────────────────── */
-      #startup-overlay {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        background: url('asset/background/theme.png') center / cover no-repeat;
-        z-index: 2000;
-      }
+    /* ── Fullscreen button ───────────────────────────────────────────── */
+    #fullscreen-btn {
+      position: absolute;
+      bottom: 2%;
+      left: 2%;
+      z-index: 999;
+      padding: 1% 2%;
+      font-size: 1.8vmin;
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      border: 1px solid white;
+      border-radius: 4px;
+      cursor: pointer;
+      display: none;
+      min-width: 0;
+      min-height: 0;
+      width: auto;
+      height: auto;
+    }
 
-      #startup-loading {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 3%;
-        transform: translateY(42%);
-      }
+    #fullscreen-btn:hover {
+      background: rgba(0, 0, 0, 0.85);
+    }
 
-      #startup-overlay .loading-text {
-        font-size: 3vmin;
-        color: white;
-        background: transparent;
-        border: 0;
-        padding: 0;
-      }
+    /* ── Loading overlay ─────────────────────────────────────────────── */
+    #loading-overlay {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: #808080;
+      z-index: 10;
+    }
 
-      #startup-progress {
-        width: 40%;
-        height: 2.5vmin;
-        border: 2px solid #000;
-        background: #fff;
-        overflow: hidden;
-        border-radius: 10px;
-      }
+    /* ── Startup splash ──────────────────────────────────────────────── */
+    #startup-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: url('asset/background/theme.png') center / cover no-repeat;
+      z-index: 2000;
+    }
 
-      #startup-progress-bar {
-        width: 0%;
-        height: 100%;
-        background: #2ecc71;
-        border-radius: 10px;
-      }
-    </style>
-  </head>
-  <body>
+    #startup-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3%;
+      transform: translateY(42%);
+    }
 
-    <!-- 16:9 outer shell — everything lives inside here -->
-    <div id="screen-shell">
-      <div id="screen-box">
+    #startup-overlay .loading-text {
+      font-size: 3vmin;
+      color: white;
+      background: transparent;
+      border: 0;
+      padding: 0;
+    }
 
-        <!-- Startup splash -->
-        <div id="startup-overlay">
-          <div id="startup-loading">
-            <div id="startup-progress">
-              <div id="startup-progress-bar"></div>
-            </div>
-            <div class="loading-text">Loading...</div>
+    #startup-progress {
+      width: 40%;
+      height: 2.5vmin;
+      border: 2px solid #000;
+      background: #fff;
+      overflow: hidden;
+      border-radius: 10px;
+    }
+
+    #startup-progress-bar {
+      width: 0%;
+      height: 100%;
+      background: #2ecc71;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- 16:9 outer shell — everything lives inside here -->
+  <div id="screen-shell">
+    <div id="screen-box">
+
+      <!-- Startup splash -->
+      <div id="startup-overlay">
+        <div id="startup-loading">
+          <div id="startup-progress">
+            <div id="startup-progress-bar"></div>
           </div>
+          <div class="loading-text">Loading...</div>
         </div>
+      </div>
 
-        <!-- Home screen -->
-        <div id="home-screen" style="display:none;">
-          <h1 class="title">Build To Survive</h1>
-          <div class="button-container">
-            <button class="home-btn" id="play-btn">Play</button>
-            <button class="home-btn" id="saves-btn">Saves</button>
-            <button class="home-btn" id="settings-btn">Settings</button>
-          </div>
+      <!-- Home screen -->
+      <div id="home-screen" style="display:none;">
+        <div class="button-container">
+          <button class="home-btn" id="play-btn">Play</button>
+          <button class="home-btn" id="saves-btn">Saves</button>
+          <button class="home-btn" id="settings-btn">Settings</button>
         </div>
+      </div>
 
-        <!-- Profile pill -->
-        <div class="profile-panel" id="profile-panel" style="display:none;">
-          <button class="profile-btn" id="profile-btn" aria-label="Profile"></button>
-          <div class="profile-name">Logged in as <span>Name</span></div>
-        </div>
+      <!-- Profile pill -->
+      <div class="profile-panel" id="profile-panel" style="display:none;">
+        <button class="profile-btn" id="profile-btn" aria-label="Profile"></button>
+        <div class="profile-name">Logged in as <span>Name</span></div>
+      </div>
 
-        <!-- Phaser canvas injected here -->
-        <div id="game-container">
-          <div id="loading-overlay"></div>
-        </div>
+      <!-- Phaser canvas injected here -->
+      <div id="game-container">
+        <div id="loading-overlay"></div>
+      </div>
 
-        <!-- Fullscreen button -->
-        <button id="fullscreen-btn">Fullscreen</button>
+      <!-- Fullscreen button -->
+      <button id="fullscreen-btn">Fullscreen</button>
 
-      </div><!-- /screen-box -->
-    </div><!-- /screen-shell -->
+    </div><!-- /screen-box -->
+  </div><!-- /screen-shell -->
 
-    <!--
+  <!--
       Script load order:
         1. Library
         2. Debug flag (needed by everything)
@@ -245,211 +255,212 @@
         6. Scenes (depend on core systems)
         7. Game config (must be LAST — references all scene classes)
     -->
-    <script src="lib/phaser.js"></script>
+  <script src="lib/phaser.js"></script>
 
-    <script src="debug.js"></script>
+  <script src="debug.js"></script>
 
-    <script src="config/assets.config.js"></script>
-    <script src="config/levels.config.js"></script>
-    <script src="config/objects.config.js"></script>
+  <script src="config/assets.config.js"></script>
+  <script src="config/levels.config.js"></script>
+  <script src="config/objects.config.js"></script>
 
-    <script src="factories/spriteFactory.js"></script>
-    <script src="factories/hudFactory.js"></script>
-    <script src="factories/uiFactory.js"></script>
-    <script src="factories/objectFactory.helpers.js"></script>
-    <script src="factories/objectFactory.js"></script>
+  <script src="factories/spriteFactory.js"></script>
+  <script src="factories/hudFactory.js"></script>
+  <script src="factories/uiFactory.js"></script>
+  <script src="factories/objectFactory.helpers.js"></script>
+  <script src="factories/objectFactory.js"></script>
 
-    <script src="core/gameLogic.js"></script>
-    <script src="core/buildingManager.js"></script>
-    <script src="core/levelManager.js"></script>
+  <script src="core/gameLogic.js"></script>
+  <script src="core/buildingManager.js"></script>
+  <script src="core/levelManager.js"></script>
 
-    <script src="scenes/bootScene.js"></script>
-    <script src="scenes/gameScene.js"></script>
-    <script src="scenes/levelSelectScene.js"></script>
-    <script src="scenes/settingsScene.js"></script>
-    <script src="scenes/savesScene.js"></script>
-    <script src="scenes/profileScene.js"></script>
+  <script src="scenes/bootScene.js"></script>
+  <script src="scenes/gameScene.js"></script>
+  <script src="scenes/levelSelectScene.js"></script>
+  <script src="scenes/settingsScene.js"></script>
+  <script src="scenes/savesScene.js"></script>
+  <script src="scenes/profileScene.js"></script>
 
-    <script src="config/game.config.js"></script>
+  <script src="config/game.config.js"></script>
 
-    <script>
-      const homeScreen     = document.getElementById('home-screen');
-      const profilePanel   = document.getElementById('profile-panel');
-      const gameContainer  = document.getElementById('game-container');
-      const loadingOverlay = document.getElementById('loading-overlay');
-      const fullscreenBtn  = document.getElementById('fullscreen-btn');
-      const startupOverlay = document.getElementById('startup-overlay');
-      const startupBar     = document.getElementById('startup-progress-bar');
-      const profileBtn     = document.getElementById('profile-btn');
+  <script>
+    const homeScreen = document.getElementById('home-screen');
+    const profilePanel = document.getElementById('profile-panel');
+    const gameContainer = document.getElementById('game-container');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const fullscreenBtn = document.getElementById('fullscreen-btn');
+    const startupOverlay = document.getElementById('startup-overlay');
+    const startupBar = document.getElementById('startup-progress-bar');
+    const profileBtn = document.getElementById('profile-btn');
 
-      // ── MusicManager ────────────────────────────────────────────────────
-      window.MusicManager = window.MusicManager || (() => {
-        const sharedPath  = 'asset/music/Forest Drift.mp3';
-        const volume      = 0.5;
-        const sharedAudio = new Audio(sharedPath);
-        sharedAudio.loop   = true;
-        sharedAudio.volume = volume;
+    // ── MusicManager ────────────────────────────────────────────────────
+    window.MusicManager = window.MusicManager || (() => {
+      const sharedPath = 'asset/music/Forest Drift.mp3';
+      const volume = 0.5;
+      const sharedAudio = new Audio(sharedPath);
+      sharedAudio.loop = true;
+      sharedAudio.volume = volume;
 
-        return {
-          mode: 'shared', sharedAudio, levelAudio: null, currentLevelPath: null,
+      return {
+        mode: 'shared', sharedAudio, levelAudio: null, currentLevelPath: null,
 
-          playShared(opts = {}) {
-            const restart = !!opts.restart;
-            if (this.mode === 'shared' && !restart && !this.sharedAudio.paused) return;
+        playShared(opts = {}) {
+          const restart = !!opts.restart;
+          if (this.mode === 'shared' && !restart && !this.sharedAudio.paused) return;
+          if (this.levelAudio) { this.levelAudio.pause(); this.levelAudio.currentTime = 0; }
+          if (restart) this.sharedAudio.currentTime = 0;
+          this.sharedAudio.play().catch(() => { });
+          this.mode = 'shared';
+        },
+
+        playLevel(levelNum) {
+          const path = window.Levels?.[levelNum]?.music;
+          if (!path) { this.playShared({ restart: this.mode === 'level' }); return; }
+          this.sharedAudio.pause();
+          this.sharedAudio.currentTime = 0;
+          if (!this.levelAudio || this.currentLevelPath !== path) {
             if (this.levelAudio) { this.levelAudio.pause(); this.levelAudio.currentTime = 0; }
-            if (restart) this.sharedAudio.currentTime = 0;
-            this.sharedAudio.play().catch(() => {});
-            this.mode = 'shared';
-          },
-
-          playLevel(levelNum) {
-            const path = window.Levels?.[levelNum]?.music;
-            if (!path) { this.playShared({ restart: this.mode === 'level' }); return; }
-            this.sharedAudio.pause();
-            this.sharedAudio.currentTime = 0;
-            if (!this.levelAudio || this.currentLevelPath !== path) {
-              if (this.levelAudio) { this.levelAudio.pause(); this.levelAudio.currentTime = 0; }
-              this.levelAudio       = new Audio(path);
-              this.levelAudio.loop  = true;
-              this.levelAudio.volume = volume;
-              this.currentLevelPath = path;
-            } else {
-              this.levelAudio.currentTime = 0;
-            }
-            this.levelAudio.play().catch(() => {});
-            this.mode = 'level';
-          },
-        };
-      })();
-
-      // Start audio on first user gesture (satisfies browser autoplay policy).
-      const startAudioOnGesture = () => window.MusicManager.playShared({ restart: false });
-      document.addEventListener('pointerdown', startAudioOnGesture, { once: true });
-      document.addEventListener('keydown',     startAudioOnGesture, { once: true });
-
-      // Scenes listed here hide the profile panel while active.
-      const HIDE_PROFILE_IN = new Set(['GameScene']);
-
-      let game = null;
-
-      function destroyGame() {
-        if (game) { game.destroy(true); game = null; }
-      }
-
-      // ── showHomeScreen ───────────────────────────────────────────────────
-      window.showHomeScreen = function () {
-        destroyGame();
-        gameContainer.style.display  = 'none';
-        homeScreen.style.display     = 'flex';
-        profilePanel.style.display   = 'flex';
-        fullscreenBtn.style.display  = 'none';
-        window.MusicManager.playShared({ restart: window.MusicManager.mode === 'level' });
+            this.levelAudio = new Audio(path);
+            this.levelAudio.loop = true;
+            this.levelAudio.volume = volume;
+            this.currentLevelPath = path;
+          } else {
+            this.levelAudio.currentTime = 0;
+          }
+          this.levelAudio.play().catch(() => { });
+          this.mode = 'level';
+        },
       };
+    })();
 
-      // ── Startup progress bar ─────────────────────────────────────────────
-      function finishStartup() {
-        if (startupOverlay) startupOverlay.style.display = 'none';
-        window.showHomeScreen();
-      }
+    // Start audio on first user gesture (satisfies browser autoplay policy).
+    const startAudioOnGesture = () => window.MusicManager.playShared({ restart: false });
+    document.addEventListener('pointerdown', startAudioOnGesture, { once: true });
+    document.addEventListener('keydown', startAudioOnGesture, { once: true });
 
-      function runStartupProgress() {
-        if (!startupBar) { finishStartup(); return; }
-        const DURATION = 2500;
-        const t0 = performance.now();
-        const tick = (now) => {
-          const pct = Math.min((now - t0) / DURATION, 1);
-          startupBar.style.width = `${Math.round(pct * 100)}%`;
-          pct < 1 ? requestAnimationFrame(tick) : finishStartup();
-        };
-        requestAnimationFrame(tick);
-      }
+    // Scenes listed here hide the profile panel while active.
+    const HIDE_PROFILE_IN = new Set(['GameScene']);
 
-      if (document.readyState === 'complete') {
-        runStartupProgress();
+    let game = null;
+
+    function destroyGame() {
+      if (game) { game.destroy(true); game = null; }
+    }
+
+    // ── showHomeScreen ───────────────────────────────────────────────────
+    window.showHomeScreen = function () {
+      destroyGame();
+      gameContainer.style.display = 'none';
+      homeScreen.style.display = 'flex';
+      profilePanel.style.display = 'flex';
+      fullscreenBtn.style.display = 'none';
+      window.MusicManager.playShared({ restart: window.MusicManager.mode === 'level' });
+    };
+
+    // ── Startup progress bar ─────────────────────────────────────────────
+    function finishStartup() {
+      if (startupOverlay) startupOverlay.style.display = 'none';
+      window.showHomeScreen();
+    }
+
+    function runStartupProgress() {
+      if (!startupBar) { finishStartup(); return; }
+      const DURATION = 2500;
+      const t0 = performance.now();
+      const tick = (now) => {
+        const pct = Math.min((now - t0) / DURATION, 1);
+        startupBar.style.width = `${Math.round(pct * 100)}%`;
+        pct < 1 ? requestAnimationFrame(tick) : finishStartup();
+      };
+      requestAnimationFrame(tick);
+    }
+
+    if (document.readyState === 'complete') {
+      runStartupProgress();
+    } else {
+      window.addEventListener('load', runStartupProgress, { once: true });
+    }
+
+    // ── startScene ───────────────────────────────────────────────────────
+    window.startScene = function (sceneKey) {
+      destroyGame();
+
+      homeScreen.style.display = 'none';
+      gameContainer.style.display = 'flex';
+      loadingOverlay.style.display = 'block';
+      profilePanel.style.display = HIDE_PROFILE_IN.has(sceneKey) ? 'none' : 'flex';
+
+      window._bootTarget = sceneKey;
+
+      if (sceneKey === 'GameScene') {
+        window.MusicManager.playLevel(window._currentLevel ?? 1);
       } else {
-        window.addEventListener('load', runStartupProgress, { once: true });
+        window.MusicManager.playShared({ restart: window.MusicManager.mode === 'level' });
       }
 
-      // ── startScene ───────────────────────────────────────────────────────
-      window.startScene = function (sceneKey) {
-        destroyGame();
-
-        homeScreen.style.display     = 'none';
-        gameContainer.style.display  = 'flex';
-        loadingOverlay.style.display = 'block';
-        profilePanel.style.display   = HIDE_PROFILE_IN.has(sceneKey) ? 'none' : 'flex';
-
-        window._bootTarget = sceneKey;
-
-        if (sceneKey === 'GameScene') {
-          window.MusicManager.playLevel(window._currentLevel ?? 1);
-        } else {
-          window.MusicManager.playShared({ restart: window.MusicManager.mode === 'level' });
-        }
-
-        game = new Phaser.Game(config);
-        game.events.once('ready', () => { loadingOverlay.style.display = 'none'; });
-
-        if (isMobile) {
-          fullscreenBtn.style.display = 'block';
-          if (!localStorage.getItem('mobileFullscreenPrompted')) {
-            requestFullscreenAndLandscape();
-            localStorage.setItem('mobileFullscreenPrompted', 'true');
-          }
-        }
-      };
-
-      // ── Button wiring ────────────────────────────────────────────────────
-      document.getElementById('play-btn')    .addEventListener('click', () => window.startScene('LevelSelectScene'));
-      document.getElementById('saves-btn')   .addEventListener('click', () => window.startScene('SavesScene'));
-      document.getElementById('settings-btn').addEventListener('click', () => window.startScene('SettingsScene'));
-      if (profileBtn) profileBtn.addEventListener('click', () => window.startScene('ProfileScene'));
-
-      // ── Mobile / fullscreen helpers ──────────────────────────────────────
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-      function requestFullscreenAndLandscape() {
-        const el = document.documentElement;
-        const p  = el.requestFullscreen       ? el.requestFullscreen()
-                 : el.mozRequestFullScreen    ? el.mozRequestFullScreen()
-                 : el.webkitRequestFullscreen ? el.webkitRequestFullscreen()
-                 : el.msRequestFullscreen     ? el.msRequestFullscreen()
-                 : Promise.reject('not supported');
-        p.catch(e => console.log('Fullscreen error:', e));
-        screen.orientation?.lock?.('landscape').catch(e => console.log('Orientation error:', e));
-      }
-
-      function exitFullscreen() {
-        const d = document;
-        if (d.fullscreenElement || d.mozFullScreenElement || d.webkitFullscreenElement || d.msFullscreenElement) {
-          (d.exitFullscreen || d.mozCancelFullScreen || d.webkitExitFullscreen || d.msExitFullscreen).call(d);
-        }
-      }
-
-      fullscreenBtn.addEventListener('click', () => {
-        const inFS = document.fullscreenElement || document.mozFullScreenElement
-          || document.webkitFullscreenElement || document.msFullscreenElement;
-        inFS ? exitFullscreen() : requestFullscreenAndLandscape();
-      });
-
-      ['fullscreenchange','mozfullscreenchange','webkitfullscreenchange','msfullscreenchange'].forEach(evt => {
-        document.addEventListener(evt, () => {
-          const inFS = document.fullscreenElement || document.mozFullScreenElement
-            || document.webkitFullscreenElement || document.msFullscreenElement;
-          if (!inFS && isMobile && gameContainer.style.display !== 'none') {
-            localStorage.setItem('mobileFullscreenPrompted', 'false');
-          }
-        });
-      });
+      game = new Phaser.Game(config);
+      game.events.once('ready', () => { loadingOverlay.style.display = 'none'; });
 
       if (isMobile) {
-        document.addEventListener('DOMContentLoaded', () => {
-          if (!localStorage.getItem('mobileFullscreenPrompted')) {
-            requestFullscreenAndLandscape();
-            localStorage.setItem('mobileFullscreenPrompted', 'true');
-          }
-        });
+        fullscreenBtn.style.display = 'block';
+        if (!localStorage.getItem('mobileFullscreenPrompted')) {
+          requestFullscreenAndLandscape();
+          localStorage.setItem('mobileFullscreenPrompted', 'true');
+        }
       }
-    </script>
-  </body>
+    };
+
+    // ── Button wiring ────────────────────────────────────────────────────
+    document.getElementById('play-btn').addEventListener('click', () => window.startScene('LevelSelectScene'));
+    document.getElementById('saves-btn').addEventListener('click', () => window.startScene('SavesScene'));
+    document.getElementById('settings-btn').addEventListener('click', () => window.startScene('SettingsScene'));
+    if (profileBtn) profileBtn.addEventListener('click', () => window.startScene('ProfileScene'));
+
+    // ── Mobile / fullscreen helpers ──────────────────────────────────────
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    function requestFullscreenAndLandscape() {
+      const el = document.documentElement;
+      const p = el.requestFullscreen ? el.requestFullscreen()
+        : el.mozRequestFullScreen ? el.mozRequestFullScreen()
+          : el.webkitRequestFullscreen ? el.webkitRequestFullscreen()
+            : el.msRequestFullscreen ? el.msRequestFullscreen()
+              : Promise.reject('not supported');
+      p.catch(e => console.log('Fullscreen error:', e));
+      screen.orientation?.lock?.('landscape').catch(e => console.log('Orientation error:', e));
+    }
+
+    function exitFullscreen() {
+      const d = document;
+      if (d.fullscreenElement || d.mozFullScreenElement || d.webkitFullscreenElement || d.msFullscreenElement) {
+        (d.exitFullscreen || d.mozCancelFullScreen || d.webkitExitFullscreen || d.msExitFullscreen).call(d);
+      }
+    }
+
+    fullscreenBtn.addEventListener('click', () => {
+      const inFS = document.fullscreenElement || document.mozFullScreenElement
+        || document.webkitFullscreenElement || document.msFullscreenElement;
+      inFS ? exitFullscreen() : requestFullscreenAndLandscape();
+    });
+
+    ['fullscreenchange', 'mozfullscreenchange', 'webkitfullscreenchange', 'msfullscreenchange'].forEach(evt => {
+      document.addEventListener(evt, () => {
+        const inFS = document.fullscreenElement || document.mozFullScreenElement
+          || document.webkitFullscreenElement || document.msFullscreenElement;
+        if (!inFS && isMobile && gameContainer.style.display !== 'none') {
+          localStorage.setItem('mobileFullscreenPrompted', 'false');
+        }
+      });
+    });
+
+    if (isMobile) {
+      document.addEventListener('DOMContentLoaded', () => {
+        if (!localStorage.getItem('mobileFullscreenPrompted')) {
+          requestFullscreenAndLandscape();
+          localStorage.setItem('mobileFullscreenPrompted', 'true');
+        }
+      });
+    }
+  </script>
+</body>
+
 </html>

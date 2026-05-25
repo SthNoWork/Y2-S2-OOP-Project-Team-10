@@ -5,9 +5,8 @@ class GameScene extends Phaser.Scene {
 
   constructor() {
     super('GameScene');
-    this.arena       = null;
-    this.arenaBorder = null;
-    this.player      = null;
+    this.arena  = null;
+    this.player = null;
   }
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -52,8 +51,8 @@ class GameScene extends Phaser.Scene {
     const btnY   = ARENA_Y + 22;
     const btnGap = 59;
 
-    window.UIFactory.createButton(this, btnX, btnY,           'Start', () => window.LevelManager.startWave());
-    window.UIFactory.createButton(this, btnX, btnY + btnGap,  'Reset', () => window.startScene('GameScene'));
+    window.UIFactory.createButton(this, btnX, btnY,          'Start', () => window.LevelManager.startWave());
+    window.UIFactory.createButton(this, btnX, btnY + btnGap, 'Reset', () => window.startScene('GameScene'));
 
     if (window.DEBUG) {
       window.UIFactory.createButton(this, btnX, btnY + btnGap * 2, 'Debug', () => this._logDebugInfo());
@@ -72,16 +71,5 @@ class GameScene extends Phaser.Scene {
     window.GameLogic.buildings.forEach((b, i) => {
       console.log(`  [GL ${i}] type=${b.buildingType} active=${b.active} x=${Math.round(b.x)} y=${Math.round(b.y)} health=${b.health}`);
     });
-  }
-
-  _drawArenaBorder() {
-    if (this.arenaBorder) {
-      this.arenaBorder.clear();
-    } else {
-      this.arenaBorder = this.add.graphics();
-    }
-    if (!this.arena) return;
-    const { ARENA_X, ARENA_Y, ARENA_W, ARENA_H } = this.arena;
-    this.arenaBorder.lineStyle(2, 0xffffff, 1).strokeRect(ARENA_X, ARENA_Y, ARENA_W, ARENA_H);
   }
 }

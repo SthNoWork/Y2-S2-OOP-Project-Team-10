@@ -5,12 +5,12 @@ window.SpriteFactory = {
 
   // ── Public API ────────────────────────────────────────────────────────────
 
-  // Plays an animation on a sprite. If the animation is finite (repeat !== -1),
-  // the sprite is automatically destroyed when it completes.
+  // Plays an animation on a sprite. Finite animations (repeat !== -1)
+  // automatically destroy the sprite when they complete.
   playAnimation(sprite, animationKey) {
     if (!sprite?.anims || !animationKey) return sprite;
 
-    const animCfg = this._getAnimationConfig(animationKey);
+    const animCfg = this._findAnimConfig(animationKey);
 
     if (this._isFiniteAnimation(animCfg)) {
       sprite.once('animationcomplete', () => {
@@ -40,12 +40,6 @@ window.SpriteFactory = {
 
   // Registers all animations after assets are loaded.
   buildAll(scene) {
-    this._buildAnimations(scene);
-  },
-
-  // ── Animation building ────────────────────────────────────────────────────
-
-  _buildAnimations(scene) {
     const cfg = window.Assets;
     if (!cfg?.animations) return;
 
@@ -66,7 +60,7 @@ window.SpriteFactory = {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  _getAnimationConfig(animationKey) {
+  _findAnimConfig(animationKey) {
     return (window.Assets?.animations || []).find((a) => a?.key === animationKey) || null;
   },
 
@@ -76,7 +70,7 @@ window.SpriteFactory = {
   },
 
   // Assets use repeat as a play-count (e.g. repeat:1 = play once).
-  // Phaser uses repeat as an extra-cycles count (repeat:0 = play once).
+  // Phaser uses repeat as an extra-cycles count (repeat:0 = play once, -1 = loop).
   _toPhaserRepeat(repeat) {
     if (repeat == null || repeat === -1) return -1;
     return Math.max(0, repeat - 1);

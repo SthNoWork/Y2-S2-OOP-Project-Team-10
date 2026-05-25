@@ -27,20 +27,22 @@ window.LevelManager = {
     this.levelNum = levelNum;
     this.levelCfg = window.Levels?.[levelNum] ?? this._fallbackConfig();
 
-    this._initLevelState();
+    this._resetLevelState();
     this._applyAllowedBuildings();
-    this._spawnLevelObjects();
+    this._createPlatforms();
+    this._createPrePlacedObjects();
 
     const spawn  = this.levelCfg.playerSpawn ?? { x: 960, y: 810 };
     const player = window.ObjectFactory.createInternal(scene, 'player', spawn.x, spawn.y, arena);
     window.GameLogic.init(scene, player, arena);
 
-    this._createHUD();
+    this._healthText = window.UIFactory.addHealthText(scene, arena);
+    this._waveText   = this._createWaveText();
+
     return player;
   },
 
-  // Resets all mutable level state to defaults.
-  _initLevelState() {
+  _resetLevelState() {
     this._state       = 'idle';
     this._waveIndex   = 0;
     this._countdownMs = 0;
@@ -49,18 +51,6 @@ window.LevelManager = {
     this._prePlaced   = [];
     this._waveText    = null;
     this._healthText  = null;
-  },
-
-  // Spawns platforms and pre-placed objects from the level config.
-  _spawnLevelObjects() {
-    this._spawnPlatforms();
-    this._spawnPrePlaced();
-  },
-
-  // Creates the HP display and wave counter text.
-  _createHUD() {
-    this._healthText = window.UIFactory.addHealthText(this.scene, this.arena);
-    this._waveText   = this._createWaveText();
   },
 
   // ── Per-frame update ──────────────────────────────────────────────────────
@@ -87,7 +77,8 @@ window.LevelManager = {
     this._countdownMs -= delta;
     if (this._countdownMs > 0) return;
 
-    if (this._waveIndex < this.levelCfg.waves.length) {
+    const wavesRemaining = this._waveIndex < this.levelCfg.waves.length;
+    if (wavesRemaining) {
       this._fireNextWave();
       this._countdownMs = this.levelCfg.waveDelayMs ?? 3000;
     } else {
@@ -132,25 +123,19 @@ window.LevelManager = {
   // ── HUD refresh ───────────────────────────────────────────────────────────
 
   _refreshHUD() {
-    this._refreshHealthText();
-    this._refreshWaveText();
+    if (this._healthText) {
+      const hp = Math.max(0, Math.round(window.GameLogic.player?.health ?? 0));
+      this._healthText.setText(`HP: ${hp}`);
+    }
+
+    if (this._waveText) {
+      const total   = this.levelCfg?.waves?.length ?? 0;
+      const current = Math.min(this._waveIndex, total);
+      this._waveText.setText(this._waveStatusLabel(current, total));
+    }
   },
 
-  _refreshHealthText() {
-    if (!this._healthText) return;
-    const hp = Math.max(0, Math.round(window.GameLogic.player?.health ?? 0));
-    this._healthText.setText(`HP: ${hp}`);
-  },
-
-  _refreshWaveText() {
-    if (!this._waveText) return;
-    const total   = this.levelCfg?.waves?.length ?? 0;
-    const current = Math.min(this._waveIndex, total);
-    const label   = this._stateToWaveLabel(current, total);
-    this._waveText.setText(label);
-  },
-
-  _stateToWaveLabel(current, total) {
+  _waveStatusLabel(current, total) {
     switch (this._state) {
       case 'idle':    return 'Press Start';
       case 'waiting': return 'Last wave…';
@@ -187,7 +172,7 @@ window.LevelManager = {
       { fontSize: '43px', fill: '#ffffff', align: 'center' }
     ).setOrigin(0.5).setDepth(2001);
 
-    this._overlayBtn(cx, cy + 140, 'Back to Levels', '#333333',
+    this._createOverlayButton(cx, cy + 140, 'Back to Levels', '#333333',
       () => window.startScene('LevelSelectScene')
     );
   },
@@ -208,12 +193,11 @@ window.LevelManager = {
       { fontSize: '43px', fill: '#aaaaaa', align: 'center' }
     ).setOrigin(0.5).setDepth(2001);
 
-    this._overlayBtn(cx, cy + 140, 'Back to Levels', '#333333',
+    this._createOverlayButton(cx, cy + 140, 'Back to Levels', '#333333',
       () => window.startScene('LevelSelectScene')
     );
   },
 
-  // Returns the pixel centre of the arena, used by both overlay screens.
   _overlayCenter() {
     const { ARENA_X, ARENA_Y, ARENA_W, ARENA_H } = this.arena;
     return {
@@ -222,12 +206,11 @@ window.LevelManager = {
     };
   },
 
-  // Draws the semi-transparent dark background panel shared by both screens.
   _createOverlayPanel(cx, cy) {
     this.scene.add.rectangle(cx, cy, 960, 454, 0x000000, 0.85).setDepth(2000);
   },
 
-  _overlayBtn(x, y, label, bgColor, onClick) {
+  _createOverlayButton(x, y, label, bgColor, onClick) {
     return this.scene.add.text(x, y, label, {
       fontSize:        '43px',
       fill:            '#ffffff',
@@ -239,9 +222,9 @@ window.LevelManager = {
       .on('pointerdown', onClick);
   },
 
-  // ── Level object spawning ─────────────────────────────────────────────────
+  // ── Level object creation ─────────────────────────────────────────────────
 
-  _spawnPlatforms() {
+  _createPlatforms() {
     (this.levelCfg.platforms || []).forEach((p) => {
       const platform = this.scene.add.rectangle(p.x, p.y, p.w, p.h, 0x888888);
 
@@ -262,7 +245,7 @@ window.LevelManager = {
     });
   },
 
-  _spawnPrePlaced() {
+  _createPrePlacedObjects() {
     (this.levelCfg.prePlaced || []).forEach((entry) => {
       const obj = window.ObjectFactory.createLevelObject(
         this.scene, entry.type, entry.x, entry.y, this.arena

@@ -47,5 +47,40 @@ window.Assets = {
       frameRate: 32,
       repeat:    1,
     },
+
+    // ── Bomb (plane_atlas) ───────────────────────────────────────────────────
+    // Plays once and freezes on the last frame.
+    // Game logic picks ltr vs rtl based on the plane's travel direction.
+    {
+      key:       'bomb_ltr',
+      atlasKey:  'plane_atlas',
+      frames:    ['bomb_1', 'bomb_2', 'bomb_3', 'bomb_4'],
+      frameRate: 6,
+      repeat:    1,   // play once → freezes on bomb_4
+    },
+    {
+      key:       'bomb_rtl',
+      atlasKey:  'plane_atlas',
+      frames:    ['bomb_7', 'bomb_6', 'bomb_5', 'bomb_4'],
+      frameRate: 6,
+      repeat:    1,   // play once → freezes on bomb_1
+    },
+
+    // ── Items (item_atlas) ───────────────────────────────────────────────────
+    {
+      key:       'bomb_crate_idle',
+      atlasKey:  'item_atlas',
+      frames:    ['bomb_crate_1', 'bomb_crate_2', 'bomb_crate_3', 'bomb_crate_4',
+                  'bomb_crate_5', 'bomb_crate_6', 'bomb_crate_7'],
+      frameRate: 10,
+      repeat:    -1,
+    },
+    {
+      key:       'gas_idle',
+      atlasKey:  'item_atlas',
+      frames:    ['gas_1', 'gas_2', 'gas_3', 'gas_4', 'gas_5', 'gas_6', 'gas_7'],
+      frameRate: 10,
+      repeat:    -1,
+    },
   ],
 };

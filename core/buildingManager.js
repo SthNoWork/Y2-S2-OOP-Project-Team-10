@@ -18,7 +18,7 @@ window.BuildingManager = {
     this.scene = scene;
     this.arena = arena;
     this.resetState();
-    this._spawnAllInventoryControls();
+    this._createInventoryButtons();
     this.setupInputHandlers();
   },
 
@@ -60,16 +60,9 @@ window.BuildingManager = {
   // ── Pointer events ────────────────────────────────────────────────────────
 
   onPointerDown(pointer) {
-    const gameObjects = this._getPointerHits(pointer);
-    if (!gameObjects.length) return;
-
-    for (const obj of gameObjects) {
-      if (obj.isLevelObject) continue;
-      if (obj.isBuilding || obj.buildingConfig) {
-        this._startDragging(obj, pointer);
-        break;
-      }
-    }
+    const hit = this._getPointerHits(pointer)
+      .find((obj) => !obj.isLevelObject && (obj.isBuilding || obj.buildingConfig));
+    if (hit) this._startDragging(hit, pointer);
   },
 
   _startDragging(obj, pointer) {
@@ -77,7 +70,7 @@ window.BuildingManager = {
     obj.isDragging        = true;
     obj._lastDragPos      = { x: pointer.x, y: pointer.y };
     obj._cachedBounds     = obj.getBounds?.() ?? null;
-    this.setGhostMode(obj, true);
+    this._setPhysicsGhost(obj, true);
     obj.setDepth(1000);
   },
 
@@ -113,7 +106,7 @@ window.BuildingManager = {
     const building = this.draggingBuilding;
     const valid    = this.isPlacementValid(building);
 
-    this.setGhostMode(building, false);
+    this._setPhysicsGhost(building, false);
 
     if (!valid) {
       this._handleInvalidDrop(building);
@@ -146,7 +139,6 @@ window.BuildingManager = {
     building.y = y;
   },
 
-  // Valid drop: just clean up drag state.
   _handleValidDrop(building) {
     this._finaliseDrop(building);
   },
@@ -174,14 +166,16 @@ window.BuildingManager = {
     Phaser.Physics.Matter.Matter.Body.setAngularVelocity(obj.body, 0);
   },
 
-  setGhostMode(building, enabled) {
+  // While dragging, strips collision and gravity so the object floats freely.
+  // Restoring sets normal collision and re-enables gravity.
+  _setPhysicsGhost(building, enabled) {
     if (!building?.body) return;
     try {
       building.body.collisionFilter.mask = enabled ? 0 : -1;
       building.body.ignoreGravity        = !!enabled;
       if (enabled) this._resetBody(building);
     } catch (e) {
-      window.logDebug?.('[BuildingManager.setGhostMode] update body failed', e);
+      window.logDebug?.('[BuildingManager._setPhysicsGhost] update body failed', e);
     }
   },
 
@@ -213,16 +207,15 @@ window.BuildingManager = {
 
   // ── Inventory UI ─────────────────────────────────────────────────────────
 
-  _spawnAllInventoryControls() {
+  _createInventoryButtons() {
     const { ARENA_X, ARENA_Y, ARENA_H } = this.arena;
-    const controlY       = ARENA_Y + ARENA_H - 65;
-    const controlSpacing = 230;
-    let   controlX       = ARENA_X + 38;
+    const buttonY       = ARENA_Y + ARENA_H - 65;
+    const buttonSpacing = 230;
+    let   buttonX       = ARENA_X + 38;
 
-    const types = this._getAllowedBuildingTypes();
-    types.forEach((type) => {
-      this._spawnInventoryButton(controlX, controlY, type);
-      controlX += controlSpacing;
+    this._getAllowedBuildingTypes().forEach((type) => {
+      this._createInventoryButton(buttonX, buttonY, type);
+      buttonX += buttonSpacing;
     });
   },
 
@@ -232,7 +225,7 @@ window.BuildingManager = {
     return Object.keys(allowed).filter((type) => window.ObjectConfig.placeableTypes[type]);
   },
 
-  _spawnInventoryButton(x, y, buildingType) {
+  _createInventoryButton(x, y, buildingType) {
     const cfg = window.ObjectConfig.placeableTypes[buildingType];
     if (!cfg) return null;
 
@@ -249,11 +242,11 @@ window.BuildingManager = {
     label.setDepth(2000);
 
     label.on('pointerdown', () => {
-      const b = this._spawnBuilding(buildingType, x, y, { fromInventory: true });
+      const b = this._createBuilding(buildingType, x, y, { fromInventory: true });
       if (b) {
         this.draggingBuilding = b;
         b.isDragging = true;
-        this.setGhostMode(b, true);
+        this._setPhysicsGhost(b, true);
         b.setDepth(1000);
       }
     });
@@ -263,7 +256,7 @@ window.BuildingManager = {
 
   // ── Building spawn / destroy ──────────────────────────────────────────────
 
-  _spawnBuilding(buildingType, x, y, options = {}) {
+  _createBuilding(buildingType, x, y, options = {}) {
     const cfg = window.ObjectConfig.placeableTypes[buildingType];
     if (!cfg) return null;
 
@@ -295,6 +288,5 @@ window.BuildingManager = {
 
   // ── Accessors ─────────────────────────────────────────────────────────────
 
-  getPlacedBuildings()      { return this.placedBuildings; },
-  getBuildingCount(type)    { return this.buildingCounts[type] || 0; },
+  getPlacedBuildings() { return this.placedBuildings; },
 };

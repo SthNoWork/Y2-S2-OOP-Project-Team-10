@@ -42,11 +42,8 @@ function _computeSize(scene, cfg) {
 
 // ── Visual creation ──────────────────────────────────────────────────────────
 
-// Creates a sprite
 function _buildVisual(scene, cfg, x, y, bodyW, bodyH, scaleX, scaleY) {
-  const obj = cfg.animKey
-    ? scene.add.sprite(x, y, cfg.imageKey, cfg.startFrame)
-    : scene.add.sprite(x, y, cfg.imageKey, cfg.startFrame);
+  const obj = scene.add.sprite(x, y, cfg.imageKey, cfg.startFrame);
 
   if (cfg.animKey && scene.anims?.exists?.(cfg.animKey)) obj.play(cfg.animKey);
 
@@ -57,7 +54,6 @@ function _buildVisual(scene, cfg, x, y, bodyW, bodyH, scaleX, scaleY) {
 
 // ── Physics attachment ───────────────────────────────────────────────────────
 
-// Adds a Matter.js body to obj based on cfg.physics.
 function _addPhysics(scene, obj, cfg, bodyW, bodyH, dims) {
   const p     = cfg.physics;
   const shape = _buildPhysicsShape(p, bodyW, bodyH, dims);
@@ -76,7 +72,6 @@ function _addPhysics(scene, obj, cfg, bodyW, bodyH, dims) {
   }
 }
 
-// Builds the shape descriptor for Matter.js.
 function _buildPhysicsShape(p, bodyW, bodyH, dims) {
   if (p?.shape?.type === 'circle') {
     const radius = dims?.radius ?? Math.max(2, Math.round(Math.min(bodyW, bodyH) * 0.5));
@@ -106,13 +101,13 @@ function _addHealth(obj, cfg) {
   obj.takeDamage = function (amount) {
     if (!this.active) return false;
     this.health -= amount;
-    _refreshHpLabelAfterDamage(this);
+    _updateHpLabelOnDamage(this);
     return this.health <= 0;
   }.bind(obj);
 }
 
-// Updates or removes the debug HP label after damage is taken.
-function _refreshHpLabelAfterDamage(obj) {
+// Updates the floating HP label after damage, or destroys it when health hits zero.
+function _updateHpLabelOnDamage(obj) {
   if (!obj._hpLabel?.active) return;
 
   if (obj.health > 0) {

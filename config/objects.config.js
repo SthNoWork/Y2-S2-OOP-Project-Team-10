@@ -175,7 +175,7 @@ window.ObjectConfig = {
   levelTypes: {
 
     bomb_crate: {
-      scale: 2, imageKey: 'item_atlas', startFrame: 'bomb_crate_1',
+      scale: 2, imageKey: 'item_atlas', startFrame: 'bomb_crate_1', animKey: 'bomb_crate_idle',
       physics: { friction: 0.8, restitution: 0.15, frictionAir: 0.01, label: 'building', mass: 10 },
       health: 5, onDeath: 'explode',
       explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 2, blastScale: 0.8 },
