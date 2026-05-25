@@ -1,0 +1,40 @@
+// config/game.config.js
+// Phaser game configuration.
+// Loaded LAST so all scene classes are already defined before this runs.
+
+const config = {
+  type:            Phaser.AUTO,
+  width:           1920,
+  height:          1080,
+  parent:          'game-container',
+  backgroundColor: '#808080',
+
+  render: {
+    pixelArt: true,
+  },
+
+  scale: {
+    mode:             Phaser.Scale.FIT,
+    autoCenter:       Phaser.Scale.CENTER_BOTH,
+    orientation:      Phaser.Scale.Orientation.LANDSCAPE,
+    fullscreenTarget: 'parent',
+    expandParent:     false,
+  },
+
+  physics: {
+    default: 'matter',
+    matter: {
+      gravity: { y: 1 },
+      debug:   false,
+    },
+  },
+
+  scene: [
+    BootScene,
+    GameScene,
+    LevelSelectScene,
+    SettingsScene,
+    SavesScene,
+    ProfileScene,
+  ],
+};
