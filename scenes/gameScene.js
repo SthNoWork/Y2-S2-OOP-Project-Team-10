@@ -13,7 +13,13 @@ class GameScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.setBackgroundColor('#000000');
-    window.UIFactory.addBackground(this, 'asset/background/1.jpg');
+    const bgChoices = [
+      'asset/background/1.jpg',
+      'asset/background/3.jpg',
+      'asset/background/5.jpg',
+    ];
+    const pick = bgChoices[Math.floor(Math.random() * bgChoices.length)];
+    window.UIFactory.addBackground(this, pick);
 
     this.arena = {
       ARENA_X: 96,
