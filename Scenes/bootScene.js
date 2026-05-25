@@ -13,7 +13,7 @@ class BootScene extends Phaser.Scene {
   create() {
     window.SpriteFactory.buildAll(this);
 
-    const nextScene    = window._bootTarget ?? 'GameScene';
+    const nextScene = window._bootTarget ?? 'GameScene';
     window._bootTarget = null;
     this.scene.start(nextScene);
   }
