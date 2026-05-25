@@ -75,6 +75,16 @@ class LeaderboardScene extends Phaser.Scene {
     this.add.text(COL.name,  HEADER_Y, 'PLAYER', headerStyle).setOrigin(0,   0).setDepth(1);
     this.add.text(COL.score, HEADER_Y, 'SCORE',  headerStyle).setOrigin(1,   0).setDepth(1);
 
+    if (!currentUid) {
+      this.add.text(960, 102, 'Sign in to save your scores. Logged-out runs stay local on this device only.', {
+        fontFamily: 'Arial, sans-serif',
+        fontSize:   '24px',
+        fill:       '#ffcc66',
+        backgroundColor: 'rgba(24, 20, 8, 0.7)',
+        padding:    { x: 16, y: 10 },
+      }).setOrigin(0.5, 0.5).setDepth(2);
+    }
+
     // Divider under header
     const hDiv = this.add.graphics().setDepth(1);
     hDiv.lineStyle(1, 0x44ff88, 0.35);
@@ -145,7 +155,9 @@ class LeaderboardScene extends Phaser.Scene {
     });
 
     // Bottom note
-    this.add.text(960, 1040, 'Top 10 global scores  •  Updates after each completed level', {
+    this.add.text(960, 1040, currentUid
+      ? 'Top 10 global scores  •  Updates after each completed level'
+      : 'Top 10 global scores  •  Sign in to keep your scores across sessions', {
       fontFamily: 'Arial, sans-serif',
       fontSize:   '22px',
       fill:       '#334433',
