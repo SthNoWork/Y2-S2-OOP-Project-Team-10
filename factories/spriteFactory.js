@@ -22,7 +22,7 @@ window.SpriteFactory = {
     return sprite;
   },
 
-  // Queues all images, sheets, and text files for loading by Phaser.
+  // Queues all images and atlases for loading by Phaser.
   preloadAll(scene) {
     const cfg = window.Assets;
     if (!cfg) return;
@@ -31,60 +31,16 @@ window.SpriteFactory = {
       if (img?.key && img?.path) scene.load.image(img.key, img.path);
     });
 
-    (cfg.sheets || []).forEach((sheet) => {
-      if (sheet?.key && sheet?.path) scene.load.image(sheet.key, sheet.path);
-    });
-
-    (cfg.texts || []).forEach((txt) => {
-      if (txt?.key && txt?.path) scene.load.text(txt.key, txt.path);
+    (cfg.atlases || []).forEach((atlas) => {
+      if (atlas?.key && atlas?.imagePath && atlas?.jsonPath) {
+        scene.load.atlas(atlas.key, atlas.imagePath, atlas.jsonPath);
+      }
     });
   },
 
-  // Builds all atlases and registers all animations after assets are loaded.
+  // Registers all animations after assets are loaded.
   buildAll(scene) {
-    this._buildAtlases(scene);
     this._buildAnimations(scene);
-  },
-
-  // ── Atlas building ────────────────────────────────────────────────────────
-
-  _buildAtlases(scene) {
-    const cfg = window.Assets;
-    if (!cfg?.atlases) return;
-    cfg.atlases.forEach((atlas) => this._buildAtlasFromText(scene, atlas));
-  },
-
-  // Parses a CSV text file into Phaser frame data and registers it as an atlas.
-  _buildAtlasFromText(scene, atlas) {
-    if (!atlas?.key || !atlas?.sheetKey || !atlas?.textKey) return;
-    if (scene.textures.exists(atlas.key)) return;
-
-    const sheetTex = scene.textures.get(atlas.sheetKey);
-    const src      = sheetTex?.getSourceImage?.();
-    const raw      = scene.cache.text.get(atlas.textKey);
-    if (!src || !raw) return;
-
-    const frames = this._parseAtlasText(raw);
-    scene.textures.addAtlas(atlas.key, src, { frames });
-  },
-
-  // Converts raw CSV text (name,x,y,w,h per line) to a Phaser frames object.
-  _parseAtlasText(raw) {
-    const frames = {};
-    raw.split(/\r?\n/).forEach((line) => {
-      const parts = line.split(',');
-      if (parts.length < 5) return;
-
-      const name = parts[0].trim();
-      const x    = parseInt(parts[1], 10);
-      const y    = parseInt(parts[2], 10);
-      const w    = parseInt(parts[3], 10);
-      const h    = parseInt(parts[4], 10);
-
-      if (!name || Number.isNaN(x) || Number.isNaN(y) || Number.isNaN(w) || Number.isNaN(h)) return;
-      frames[name] = { frame: { x, y, w, h } };
-    });
-    return frames;
   },
 
   // ── Animation building ────────────────────────────────────────────────────

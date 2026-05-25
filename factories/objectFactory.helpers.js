@@ -9,63 +9,50 @@
 function _computeSize(scene, cfg) {
   const scale = cfg.scale ?? 1;
 
-  if (cfg.useImage && cfg.imageKey) {
-    if (!scene.textures.exists(cfg.imageKey)) {
-      console.error(`[ObjectFactory._computeSize] texture "${cfg.imageKey}" not loaded`);
-      return null;
-    }
-
-    const frame = cfg.startFrame
-      ? scene.textures.getFrame(cfg.imageKey, cfg.startFrame)
-      : scene.textures.getFrame(cfg.imageKey);
-
-    if (!frame) {
-      console.error(`[ObjectFactory._computeSize] frame "${cfg.startFrame ?? '(base)'}" not found in "${cfg.imageKey}"`);
-      return null;
-    }
-
-    const texW = frame.realWidth  || frame.width;
-    const texH = frame.realHeight || frame.height;
-
-    if (!texW || !texH) {
-      console.error(`[ObjectFactory._computeSize] frame has zero dimensions`);
-      return null;
-    }
-
-    if (cfg.physics?.shape?.type === 'circle') {
-      const radiusRatio = cfg.physics.shape.radiusRatio ?? 1;
-      const radius      = Math.max(2, Math.round((Math.min(texW, texH) / 2) * scale * radiusRatio));
-      return { bodyW: radius * 2, bodyH: radius * 2, scaleX: scale, scaleY: scale, radius };
-    }
-
-    return { bodyW: texW * scale, bodyH: texH * scale, scaleX: scale, scaleY: scale };
-  }
-
-  if (cfg.width == null || cfg.height == null) {
-    console.error('[ObjectFactory._computeSize] no useImage and no explicit width/height', cfg);
+  if (!scene.textures.exists(cfg.imageKey)) {
+    console.error(`[ObjectFactory._computeSize] texture "${cfg.imageKey}" not loaded`);
     return null;
   }
 
-  return { bodyW: cfg.width, bodyH: cfg.height, scaleX: 1, scaleY: 1 };
+  const frame = cfg.startFrame
+    ? scene.textures.getFrame(cfg.imageKey, cfg.startFrame)
+    : scene.textures.getFrame(cfg.imageKey);
+
+  if (!frame) {
+    console.error(`[ObjectFactory._computeSize] frame "${cfg.startFrame ?? '(base)'}" not found in "${cfg.imageKey}"`);
+    return null;
+  }
+
+  const texW = frame.realWidth  || frame.width;
+  const texH = frame.realHeight || frame.height;
+
+  if (!texW || !texH) {
+    console.error(`[ObjectFactory._computeSize] frame has zero dimensions`);
+    return null;
+  }
+
+  if (cfg.physics?.shape?.type === 'circle') {
+    const radiusRatio = cfg.physics.shape.radiusRatio ?? 1;
+    const radius      = Math.max(2, Math.round((Math.min(texW, texH) / 2) * scale * radiusRatio));
+    return { bodyW: radius * 2, bodyH: radius * 2, scaleX: scale, scaleY: scale, radius };
+  }
+
+  return { bodyW: texW * scale, bodyH: texH * scale, scaleX: scale, scaleY: scale };
 }
 
 // ── Visual creation ──────────────────────────────────────────────────────────
 
-// Creates either an image/sprite (if cfg.useImage) or a coloured rectangle.
+// Creates a sprite
 function _buildVisual(scene, cfg, x, y, bodyW, bodyH, scaleX, scaleY) {
-  if (cfg.useImage && cfg.imageKey && scene.textures.exists(cfg.imageKey)) {
-    const obj = cfg.animKey
-      ? scene.add.sprite(x, y, cfg.imageKey, cfg.startFrame)
-      : scene.add.image(x, y, cfg.imageKey, cfg.startFrame);
+  const obj = cfg.animKey
+    ? scene.add.sprite(x, y, cfg.imageKey, cfg.startFrame)
+    : scene.add.sprite(x, y, cfg.imageKey, cfg.startFrame);
 
-    if (cfg.animKey && scene.anims?.exists?.(cfg.animKey)) obj.play(cfg.animKey);
+  if (cfg.animKey && scene.anims?.exists?.(cfg.animKey)) obj.play(cfg.animKey);
 
-    obj.setScale(scaleX, scaleY);
-    obj._factoryScaled = true;
-    return obj;
-  }
-
-  return scene.add.rectangle(x, y, bodyW, bodyH, cfg.color);
+  obj.setScale(scaleX, scaleY);
+  obj._factoryScaled = true;
+  return obj;
 }
 
 // ── Physics attachment ───────────────────────────────────────────────────────

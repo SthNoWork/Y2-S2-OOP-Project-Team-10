@@ -1,0 +1,45 @@
+Folder PATH listing for volume Drive
+Volume serial number is 0000001C DA7A:FE17
+D:.
+|   assets.js
+|   Game.js
+|   index.html
+|   levels.js
+|   phaser.js
+|   spriteFactory.js
+|   uiFactory.js
+|     
++---asset
+|   +---background
+|   |       background.jpg
+|   +---block
+|   |       block.png
+|   |       block.txt
+|   |       
+|   +---Car
+|   |       tile_0000.png
+|   |       
+|   +---music
+|   |       Forest Drift (1).mp3
+|   |       Forest Drift.mp3
+|   |       Shield the Sky.mp3
+|   |       
+|   \---plane
+|           sprites.txt
+|           spritesheet.png
+|           
+\---Scenes
+    |   bootScene.js
+    |   gameScene.js
+    |   levelSelectScene.js
+    |   profileScene.js
+    |   savesScene.js
+    |   settingsScene.js
+    |   
+    \---gameScene
+            buildingManager.js
+            gameLogic.js
+            levelManager.js
+            objectConfig.js
+            objectFactory.js
+            

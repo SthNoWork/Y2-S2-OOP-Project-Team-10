@@ -236,7 +236,8 @@ window.BuildingManager = {
     const cfg = window.ObjectConfig.placeableTypes[buildingType];
     if (!cfg) return null;
 
-    const bg    = '#' + cfg.color.toString(16).padStart(6, '0');
+    const fallbackColor = cfg.color ? cfg.color : 0x4a4a4a;
+    const bg    = '#' + fallbackColor.toString(16).padStart(6, '0');
     const label = this.scene.add.text(x, y, buildingType, {
       fontSize:        '27px',
       fill:            '#ffffff',

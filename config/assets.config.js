@@ -5,7 +5,6 @@
 window.Assets = {
 
   images: [
-    { key: 'bomb_crate',                path: 'asset/material/tile_0001.png' },
     { key: 'player',                    path: 'asset/character/result.png' },
     { key: 'bg_asset_background_1_jpg', path: 'asset/background/background.jpg' },
     { key: 'bg_asset_background_2_jpg', path: 'asset/background/background1.jpg' },
@@ -14,36 +13,25 @@ window.Assets = {
     { key: 'bg_asset_background_5_jpg', path: 'asset/background/background.jpg' },
   ],
 
-  sheets: [
-    { key: 'plane_sheet',     path: 'asset/plane/spritesheet.png' },
-    { key: 'block_sheet',     path: 'asset/block/block.png' },
-    { key: 'explosion_sheet', path: 'asset/explosion/explosion.png' },
-  ],
-
-  texts: [
-    { key: 'plane_sprites',     path: 'asset/plane/sprites.txt' },
-    { key: 'block_sprites',     path: 'asset/block/block.txt' },
-    { key: 'explosion_sprites', path: 'asset/explosion/explosion.txt' },
-  ],
-
   atlases: [
-    { key: 'plane_atlas',     sheetKey: 'plane_sheet',     textKey: 'plane_sprites' },
-    { key: 'block_atlas',     sheetKey: 'block_sheet',     textKey: 'block_sprites' },
-    { key: 'explosion_atlas', sheetKey: 'explosion_sheet', textKey: 'explosion_sprites' },
+    { key: 'plane_atlas', imagePath: 'asset/plane/plane.png', jsonPath: 'asset/plane/plane.json' },
+    { key: 'block_atlas', imagePath: 'asset/block/block.png', jsonPath: 'asset/block/block.json' },
+    { key: 'explosion_atlas', imagePath: 'asset/explosion/explosion.png', jsonPath: 'asset/explosion/explosion.json' },
+    { key: 'item_atlas', imagePath: 'asset/item/item.png', jsonPath: 'asset/item/item.json' },
   ],
 
   animations: [
     {
       key:       'plane_fly',
       atlasKey:  'plane_atlas',
-      frames:    ['row01_02', 'row01_03', 'row01_04', 'row01_05', 'row01_06'],
+      frames:    ['plane_2', 'plane_3', 'plane_4', 'plane_5', 'plane_6'],
       frameRate: 10,
       repeat:    -1,
     },
     {
       key:       'plane_blades',
       atlasKey:  'plane_atlas',
-      frames:    ['row04_01', 'row04_02', 'row04_03', 'row04_04', 'row04_05'],
+      frames:    ['plane_blade_1', 'plane_blade_2', 'plane_blade_3', 'plane_blade_4', 'plane_blade_5'],
       frameRate: 18,
       repeat:    -1,
     },
@@ -51,10 +39,10 @@ window.Assets = {
       key:       'explosion',
       atlasKey:  'explosion_atlas',
       frames: [
-        'explosion1',  'explosion2',  'explosion3',  'explosion4',
-        'explosion5',  'explosion6',  'explosion7',  'explosion8',
-        'explosion9',  'explosion10', 'explosion11', 'explosion12',
-        'explosion13', 'explosion13', 'explosion14', 'explosion15', 'explosion16',
+        'explosion_1',  'explosion_2',  'explosion_3',  'explosion_4',
+        'explosion_5',  'explosion_6',  'explosion_7',  'explosion_8',
+        'explosion_9',  'explosion_10', 'explosion_11', 'explosion_12',
+        'explosion_13', 'explosion_13', 'explosion_14', 'explosion_15', 'explosion_16',
       ],
       frameRate: 32,
       repeat:    1,
