@@ -107,6 +107,8 @@ window.HUDFactory._overlayBtn = function (scene, x, y, label, bgColor, hoverColo
 // ── Win screen ───────────────────────────────────────────────────────────────
 
 window.HUDFactory.showWinScreen = function (scene, arena, opts) {
+  try { window.SfxManager?.muteAll?.(); } catch (e) { }
+  try { window.SfxManager?.playComplete?.(); } catch (e) { }
   const { ARENA_X, ARENA_Y, ARENA_W, ARENA_H } = arena;
   const { levelNum, totalWaves, hp, maxHp, objectScore, playerBonus, total, onNext, onLevels } = opts;
 
@@ -219,6 +221,8 @@ window.HUDFactory.showWinScreen = function (scene, arena, opts) {
 // ── Lose screen ──────────────────────────────────────────────────────────────
 
 window.HUDFactory.showLoseScreen = function (scene, arena, opts) {
+  try { window.SfxManager?.muteAll?.(); } catch (e) { }
+  try { window.SfxManager?.playFail?.(); } catch (e) { }
   const { ARENA_X, ARENA_Y, ARENA_W, ARENA_H } = arena;
   const { levelNum, wavesSurvived, totalWaves, onRetry, onLevels } = opts;
 

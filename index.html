@@ -277,6 +277,7 @@
   <script src="factories/objectFactory.js"></script>
 
   <script src="core/gameLogic.js"></script>
+  <script src="core/sfxManager.js"></script>
   <script src="core/buildingManager.js"></script>
   <script src="core/levelManager.js"></script>
 
@@ -390,6 +391,7 @@
       homeScreen.style.display = 'flex';
       profilePanel.style.display = 'flex';
       fullscreenBtn.style.display = 'none';
+      try { window.SfxManager?.unmuteAll?.(); } catch (e) { }
       window.MusicManager.playShared({ restart: window.MusicManager.mode === 'level' });
     };
 
@@ -420,6 +422,7 @@
     // ── startScene ───────────────────────────────────────────────────────
     window.startScene = function (sceneKey) {
       destroyGame();
+      try { window.SfxManager?.unmuteAll?.(); } catch (e) { }
 
       homeScreen.style.display = 'none';
       gameContainer.style.display = 'flex';
