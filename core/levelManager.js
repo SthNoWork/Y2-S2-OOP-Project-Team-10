@@ -19,6 +19,49 @@ window.LevelManager = {
   _platforms: [],
   _prePlaced: [],
 
+  // ── Progress / unlock ─────────────────────────────────────────────────────
+
+  _progressKey: 'bts_unlocked_level',
+
+  _getTotalLevels() {
+    return Object.keys(window.Levels ?? {}).length || 1;
+  },
+
+  // Returns the highest level number the player has unlocked.
+  // If window.DEBUG is true every level is considered unlocked.
+  getMaxUnlockedLevel() {
+    if (window.DEBUG) return this._getTotalLevels();
+
+    let unlocked = 1;
+    try {
+      const stored = parseInt(localStorage.getItem(this._progressKey), 10);
+      if (Number.isFinite(stored) && stored >= 1) unlocked = stored;
+    } catch (err) {
+      // Ignore storage errors (private mode, disabled storage).
+    }
+    return Math.min(Math.max(1, unlocked), this._getTotalLevels());
+  },
+
+  // Returns true when the given level number is accessible to the player.
+  isLevelUnlocked(levelNum) {
+    return levelNum <= this.getMaxUnlockedLevel();
+  },
+
+  // Persists progress after winning: unlocks levelNum + 1 if not already unlocked.
+  _unlockNextLevel(currentLevel) {
+    if (window.DEBUG) return; // nothing to persist in debug mode
+    const total   = this._getTotalLevels();
+    const target  = Math.min(total, (currentLevel || 1) + 1);
+    const current = this.getMaxUnlockedLevel();
+    if (target > current) {
+      try {
+        localStorage.setItem(this._progressKey, String(target));
+      } catch (err) {
+        // Ignore storage errors (private mode, disabled storage).
+      }
+    }
+  },
+
   load(scene, arena, levelNum) {
     this.scene = scene;
     this.arena = arena;
@@ -204,6 +247,8 @@ window.LevelManager = {
   },
 
   _showWinScreen() {
+    this._unlockNextLevel(this.levelNum);
+
     const { cx, cy } = this._overlayCenter();
     const waves = this.levelCfg.waves.length;
     const { objectScore, playerBonus, total } = this._calculateScore();
