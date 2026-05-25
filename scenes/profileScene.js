@@ -52,7 +52,10 @@ class ProfileScene extends Phaser.Scene {
     const totalLevels = Object.keys(window.Levels ?? {}).length || 1;
 
     const panelW  = 860;
-    const panelH  = Math.min(760, 160 + totalLevels * 54 + 160);
+    const rowH    = 54;
+    const minPanelH = 760;
+    const maxPanelH = 860;
+    const panelH  = Math.min(maxPanelH, Math.max(minPanelH, 330 + totalLevels * rowH));
     const topEdge = cy - panelH * 0.5;
     const D       = 10;
 
@@ -80,7 +83,6 @@ class ProfileScene extends Phaser.Scene {
     this._hline(cx, topEdge + 144, panelW * 0.8, 0x4488ff, 0.25, D + 1);
 
     // ── Level score rows ──
-    const rowH   = 54;
     const startY = topEdge + 172;
 
     for (let i = 1; i <= totalLevels; i++) {

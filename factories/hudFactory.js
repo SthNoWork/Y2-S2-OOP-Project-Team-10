@@ -13,7 +13,13 @@ window.HUDFactory.addHealthText = function (scene, arena) {
     arena.ARENA_X + 19,
     arena.ARENA_Y + 11,
     '',
-    { fontSize: '32px', fill: '#ffffff' }
+    {
+      fontFamily: 'Arial Black, Arial, sans-serif',
+      fontSize: '36px',
+      fill: '#ff3333',
+      backgroundColor: '#000000',
+      padding: { x: 10, y: 6 },
+    }
   );
 };
 

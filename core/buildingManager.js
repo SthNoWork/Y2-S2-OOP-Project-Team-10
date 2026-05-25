@@ -11,6 +11,7 @@ window.BuildingManager = {
   buildingCounts:     {},   // alive placed count per type (decrements on destroy)
   _totalPlacedCounts: {},   // ever-placed count per type (never decrements, used for scoring)
   _inventoryButtons:  [],
+  _inventoryButtonsByType: {},
   _handlers:          null,
   dragMoveThreshold:  1,
 
@@ -26,6 +27,7 @@ window.BuildingManager = {
     this.draggingBuilding  = null;
     this.placedBuildings   = [];
     this._inventoryButtons = [];
+    this._inventoryButtonsByType = {};
 
     Object.keys(window.ObjectConfig.placeableTypes).forEach((type) => {
       this.buildingCounts[type]     = 0;
@@ -242,13 +244,33 @@ window.BuildingManager = {
     const { ARENA_X, ARENA_Y, ARENA_H } = this.arena;
 
     const buttonY = ARENA_Y + ARENA_H - 65;
-    const spacing = 230;
-    let x = ARENA_X + 38;
+    const buttonW = 220;
+    const buttonH = 44;
+    const gap = 18;
+    const spacing = buttonW + gap;
+    let x = ARENA_X + 38 + buttonW / 2;
 
     this._getAllowedBuildingTypes().forEach((type) => {
-      this._createInventoryButton(x, buttonY, type);
+      this._createInventoryButton(x, buttonY, type, buttonW, buttonH);
       x += spacing;
     });
+  },
+
+  _getRemainingCount(type) {
+    const cfg = window.ObjectConfig.placeableTypes[type];
+    const max = Number(cfg?.maxCount) || 0;
+    const placed = this.buildingCounts[type] || 0;
+    return Math.max(0, max - placed);
+  },
+
+  _formatInventoryLabel(type) {
+    return `${type} x${this._getRemainingCount(type)}`;
+  },
+
+  _refreshInventoryLabel(type) {
+    const label = this._inventoryButtonsByType[type];
+    if (!label) return;
+    label.setText(this._formatInventoryLabel(type));
   },
 
   _getAllowedBuildingTypes() {
@@ -258,24 +280,25 @@ window.BuildingManager = {
     );
   },
 
-  _createInventoryButton(x, y, type) {
+  _createInventoryButton(x, y, type, buttonW, buttonH) {
     const cfg = window.ObjectConfig.placeableTypes[type];
     if (!cfg) return null;
 
     const color = cfg.color ? cfg.color : 0x4a4a4a;
-    const bg = '#' + color.toString(16).padStart(6, '0');
-
-    const label = this.scene.add.text(x, y, type, {
+    const bg = this.scene.add.rectangle(x, y, buttonW, buttonH, color, 1);
+    const label = this.scene.add.text(x, y, this._formatInventoryLabel(type), {
       fontSize: '27px',
       fill: '#fff',
-      backgroundColor: bg,
-      padding: { x: 19, y: 9 }
     });
 
+    bg.setInteractive({ useHandCursor: true });
     label.setInteractive({ useHandCursor: true });
+    bg.setDepth(1999);
     label.setDepth(2000);
+    label.setOrigin(0.5);
 
-    label.on('pointerdown', () => {
+    const onSelect = () => {
+      if (this._getRemainingCount(type) <= 0) return;
       const b = this._createBuilding(type, x, y, { fromInventory: true });
 
       if (b) {
@@ -284,9 +307,13 @@ window.BuildingManager = {
         this._setPhysicsGhost(b, true);
         b.setDepth(1000);
       }
-    });
+    };
 
-    this._inventoryButtons.push(label);
+    bg.on('pointerdown', onSelect);
+    label.on('pointerdown', onSelect);
+
+    this._inventoryButtons.push(bg, label);
+    this._inventoryButtonsByType[type] = label;
     return label;
   },
 
@@ -307,6 +334,8 @@ window.BuildingManager = {
     this._totalPlacedCounts[type] =
       (this._totalPlacedCounts[type] || 0) + 1;
 
+    this._refreshInventoryLabel(type);
+
     return building;
   },
 
@@ -317,6 +346,8 @@ window.BuildingManager = {
     if (type && this.buildingCounts[type] > 0) {
       this.buildingCounts[type]--;
     }
+
+    if (type) this._refreshInventoryLabel(type);
 
     window.ObjectFactory.destroy(building);
 
