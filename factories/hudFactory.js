@@ -1,8 +1,11 @@
 // factories/hudFactory.js
-// Handles in-game HUD elements and scene backgrounds.
+// Handles in-game HUD elements, scene backgrounds, and end-of-round overlay screens.
 // Split from uiFactory to keep HUD concerns separate from generic button helpers.
+// Win/lose screen drawing lives here so levelManager stays focused on game logic.
 
 window.HUDFactory = {};
+
+// ── Basic HUD ────────────────────────────────────────────────────────────────
 
 // Creates the HP display text anchored to the top-left of the arena.
 window.HUDFactory.addHealthText = function (scene, arena) {
@@ -15,7 +18,6 @@ window.HUDFactory.addHealthText = function (scene, arena) {
 };
 
 // Adds a background image scaled to cover the full 1920×1080 canvas.
-// The key is derived from the asset path so it matches what BootScene loaded.
 window.HUDFactory.addBackground = function (scene, path) {
   if (!path) return null;
 
@@ -31,10 +33,269 @@ window.HUDFactory.addBackground = function (scene, path) {
   const texW = src?.width  || 1;
   const texH = src?.height || 1;
 
-  // Scale up so the image fully covers the 1920×1080 canvas without letterboxing.
   img.setScale(Math.max(1920 / texW, 1080 / texH));
   img.setDepth(-1000);
   img.setScrollFactor(0);
 
   return img;
+};
+
+// ── Shared overlay primitives ─────────────────────────────────────────────────
+
+// Draws a labelled stat card.
+window.HUDFactory._overlayStatCard = function (scene, cx, cy, cardW, cardH, bgColor, borderColor, labelFs, valueFs, labelText, valueText, labelColor, valueColor, depth) {
+  scene.add.rectangle(cx, cy, cardW, cardH, bgColor, 1).setDepth(depth);
+  const cb = scene.add.graphics().setDepth(depth);
+  cb.lineStyle(1, borderColor, 0.2);
+  cb.strokeRect(cx - cardW * 0.5, cy - cardH * 0.5, cardW, cardH);
+  scene.add.text(cx, cy - cardH * 0.22, labelText, {
+    fontFamily: 'Arial, sans-serif', fontSize: `${labelFs}px`,
+    fill: labelColor, letterSpacing: 2,
+  }).setOrigin(0.5).setDepth(depth + 1);
+  scene.add.text(cx, cy + cardH * 0.2, valueText, {
+    fontFamily: 'Arial Black, Arial, sans-serif', fontSize: `${valueFs}px`,
+    fill: valueColor,
+  }).setOrigin(0.5).setDepth(depth + 1);
+};
+
+// Draws a two-column score row (label left of cx, value right of cx).
+window.HUDFactory._overlayScoreRow = function (scene, cx, cy, label, value, color, fontSize, fontStyle, depth) {
+  const s = {
+    fontFamily: 'Arial, sans-serif',
+    fontSize:   `${fontSize}px`,
+    fill:       color,
+    fontStyle:  fontStyle ?? 'normal',
+  };
+  scene.add.text(cx - 24, cy, label, s)
+    .setOrigin(1, 0.5).setDepth(depth);
+  scene.add.text(cx + 24, cy, value, { ...s, fontFamily: 'Arial Black, Arial, sans-serif' })
+    .setOrigin(0, 0.5).setDepth(depth);
+};
+
+// Creates an overlay button with hover highlight.
+// Canvas is always 1920×1080 so sizes are fixed px values.
+window.HUDFactory._overlayBtn = function (scene, x, y, label, bgColor, hoverColor, onClick, depth) {
+  depth = depth ?? 2010;  // above all panel layers (D+4 = 2004 is the highest used)
+
+  const toCss     = (c) => typeof c === 'number' ? '#' + c.toString(16).padStart(6, '0') : c;
+  const normalCss = toCss(bgColor);
+  const hoverCss  = toCss(hoverColor);
+
+  const btn = scene.add.text(x, y, label, {
+    fontFamily:      'Arial, sans-serif',
+    fontSize:        '39px',
+    fill:            '#ffffff',
+    backgroundColor: normalCss,
+    padding:         { x: 42, y: 14 },
+  })
+    .setOrigin(0.5)
+    .setDepth(depth)
+    .setInteractive({ useHandCursor: true })
+    .on('pointerover',  () => btn.setStyle({ backgroundColor: hoverCss }))
+    .on('pointerout',   () => btn.setStyle({ backgroundColor: normalCss }))
+    .on('pointerdown',  onClick);
+
+  return btn;
+};
+
+// ── Win screen ───────────────────────────────────────────────────────────────
+
+window.HUDFactory.showWinScreen = function (scene, arena, opts) {
+  const { ARENA_X, ARENA_Y, ARENA_W, ARENA_H } = arena;
+  const { levelNum, totalWaves, hp, maxHp, objectScore, playerBonus, total, onNext, onLevels } = opts;
+
+  const cx    = ARENA_X + ARENA_W * 0.5;
+  const cy    = ARENA_Y + ARENA_H * 0.5;
+  const hpPct = maxHp > 0 ? hp / maxHp : 0;
+  const stars = hpPct >= 0.75 ? 3 : hpPct >= 0.35 ? 2 : 1;
+  const D     = 2000;
+
+  // ── Layout constants (all px, canvas = 1920×1080) ──
+  const panelW    = 1056;   // ~55% of 1920
+  const panelH    = 780;    // tall enough for all content
+  const topEdge   = cy - panelH * 0.5;
+
+  // ── Backdrop + panel ──
+  scene.add.rectangle(cx, cy, ARENA_W, ARENA_H, 0x000000, 0.55).setDepth(D);
+
+  scene.add.rectangle(cx, cy, panelW, panelH, 0x0d1b0d, 0.97).setDepth(D + 2);
+
+  // ── Green accent bar + border ──
+  scene.add.rectangle(cx, topEdge + 4, panelW, 8, 0x44ff88).setDepth(D + 3);
+  const border = scene.add.graphics().setDepth(D + 3);
+  border.lineStyle(2, 0x44ff88, 0.6);
+  border.strokeRect(cx - panelW * 0.5, topEdge, panelW, panelH);
+
+  // ── LEVEL badge ──  topEdge + 38
+  scene.add.text(cx, topEdge + 38, `LEVEL ${levelNum}`, {
+    fontFamily: 'Arial, sans-serif', fontSize: '27px',
+    fill: '#44ff88', letterSpacing: 4,
+  }).setOrigin(0.5, 0).setDepth(D + 4);
+
+  // ── YOU WIN! ──  topEdge + 75
+  scene.add.text(cx, topEdge + 75, 'YOU WIN!', {
+    fontFamily: 'Arial Black, Arial, sans-serif', fontSize: '92px',
+    fill: '#44ff88', stroke: '#006633', strokeThickness: 4,
+  }).setOrigin(0.5, 0).setDepth(D + 4);
+
+  // ── Stars ──  topEdge + 210
+  const starY   = topEdge + 220;
+  const starGap = 86;
+  [-starGap, 0, starGap].forEach((offset, i) => {
+    const filled = i < stars;
+    scene.add.text(cx + offset, starY, '★', {
+      fontFamily: 'Arial, sans-serif', fontSize: '56px',
+      fill: filled ? '#ffd700' : '#2a2a2a',
+      stroke: filled ? '#b8860b' : '#444444', strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(D + 4);
+  });
+
+  // ── Divider ──  topEdge + 295
+  const div1 = scene.add.graphics().setDepth(D + 3);
+  div1.lineStyle(1, 0x44ff88, 0.25);
+  div1.lineBetween(cx - panelW * 0.41, topEdge + 295, cx + panelW * 0.41, topEdge + 295);
+
+  // ── Stat cards: LEVEL / WAVES / HP ──  centred at topEdge + 355
+  const cardW   = panelW * 0.28;
+  const cardH   = 90;
+  const cardGap = panelW * 0.34;
+  const cardY   = topEdge + 355;
+  const hpColor = hpPct >= 0.5 ? '#44ff88' : hpPct >= 0.25 ? '#ffcc00' : '#ff5555';
+
+  [
+    { label: 'LEVEL',   value: `${levelNum}`,             color: '#aaaaaa' },
+    { label: 'WAVES',   value: `${totalWaves}/${totalWaves}`, color: '#44ccff' },
+    { label: 'HP LEFT', value: `${hp}`,                   color: hpColor   },
+  ].forEach((card, i) => {
+    window.HUDFactory._overlayStatCard(
+      scene, cx + (i - 1) * cardGap, cardY,
+      cardW, cardH, 0x1a2e1a, 0x44ff88, 22, 38,
+      card.label, card.value, '#778877', card.color, D + 3
+    );
+  });
+
+  // ── HP bar ──  topEdge + 420
+  const hpBarY   = topEdge + 425;
+  const hpBarW   = panelW * 0.72;
+  const hpBarH   = 14;
+  const hpBarGfx = scene.add.graphics().setDepth(D + 3);
+  const hpFill   = hpPct >= 0.5 ? 0x44ff88 : hpPct >= 0.25 ? 0xffcc00 : 0xff5555;
+  hpBarGfx.fillStyle(0x1a2e1a, 1);
+  hpBarGfx.fillRect(cx - hpBarW * 0.5, hpBarY - hpBarH * 0.5, hpBarW, hpBarH);
+  hpBarGfx.fillStyle(hpFill, 1);
+  hpBarGfx.fillRect(cx - hpBarW * 0.5, hpBarY - hpBarH * 0.5, hpBarW * Math.max(hpPct, 0.02), hpBarH);
+  hpBarGfx.lineStyle(1, 0x44ff88, 0.2);
+  hpBarGfx.strokeRect(cx - hpBarW * 0.5, hpBarY - hpBarH * 0.5, hpBarW, hpBarH);
+
+  // ── Divider 2 ──
+  const div2 = scene.add.graphics().setDepth(D + 3);
+  div2.lineStyle(1, 0x44ff88, 0.15);
+  div2.lineBetween(cx - panelW * 0.41, topEdge + 453, cx + panelW * 0.41, topEdge + 453);
+
+  // ── Score rows ──  starting topEdge + 478
+  const scoreRowH = 52;
+  const scoreY0   = topEdge + 485;
+
+  window.HUDFactory._overlayScoreRow(scene, cx, scoreY0,                  'Objects',          `${objectScore} pts`,                    '#cccccc', 28, 'normal', D + 4);
+  window.HUDFactory._overlayScoreRow(scene, cx, scoreY0 + scoreRowH,      'Perfect HP Bonus', playerBonus ? `+${playerBonus}` : '—',  playerBonus ? '#ffdd44' : '#555555', 28, 'normal', D + 4);
+  window.HUDFactory._overlayScoreRow(scene, cx, scoreY0 + scoreRowH * 2,  'Score',            `${total} pts`,                          '#44ff88', 38, 'bold',   D + 4);
+
+  // ── Buttons ──  topEdge + 710
+  const btnY = topEdge + 720;
+  if (onNext) {
+    window.HUDFactory._overlayBtn(scene, cx - panelW * 0.18, btnY, '▶  Next Level', 0x1a5a2a, 0x33aa55, onNext);
+    window.HUDFactory._overlayBtn(scene, cx + panelW * 0.18, btnY, '☰  Levels',     0x2a2a2a, 0x555555, onLevels);
+  } else {
+    window.HUDFactory._overlayBtn(scene, cx, btnY, '☰  Back to Levels', 0x2a2a2a, 0x555555, onLevels);
+  }
+};
+
+// ── Lose screen ──────────────────────────────────────────────────────────────
+
+window.HUDFactory.showLoseScreen = function (scene, arena, opts) {
+  const { ARENA_X, ARENA_Y, ARENA_W, ARENA_H } = arena;
+  const { levelNum, wavesSurvived, totalWaves, onRetry, onLevels } = opts;
+
+  const cx      = ARENA_X + ARENA_W * 0.5;
+  const cy      = ARENA_Y + ARENA_H * 0.5;
+  const wavePct = totalWaves > 0 ? wavesSurvived / totalWaves : 0;
+  const D       = 2000;
+
+  const panelW  = 1056;
+  const panelH  = 650;
+  const topEdge = cy - panelH * 0.5;
+
+  const waveColor = wavePct >= 0.75 ? '#44ff88' : wavePct >= 0.4 ? '#ffcc00' : '#ff5555';
+
+  // ── Backdrop + panel ──
+  scene.add.rectangle(cx, cy, ARENA_W, ARENA_H, 0x000000, 0.65).setDepth(D);
+
+  scene.add.rectangle(cx, cy, panelW, panelH, 0x1a0505, 0.97).setDepth(D + 2);
+
+  // ── Red accent bar + border ──
+  scene.add.rectangle(cx, topEdge + 4, panelW, 8, 0xff3333).setDepth(D + 3);
+  const border = scene.add.graphics().setDepth(D + 3);
+  border.lineStyle(2, 0xff3333, 0.5);
+  border.strokeRect(cx - panelW * 0.5, topEdge, panelW, panelH);
+
+  // ── LEVEL badge ──
+  scene.add.text(cx, topEdge + 38, `LEVEL ${levelNum}`, {
+    fontFamily: 'Arial, sans-serif', fontSize: '27px',
+    fill: '#ff5555', letterSpacing: 4,
+  }).setOrigin(0.5, 0).setDepth(D + 4);
+
+  // ── GAME OVER ──
+  scene.add.text(cx, topEdge + 75, 'GAME OVER', {
+    fontFamily: 'Arial Black, Arial, sans-serif', fontSize: '92px',
+    fill: '#ff3333', stroke: '#660000', strokeThickness: 4,
+  }).setOrigin(0.5, 0).setDepth(D + 4);
+
+  // ── Skull icons ──
+  const skullGap = 86;
+  ['💀', '💀', '💀'].forEach((icon, i) => {
+    scene.add.text(cx + (i - 1) * skullGap, topEdge + 240, icon, {
+      fontFamily: 'Arial, sans-serif', fontSize: '52px',
+    }).setOrigin(0.5).setDepth(D + 4);
+  });
+
+  // ── Divider ──
+  const div = scene.add.graphics().setDepth(D + 3);
+  div.lineStyle(1, 0xff3333, 0.25);
+  div.lineBetween(cx - panelW * 0.41, topEdge + 305, cx + panelW * 0.41, topEdge + 305);
+
+  // ── Stat cards ──
+  const cardW   = panelW * 0.28;
+  const cardH   = 90;
+  const cardGap = panelW * 0.34;
+  const cardY   = topEdge + 368;
+
+  [
+    { label: 'LEVEL',   value: `${levelNum}`,               color: '#aaaaaa' },
+    { label: 'WAVES',   value: `${wavesSurvived}/${totalWaves}`, color: waveColor },
+    { label: 'HP LEFT', value: '0',                         color: '#ff5555' },
+  ].forEach((card, i) => {
+    window.HUDFactory._overlayStatCard(
+      scene, cx + (i - 1) * cardGap, cardY,
+      cardW, cardH, 0x2e1a1a, 0xff3333, 22, 38,
+      card.label, card.value, '#775555', card.color, D + 3
+    );
+  });
+
+  // ── Wave progress bar ──
+  const barY       = topEdge + 478;
+  const waveBarW   = panelW * 0.72;
+  const waveBarH   = 16;
+  const waveFill   = wavePct >= 0.75 ? 0x44ff88 : wavePct >= 0.4 ? 0xffcc00 : 0xff5555;
+  const waveBarGfx = scene.add.graphics().setDepth(D + 3);
+  waveBarGfx.fillStyle(0x2e1a1a, 1);
+  waveBarGfx.fillRect(cx - waveBarW * 0.5, barY - waveBarH * 0.5, waveBarW, waveBarH);
+  waveBarGfx.fillStyle(waveFill, 1);
+  waveBarGfx.fillRect(cx - waveBarW * 0.5, barY - waveBarH * 0.5, waveBarW * Math.max(wavePct, 0.03), waveBarH);
+  waveBarGfx.lineStyle(1, 0xff3333, 0.2);
+  waveBarGfx.strokeRect(cx - waveBarW * 0.5, barY - waveBarH * 0.5, waveBarW, waveBarH);
+
+  // ── Buttons ──
+  const btnY = topEdge + 580;
+  window.HUDFactory._overlayBtn(scene, cx - panelW * 0.18, btnY, '↺  Try Again', 0x5a1a1a, 0xaa3333, onRetry);
+  window.HUDFactory._overlayBtn(scene, cx + panelW * 0.18, btnY, '☰  Levels',    0x2a2a2a, 0x555555, onLevels);
 };
