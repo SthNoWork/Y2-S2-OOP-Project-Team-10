@@ -188,15 +188,15 @@ window.ObjectConfig = {
   internalTypes: {
 
     bomb: {
-      scale: 3,
-      imageKey: 'plane_atlas', startFrame: 'bomb_1',
+      scale: 2,
+      imageKey: 'plane_atlas',
       physics: {
         friction: 0.8, restitution: 0.1, frictionAir: 0.01, label: 'bomb',
         collisionFilter: { category: 0x0004, mask: 0x0001 | 0x0002 | 0x0008 },
       },
       explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 1.5, blastScale: 0.8 },
-      blastForce: 50,
-      blastMaxDamage: 100,
+      blastForce: 100,
+      blastMaxDamage: 50,
     },
 
     plane: {
@@ -205,8 +205,9 @@ window.ObjectConfig = {
       animKey: 'plane_fly',
       startFrame: 'plane_1',
       spawnYOffsetY: 50,
-      bladeOffsetX: 20,        // px offset from plane centre to blade sprite
+      bladeOffsetX: 35,        // px offset from plane centre to blade sprite
       bladeOffsetY: -0.50,     // ratio of plane rendered height (negative = upward)
+      bladeScale: 3,
       bombDropDelayRangeSec: { min: 0.18, max: 0.45 },
       bombDropOffsetRatioRange: { min: -0.35, max: 0.35 },
       bombDropYOffsetY: 39,

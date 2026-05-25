@@ -4,15 +4,15 @@
 
 window.BuildingManager = {
 
-  scene:            null,
-  arena:            null,
-  draggingBuilding: null,
-  placedBuildings:  [],
-  buildingCounts:   {},
-  _handlers:        null,
-  dragMoveThreshold: 1,
-
-  // ── Initialisation ────────────────────────────────────────────────────────
+  scene:              null,
+  arena:              null,
+  draggingBuilding:   null,
+  placedBuildings:    [],
+  buildingCounts:     {},   // alive placed count per type (decrements on destroy)
+  _totalPlacedCounts: {},   // ever-placed count per type (never decrements, used for scoring)
+  _inventoryButtons:  [],
+  _handlers:          null,
+  dragMoveThreshold:  1,
 
   init(scene, arena) {
     this.scene = scene;
@@ -23,14 +23,15 @@ window.BuildingManager = {
   },
 
   resetState() {
-    this.draggingBuilding = null;
-    this.placedBuildings  = [];
+    this.draggingBuilding  = null;
+    this.placedBuildings   = [];
+    this._inventoryButtons = [];
+
     Object.keys(window.ObjectConfig.placeableTypes).forEach((type) => {
-      this.buildingCounts[type] = 0;
+      this.buildingCounts[type]     = 0;
+      this._totalPlacedCounts[type] = 0;
     });
   },
-
-  // ── Input handler wiring ──────────────────────────────────────────────────
 
   setupInputHandlers() {
     this._removeExistingHandlers();
@@ -48,52 +49,88 @@ window.BuildingManager = {
 
   _removeExistingHandlers() {
     if (!this._handlers || !this.scene?.input) return;
+
     try {
       this.scene.input.off('pointerdown', this._handlers.down);
       this.scene.input.off('pointermove', this._handlers.move);
       this.scene.input.off('pointerup',   this._handlers.up);
     } catch (e) {
-      window.logDebug?.('[BuildingManager.setupInputHandlers] off failed', e);
+      window.logDebug?.('[BuildingManager] off handlers failed', e);
     }
   },
 
-  // ── Pointer events ────────────────────────────────────────────────────────
+  lockPlacement() {
+    if (this.draggingBuilding) {
+      const building = this.draggingBuilding;
+
+      this._setPhysicsGhost(building, false);
+
+      if (building.spawnedFromInventory) {
+        this.destroyBuilding(building);
+      } else if (building._dragOrigin) {
+        this._returnToOrigin(building);
+      }
+
+      this._finaliseDrop(building);
+    }
+
+    this._removeExistingHandlers();
+
+    for (const btn of this._inventoryButtons) {
+      if (btn?.active) {
+        btn.disableInteractive();
+        btn.setAlpha(0.35);
+      }
+    }
+
+    for (const b of this.placedBuildings) {
+      if (b?.active) b.disableInteractive();
+    }
+  },
 
   onPointerDown(pointer) {
     const hit = this._getPointerHits(pointer)
       .find((obj) => !obj.isLevelObject && (obj.isBuilding || obj.buildingConfig));
+
     if (hit) this._startDragging(hit, pointer);
   },
 
   _startDragging(obj, pointer) {
     this.draggingBuilding = obj;
-    obj.isDragging        = true;
-    obj._lastDragPos      = { x: pointer.x, y: pointer.y };
-    obj._cachedBounds     = obj.getBounds?.() ?? null;
+    obj.isDragging = true;
+    obj._lastDragPos = { x: pointer.x, y: pointer.y };
+    obj._cachedBounds = obj.getBounds?.() ?? null;
+
     this._setPhysicsGhost(obj, true);
     obj.setDepth(1000);
   },
 
   onPointerMove(pointer) {
     if (!this.draggingBuilding?.isDragging) return;
-    if (!this._hasMovedEnough(pointer))     return;
+    if (!this._hasMovedEnough(pointer)) return;
 
     this._moveObjectToPointer(this.draggingBuilding, pointer);
-    this.draggingBuilding._lastDragPos  = { x: pointer.x, y: pointer.y };
+
+    this.draggingBuilding._lastDragPos = { x: pointer.x, y: pointer.y };
     this.draggingBuilding._cachedBounds = this.draggingBuilding.getBounds?.() ?? null;
   },
 
   _hasMovedEnough(pointer) {
     const last = this.draggingBuilding._lastDragPos;
     if (!last) return true;
+
     const dx = pointer.x - last.x;
     const dy = pointer.y - last.y;
+
     return dx * dx + dy * dy >= this.dragMoveThreshold * this.dragMoveThreshold;
   },
 
   _moveObjectToPointer(obj, pointer) {
     if (obj.body) {
-      Phaser.Physics.Matter.Matter.Body.setPosition(obj.body, { x: pointer.x, y: pointer.y });
+      Phaser.Physics.Matter.Matter.Body.setPosition(obj.body, {
+        x: pointer.x,
+        y: pointer.y
+      });
     } else {
       obj.x = pointer.x;
       obj.y = pointer.y;
@@ -104,7 +141,7 @@ window.BuildingManager = {
     if (!this.draggingBuilding) return;
 
     const building = this.draggingBuilding;
-    const valid    = this.isPlacementValid(building);
+    const valid = this.isPlacementValid(building);
 
     this._setPhysicsGhost(building, false);
 
@@ -115,7 +152,6 @@ window.BuildingManager = {
     }
   },
 
-  // Returns a building to its spawn origin or destroys it if it came from inventory.
   _handleInvalidDrop(building) {
     if (building.spawnedFromInventory) {
       this.destroyBuilding(building);
@@ -127,6 +163,7 @@ window.BuildingManager = {
 
   _returnToOrigin(building) {
     const { x, y } = building._dragOrigin;
+
     if (building.body) {
       try {
         Phaser.Physics.Matter.Matter.Body.setPosition(building.body, { x, y });
@@ -135,6 +172,7 @@ window.BuildingManager = {
         window.logDebug?.('[BuildingManager._returnToOrigin] reset body failed', e);
       }
     }
+
     building.x = x;
     building.y = y;
   },
@@ -144,13 +182,15 @@ window.BuildingManager = {
   },
 
   _finaliseDrop(building) {
-    building.isDragging    = false;
-    building._lastDragPos  = null;
+    building.isDragging = false;
+    building._lastDragPos = null;
     building._cachedBounds = null;
     building.setDepth(0);
 
     if (building.body) {
-      try { this._resetBody(building); } catch (e) {
+      try {
+        this._resetBody(building);
+      } catch (e) {
         window.logDebug?.('[BuildingManager._finaliseDrop] stop body failed', e);
       }
     }
@@ -158,91 +198,86 @@ window.BuildingManager = {
     this.draggingBuilding = null;
   },
 
-  // ── Physics helpers ───────────────────────────────────────────────────────
-
   _resetBody(obj) {
     if (!obj?.body) return;
+
     Phaser.Physics.Matter.Matter.Body.setVelocity(obj.body, { x: 0, y: 0 });
     Phaser.Physics.Matter.Matter.Body.setAngularVelocity(obj.body, 0);
   },
 
-  // While dragging, strips collision and gravity so the object floats freely.
-  // Restoring sets normal collision and re-enables gravity.
   _setPhysicsGhost(building, enabled) {
     if (!building?.body) return;
+
     try {
       building.body.collisionFilter.mask = enabled ? 0 : -1;
-      building.body.ignoreGravity        = !!enabled;
+      building.body.ignoreGravity = !!enabled;
+
       if (enabled) this._resetBody(building);
     } catch (e) {
       window.logDebug?.('[BuildingManager._setPhysicsGhost] update body failed', e);
     }
   },
 
-  // ── Placement validation ──────────────────────────────────────────────────
-
-  // Returns true if the building's footprint doesn't overlap any other body.
   isPlacementValid(building) {
     if (!building?.body) return true;
 
     const bounds = building._cachedBounds ?? building.getBounds?.() ?? null;
-    if (!bounds) {
-      window.logDebug?.('[BuildingManager.isPlacementValid] missing bounds');
-      return false;
-    }
+    if (!bounds) return false;
 
-    const bodies = this.scene.matter.intersectRect(bounds.x, bounds.y, bounds.width, bounds.height) || [];
+    const bodies =
+      this.scene.matter.intersectRect(bounds.x, bounds.y, bounds.width, bounds.height) || [];
+
     return bodies.every((body) => {
       const obj = body?.gameObject;
       return !obj || obj === building;
     });
   },
 
-  // ── Hit testing ───────────────────────────────────────────────────────────
-
   _getPointerHits(pointer) {
     if (!this.placedBuildings?.length) return [];
     return this.scene.input.hitTestPointer(pointer, this.placedBuildings) || [];
   },
 
-  // ── Inventory UI ─────────────────────────────────────────────────────────
-
   _createInventoryButtons() {
     const { ARENA_X, ARENA_Y, ARENA_H } = this.arena;
-    const buttonY       = ARENA_Y + ARENA_H - 65;
-    const buttonSpacing = 230;
-    let   buttonX       = ARENA_X + 38;
+
+    const buttonY = ARENA_Y + ARENA_H - 65;
+    const spacing = 230;
+    let x = ARENA_X + 38;
 
     this._getAllowedBuildingTypes().forEach((type) => {
-      this._createInventoryButton(buttonX, buttonY, type);
-      buttonX += buttonSpacing;
+      this._createInventoryButton(x, buttonY, type);
+      x += spacing;
     });
   },
 
-  // Returns the list of building types the current level allows.
   _getAllowedBuildingTypes() {
     const allowed = window.LevelManager?.levelCfg?.allowedBuildings ?? {};
-    return Object.keys(allowed).filter((type) => window.ObjectConfig.placeableTypes[type]);
+    return Object.keys(allowed).filter(
+      (t) => window.ObjectConfig.placeableTypes[t]
+    );
   },
 
-  _createInventoryButton(x, y, buildingType) {
-    const cfg = window.ObjectConfig.placeableTypes[buildingType];
+  _createInventoryButton(x, y, type) {
+    const cfg = window.ObjectConfig.placeableTypes[type];
     if (!cfg) return null;
 
-    const fallbackColor = cfg.color ? cfg.color : 0x4a4a4a;
-    const bg    = '#' + fallbackColor.toString(16).padStart(6, '0');
-    const label = this.scene.add.text(x, y, buildingType, {
-      fontSize:        '27px',
-      fill:            '#ffffff',
+    const color = cfg.color ? cfg.color : 0x4a4a4a;
+    const bg = '#' + color.toString(16).padStart(6, '0');
+
+    const label = this.scene.add.text(x, y, type, {
+      fontSize: '27px',
+      fill: '#fff',
       backgroundColor: bg,
-      padding:         { x: 19, y: 9 },
+      padding: { x: 19, y: 9 }
     });
 
     label.setInteractive({ useHandCursor: true });
     label.setDepth(2000);
 
     label.on('pointerdown', () => {
-      const b = this._createBuilding(buildingType, x, y, { fromInventory: true });
+      const b = this._createBuilding(type, x, y, { fromInventory: true });
+
       if (b) {
         this.draggingBuilding = b;
         b.isDragging = true;
@@ -251,25 +286,26 @@ window.BuildingManager = {
       }
     });
 
+    this._inventoryButtons.push(label);
     return label;
   },
 
-  // ── Building spawn / destroy ──────────────────────────────────────────────
-
-  _createBuilding(buildingType, x, y, options = {}) {
-    const cfg = window.ObjectConfig.placeableTypes[buildingType];
+  _createBuilding(type, x, y, options = {}) {
+    const cfg = window.ObjectConfig.placeableTypes[type];
     if (!cfg) return null;
 
-    if ((this.buildingCounts[buildingType] || 0) >= cfg.maxCount) {
-      window.logDebug?.(`Max count reached for ${buildingType}`);
-      return null;
-    }
+    if ((this.buildingCounts[type] || 0) >= cfg.maxCount) return null;
 
-    const building = window.ObjectFactory.createPlaceable(this.scene, buildingType, x, y, this.arena, options);
+    const building = window.ObjectFactory.createPlaceable(
+      this.scene, type, x, y, this.arena, options
+    );
+
     if (!building) return null;
 
     this.placedBuildings.push(building);
-    this.buildingCounts[buildingType] = (this.buildingCounts[buildingType] || 0) + 1;
+    this.buildingCounts[type] = (this.buildingCounts[type] || 0) + 1;
+    this._totalPlacedCounts[type] =
+      (this._totalPlacedCounts[type] || 0) + 1;
 
     return building;
   },
@@ -278,7 +314,9 @@ window.BuildingManager = {
     if (!building?.active) return;
 
     const type = building.buildingType;
-    if (type && this.buildingCounts[type] > 0) this.buildingCounts[type]--;
+    if (type && this.buildingCounts[type] > 0) {
+      this.buildingCounts[type]--;
+    }
 
     window.ObjectFactory.destroy(building);
 
@@ -286,7 +324,7 @@ window.BuildingManager = {
     if (i > -1) this.placedBuildings.splice(i, 1);
   },
 
-  // ── Accessors ─────────────────────────────────────────────────────────────
-
-  getPlacedBuildings() { return this.placedBuildings; },
+  getPlacedBuildings() {
+    return this.placedBuildings;
+  },
 };

@@ -70,7 +70,7 @@ window.GameLogic = {
     const plane = this._createPlane(spawn);
     if (!plane) return;
 
-    this._createBlade(plane, direction);
+    this._createBlade(planeCfg, plane, direction);
     this._initRunState(planeCfg, plane, velocityPxPerSec, direction);
   },
 
@@ -106,8 +106,11 @@ window.GameLogic = {
   },
 
   // Creates the rotor-blade sprite and attaches it to the plane.
-  _createBlade(plane, direction) {
+  _createBlade(planeCfg, plane, direction) {
     const blade = this.scene.add.sprite(plane.x, plane.y, 'plane_atlas', 'plane_blade_1');
+    if (planeCfg.bladeScale !== undefined) {
+      blade.setScale(planeCfg.bladeScale);
+    }
     blade.setDepth((plane.depth || 0) + 1);
     blade.setFlipX(direction > 0);
     plane.setFlipX(direction > 0);

@@ -3,27 +3,25 @@
 
 window.LevelManager = {
 
-  scene:    null,
-  arena:    null,
+  scene: null,
+  arena: null,
   levelNum: 1,
   levelCfg: null,
 
-  _state:       'idle',  // idle | running | waiting | won | lost
-  _waveIndex:   0,
+  _state: 'idle',
+  _waveIndex: 0,
   _countdownMs: 0,
   _screenShown: false,
 
-  _waveText:    null,
-  _healthText:  null,
+  _waveText: null,
+  _healthText: null,
 
   _platforms: [],
-  _prePlaced:  [],
-
-  // ── Level loading ─────────────────────────────────────────────────────────
+  _prePlaced: [],
 
   load(scene, arena, levelNum) {
-    this.scene    = scene;
-    this.arena    = arena;
+    this.scene = scene;
+    this.arena = arena;
     this.levelNum = levelNum;
     this.levelCfg = window.Levels?.[levelNum] ?? this._fallbackConfig();
 
@@ -32,52 +30,54 @@ window.LevelManager = {
     this._createPlatforms();
     this._createPrePlacedObjects();
 
-    const spawn  = this.levelCfg.playerSpawn ?? { x: 960, y: 810 };
-    const player = window.ObjectFactory.createInternal(scene, 'player', spawn.x, spawn.y, arena);
+    const spawn = this.levelCfg.playerSpawn ?? { x: 960, y: 810 };
+    const player = window.ObjectFactory.createInternal(
+      scene, 'player', spawn.x, spawn.y, arena
+    );
+
     window.GameLogic.init(scene, player, arena);
 
     this._healthText = window.UIFactory.addHealthText(scene, arena);
-    this._waveText   = this._createWaveText();
+    this._waveText = this._createWaveText();
 
     return player;
   },
 
   _resetLevelState() {
-    this._state       = 'idle';
-    this._waveIndex   = 0;
+    this._state = 'idle';
+    this._waveIndex = 0;
     this._countdownMs = 0;
     this._screenShown = false;
-    this._platforms   = [];
-    this._prePlaced   = [];
-    this._waveText    = null;
-    this._healthText  = null;
+    this._platforms = [];
+    this._prePlaced = [];
+    this._waveText = null;
+    this._healthText = null;
   },
-
-  // ── Per-frame update ──────────────────────────────────────────────────────
 
   update(delta) {
     this._refreshHUD();
 
-    // Mirror a GameLogic loss into the level state machine.
-    if (window.GameLogic.gameOver && this._state !== 'won' && this._state !== 'lost') {
+    if (window.GameLogic.gameOver &&
+        this._state !== 'won' &&
+        this._state !== 'lost') {
       this._state = 'lost';
     }
 
     switch (this._state) {
-      case 'idle':    break;
-      case 'running': this._tickRunning(delta);  break;
-      case 'waiting': this._tickWaiting();       break;
-      case 'won':     this._tickWon();           break;
-      case 'lost':    this._tickLost();          break;
+      case 'running': this._tickRunning(delta); break;
+      case 'waiting': this._tickWaiting(); break;
+      case 'won': this._tickWon(); break;
+      case 'lost': this._tickLost(); break;
     }
   },
 
-  // Counts down between waves and fires the next one when ready.
   _tickRunning(delta) {
     this._countdownMs -= delta;
     if (this._countdownMs > 0) return;
 
-    const wavesRemaining = this._waveIndex < this.levelCfg.waves.length;
+    const wavesRemaining =
+      this._waveIndex < this.levelCfg.waves.length;
+
     if (wavesRemaining) {
       this._fireNextWave();
       this._countdownMs = this.levelCfg.waveDelayMs ?? 3000;
@@ -86,27 +86,33 @@ window.LevelManager = {
     }
   },
 
-  // Waits for the last plane to leave before declaring a win.
   _tickWaiting() {
     if (!window.GameLogic._run) this._state = 'won';
   },
 
   _tickWon() {
-    if (!this._screenShown) { this._screenShown = true; this._showWinScreen(); }
+    if (!this._screenShown) {
+      this._screenShown = true;
+      this._showWinScreen();
+    }
   },
 
   _tickLost() {
-    if (!this._screenShown) { this._screenShown = true; this._showLoseScreen(); }
+    if (!this._screenShown) {
+      this._screenShown = true;
+      this._showLoseScreen();
+    }
   },
 
-  // ── Wave control ──────────────────────────────────────────────────────────
-
-  // Called by the Start button — kicks off the first wave.
   startWave() {
     if (this._state !== 'idle') return;
 
+    window.BuildingManager.lockPlacement();
+
     this._fireNextWave();
-    this._state       = this._waveIndex < this.levelCfg.waves.length ? 'running' : 'waiting';
+    this._state =
+      this._waveIndex < this.levelCfg.waves.length ? 'running' : 'waiting';
+
     this._countdownMs = this.levelCfg.waveDelayMs ?? 3000;
   },
 
@@ -115,33 +121,43 @@ window.LevelManager = {
     if (!waves?.length || this._waveIndex >= waves.length) return;
 
     const wave = waves[this._waveIndex];
-    window.GameLogic.startBombingRun(wave.speed, { x: wave.x, y: wave.y }, wave.direction);
+
+    window.GameLogic.startBombingRun(
+      wave.speed,
+      { x: wave.x, y: wave.y },
+      wave.direction
+    );
+
     this._waveIndex++;
     this._refreshHUD();
   },
 
-  // ── HUD refresh ───────────────────────────────────────────────────────────
-
   _refreshHUD() {
     if (this._healthText) {
-      const hp = Math.max(0, Math.round(window.GameLogic.player?.health ?? 0));
+      const hp = Math.max(
+        0,
+        Math.round(window.GameLogic.player?.health ?? 0)
+      );
       this._healthText.setText(`HP: ${hp}`);
     }
 
     if (this._waveText) {
-      const total   = this.levelCfg?.waves?.length ?? 0;
+      const total = this.levelCfg?.waves?.length ?? 0;
       const current = Math.min(this._waveIndex, total);
-      this._waveText.setText(this._waveStatusLabel(current, total));
+
+      this._waveText.setText(
+        this._waveStatusLabel(current, total)
+      );
     }
   },
 
   _waveStatusLabel(current, total) {
     switch (this._state) {
-      case 'idle':    return 'Press Start';
+      case 'idle': return 'Press Start';
       case 'waiting': return 'Last wave…';
-      case 'won':     return 'Level clear!';
-      case 'lost':    return 'Eliminated';
-      default:        return `Wave ${current} / ${total}`;
+      case 'won': return 'Level clear!';
+      case 'lost': return 'Eliminated';
+      default: return `Wave ${current} / ${total}`;
     }
   },
 
@@ -151,127 +167,193 @@ window.LevelManager = {
       this.arena.ARENA_Y + 11,
       'Press Start',
       { fontSize: '32px', fill: '#ffffff' }
-    ).setOrigin(0.5, 0).setDepth(100);
+    ).setOrigin(0.5).setDepth(100);
   },
 
-  // ── Overlay screens ───────────────────────────────────────────────────────
+  _calculateScore() {
+    const allowed = this.levelCfg.allowedBuildings || {};
+    let objectScore = 0;
+
+    for (const [type, cap] of Object.entries(allowed)) {
+      const cfg = window.ObjectConfig.placeableTypes[type];
+      if (!cfg) continue;
+
+      const total = window.BuildingManager._totalPlacedCounts[type] || 0;
+      const neverPlaced = Math.max(0, cap - total);
+
+      objectScore += neverPlaced * cfg.health * 10;
+    }
+
+    for (const b of window.BuildingManager.getPlacedBuildings()) {
+      if (b.active && typeof b.health === 'number') {
+        objectScore += Math.max(0, b.health) * 10;
+      }
+    }
+
+    const playerHp = window.GameLogic.player?.health ?? 0;
+    const playerMax =
+      window.ObjectConfig.internalTypes?.player?.health ?? 100;
+
+    const bonus = playerHp >= playerMax ? 1000 : 0;
+
+    return {
+      objectScore: Math.round(objectScore),
+      playerBonus: bonus,
+      total: Math.round(objectScore) + bonus,
+    };
+  },
 
   _showWinScreen() {
-    const { cx, cy }  = this._overlayCenter();
-    const totalWaves  = this.levelCfg.waves.length;
-    const hp          = Math.max(0, Math.round(window.GameLogic.player?.health ?? 0));
+    const { cx, cy } = this._overlayCenter();
+    const waves = this.levelCfg.waves.length;
+    const { objectScore, playerBonus, total } = this._calculateScore();
 
-    this._createOverlayPanel(cx, cy);
+    this.scene.add.rectangle(cx, cy, 960, 540, 0x000000, 0.85)
+      .setDepth(2000);
 
-    this.scene.add.text(cx, cy - 119, 'YOU WIN!', {
-      fontSize: '97px', fill: '#44ff88', align: 'center',
+    this.scene.add.text(cx, cy - 220, 'YOU WIN!', {
+      fontSize: '97px',
+      fill: '#44ff88'
     }).setOrigin(0.5).setDepth(2001);
 
-    this.scene.add.text(cx, cy - 22,
-      `All ${totalWaves} wave${totalWaves !== 1 ? 's' : ''} survived  ·  HP remaining: ${hp}`,
-      { fontSize: '43px', fill: '#ffffff', align: 'center' }
+    this.scene.add.text(cx, cy - 120,
+      `All ${waves} waves survived`,
+      { fontSize: '36px', fill: '#aaaaaa' }
     ).setOrigin(0.5).setDepth(2001);
 
-    this._createOverlayButton(cx, cy + 140, 'Back to Levels', '#333333',
+    this._scoreRow(cx, cy - 50, 'Objects', `${objectScore} pts`, '#ffffff');
+
+    this._scoreRow(
+      cx,
+      cy + 10,
+      'Perfect HP Bonus',
+      playerBonus ? `+${playerBonus}` : '—',
+      playerBonus ? '#ffdd44' : '#555555'
+    );
+
+    this._scoreRow(
+      cx,
+      cy + 85,
+      'Score',
+      `${total} pts`,
+      '#44ff88',
+      '48px',
+      'bold'
+    );
+
+    this._createOverlayButton(
+      cx,
+      cy + 195,
+      'Back to Levels',
+      '#333',
       () => window.startScene('LevelSelectScene')
     );
   },
 
   _showLoseScreen() {
-    const { cx, cy }  = this._overlayCenter();
-    const wavesSurvived = Math.max(0, this._waveIndex - 1);
-    const totalWaves    = this.levelCfg.waves.length;
+    const { cx, cy } = this._overlayCenter();
+    const waves = this.levelCfg.waves.length;
 
     this._createOverlayPanel(cx, cy);
 
     this.scene.add.text(cx, cy - 119, 'GAME OVER', {
-      fontSize: '108px', fill: '#ff3333', align: 'center',
+      fontSize: '108px',
+      fill: '#ff3333'
     }).setOrigin(0.5).setDepth(2001);
 
     this.scene.add.text(cx, cy - 22,
-      `Survived ${wavesSurvived} of ${totalWaves} wave${totalWaves !== 1 ? 's' : ''}`,
-      { fontSize: '43px', fill: '#aaaaaa', align: 'center' }
+      `Survived ${this._waveIndex - 1} of ${waves} waves`,
+      { fontSize: '43px', fill: '#aaaaaa' }
     ).setOrigin(0.5).setDepth(2001);
 
-    this._createOverlayButton(cx, cy + 140, 'Back to Levels', '#333333',
+    this._createOverlayButton(
+      cx,
+      cy + 140,
+      'Back to Levels',
+      '#333',
       () => window.startScene('LevelSelectScene')
     );
+  },
+
+  _scoreRow(cx, cy, label, value, color, size = '36px', style = 'normal') {
+    const s = { fontSize: size, fill: color, fontStyle: style };
+
+    this.scene.add.text(cx - 20, cy, label, s)
+      .setOrigin(1, 0.5).setDepth(2001);
+
+    this.scene.add.text(cx + 20, cy, value, s)
+      .setOrigin(0, 0.5).setDepth(2001);
   },
 
   _overlayCenter() {
     const { ARENA_X, ARENA_Y, ARENA_W, ARENA_H } = this.arena;
     return {
-      cx: ARENA_X + ARENA_W * 0.5,
-      cy: ARENA_Y + ARENA_H * 0.5,
+      cx: ARENA_X + ARENA_W / 2,
+      cy: ARENA_Y + ARENA_H / 2,
     };
   },
 
   _createOverlayPanel(cx, cy) {
-    this.scene.add.rectangle(cx, cy, 960, 454, 0x000000, 0.85).setDepth(2000);
+    this.scene.add.rectangle(cx, cy, 960, 454, 0x000000, 0.85)
+      .setDepth(2000);
   },
 
-  _createOverlayButton(x, y, label, bgColor, onClick) {
+  _createOverlayButton(x, y, label, bg, cb) {
     return this.scene.add.text(x, y, label, {
-      fontSize:        '43px',
-      fill:            '#ffffff',
-      backgroundColor: bgColor,
-      padding:         { x: 48, y: 16 },
+      fontSize: '43px',
+      fill: '#fff',
+      backgroundColor: bg,
+      padding: { x: 48, y: 16 }
     })
-      .setOrigin(0.5).setDepth(2002)
+      .setOrigin(0.5)
+      .setDepth(2002)
       .setInteractive({ useHandCursor: true })
-      .on('pointerdown', onClick);
+      .on('pointerdown', cb);
   },
-
-  // ── Level object creation ─────────────────────────────────────────────────
 
   _createPlatforms() {
     (this.levelCfg.platforms || []).forEach((p) => {
       const platform = this.scene.add.rectangle(p.x, p.y, p.w, p.h, 0x888888);
 
       this.scene.matter.add.gameObject(platform, {
-        label:       'platform',
-        isStatic:    true,
-        friction:    0.8,
-        restitution: 0.0,
-        frictionAir: 0.0,
-        shape:       { type: 'rectangle', width: Math.ceil(p.w), height: Math.ceil(p.h) },
+        label: 'platform',
+        isStatic: true
       });
-
-      if (platform.body) {
-        Phaser.Physics.Matter.Matter.Body.setStatic(platform.body, true);
-      }
 
       this._platforms.push(platform);
     });
   },
 
   _createPrePlacedObjects() {
-    (this.levelCfg.prePlaced || []).forEach((entry) => {
+    (this.levelCfg.prePlaced || []).forEach((e) => {
       const obj = window.ObjectFactory.createLevelObject(
-        this.scene, entry.type, entry.x, entry.y, this.arena
+        this.scene,
+        e.type,
+        e.x,
+        e.y,
+        this.arena
       );
+
       if (obj) this._prePlaced.push(obj);
     });
   },
 
-  // Stamps the allowed building caps from the level config onto ObjectConfig.
   _applyAllowedBuildings() {
     const allowed = this.levelCfg.allowedBuildings || {};
+
     Object.entries(allowed).forEach(([type, cap]) => {
       const cfg = window.ObjectConfig.placeableTypes[type];
       if (cfg) cfg.maxCount = cap;
     });
   },
 
-  // ── Fallback config ───────────────────────────────────────────────────────
-
   _fallbackConfig() {
     return {
-      playerSpawn:      { x: 960, y: 810 },
-      platforms:        [],
-      prePlaced:        [],
+      playerSpawn: { x: 960, y: 810 },
+      platforms: [],
+      prePlaced: [],
       allowedBuildings: {},
-      waves:            [{ speed: 314, direction: 1, x: -163, y: 120 }],
+      waves: [{ speed: 300, direction: 1, x: -100, y: 100 }]
     };
   },
 };
