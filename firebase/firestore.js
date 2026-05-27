@@ -23,13 +23,13 @@ window.FirebaseStore = {
   // (first-time user), otherwise leaves existing data untouched.
   async ensureUserDoc(user) {
     try {
-      const ref  = doc(db, 'users', user.uid);
+      const ref = doc(db, 'users', user.uid);
       const snap = await getDoc(ref);
 
       if (!snap.exists()) {
         await setDoc(ref, {
           displayName: user.displayName || 'Unknown',
-          email:       user.email || '',
+          email: user.email || '',
           total_score: 0,
         });
       }
@@ -65,8 +65,8 @@ window.FirebaseStore = {
   // Also updates total_score.
   // Returns true if a write happened, false otherwise.
   async pushLevelScore(uid, levelNum, newScore) {
-    const key     = `level_${levelNum}`;
-    const cache   = window.GameData.getServerCache();
+    const key = `level_${levelNum}`;
+    const cache = window.GameData.getServerCache();
     const current = cache[key] || 0;
 
     if (newScore <= current) {
@@ -79,8 +79,8 @@ window.FirebaseStore = {
 
     try {
       await updateDoc(doc(db, 'users', uid), {
-        [key]:        newScore,
-        total_score:  updated.total_score,
+        [key]: newScore,
+        total_score: updated.total_score,
       });
 
       return true;

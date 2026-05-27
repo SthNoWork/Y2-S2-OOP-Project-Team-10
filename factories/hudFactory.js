@@ -123,9 +123,6 @@ window.HUDFactory.showWinScreen = function (scene, arena, opts) {
   const panelH    = 780;    // tall enough for all content
   const topEdge   = cy - panelH * 0.5;
 
-  // ── Backdrop + panel ──
-  scene.add.rectangle(cx, cy, ARENA_W, ARENA_H, 0x000000, 0.55).setDepth(D);
-
   scene.add.rectangle(cx, cy, panelW, panelH, 0x0d1b0d, 0.97).setDepth(D + 2);
 
   // ── Green accent bar + border ──
@@ -236,9 +233,6 @@ window.HUDFactory.showLoseScreen = function (scene, arena, opts) {
   const topEdge = cy - panelH * 0.5;
 
   const waveColor = wavePct >= 0.75 ? '#44ff88' : wavePct >= 0.4 ? '#ffcc00' : '#ff5555';
-
-  // ── Backdrop + panel ──
-  scene.add.rectangle(cx, cy, ARENA_W, ARENA_H, 0x000000, 0.65).setDepth(D);
 
   scene.add.rectangle(cx, cy, panelW, panelH, 0x1a0505, 0.97).setDepth(D + 2);
 

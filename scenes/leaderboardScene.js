@@ -1,7 +1,19 @@
 // scenes/leaderboardScene.js
-// Displays the top-10 global leaderboard fetched from Firestore.
+// Displays the global leaderboard fetched from Firestore.
+// Supports infinite scroll — loads 20 rows at a time via Firestore cursor pagination.
 // Falls back to the locally cached snapshot if the network is unavailable.
 // The logged-in user's row is highlighted green.
+
+const LB = {
+  PAGE:      20,    // rows per fetch
+  ROW_H:     58,    // px per row
+  FIRST_Y:   210,   // y of first data row (below fixed header)
+  COL_RANK:  200,   // x – rank column centre
+  COL_NAME:  360,   // x – name column left edge
+  COL_SCORE: 1740,  // x – score column right edge
+  TABLE_W:   1640,  // width of the full table band
+  HEADER_Y:  156,   // y of column-header text
+};
 
 class LeaderboardScene extends Phaser.Scene {
 
@@ -12,156 +24,227 @@ class LeaderboardScene extends Phaser.Scene {
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   create() {
+    // Scroll state
+    this._scrollY   = 0;
+    this._maxScroll = 0;
+    this._cursor    = null;   // Firestore DocumentSnapshot for next page
+    this._hasMore   = false;
+    this._loading   = false;
+    this._nextRowY  = LB.FIRST_Y;
+    this._rowCount  = 0;
+
     this._drawChrome();
+    this._loadMore();
 
-    // Show a loading indicator while the async fetch runs.
-    this._loadingText = this.add.text(960, 540, 'Loading scores…', {
-      fontFamily: 'Arial, sans-serif',
-      fontSize:   '36px',
-      fill:       '#666666',
-    }).setOrigin(0.5).setDepth(1);
-
-    window.LeaderboardService.fetchTopScores(10).then((entries) => {
-      if (this._loadingText?.active) this._loadingText.destroy();
-      this._drawTable(entries);
+    // ── Mouse-wheel scroll ──
+    this.input.on('wheel', (_p, _objs, _dx, dy) => {
+      this._setScroll(this._scrollY + dy * 0.8);
     });
   }
 
-  // ── Static chrome (background, title, back button) ────────────────────────
+  // ── Chrome (fixed, scrollFactor 0) ───────────────────────────────────────
 
   _drawChrome() {
-    // Dark background
-    this.add.rectangle(960, 540, 1920, 1080, 0x080e08).setDepth(0);
+    const D = 100;
 
-    // Accent bar across the top
-    this.add.rectangle(960, 6, 1920, 12, 0x44ff88).setDepth(1);
+    // Background
+    this.add.rectangle(960, 540, 1920, 1080, 0x0b0f0b).setDepth(0).setScrollFactor(0);
+
+    // Thin green accent bar at top
+    this.add.rectangle(960, 4, 1920, 8, 0x44ff88, 0.9).setDepth(D).setScrollFactor(0);
 
     // Title
-    this.add.text(960, 32, 'LEADERBOARD', {
+    this.add.text(960, 28, 'LEADERBOARD', {
       fontFamily:      'Arial Black, Arial, sans-serif',
-      fontSize:        '72px',
+      fontSize:        '54px',
       fill:            '#44ff88',
-      stroke:          '#004422',
-      strokeThickness: 4,
-    }).setOrigin(0.5, 0).setDepth(1);
+      stroke:          '#003322',
+      strokeThickness: 3,
+    }).setOrigin(0.5, 0).setDepth(D).setScrollFactor(0);
 
-    // Back button (top-left, matching other scenes)
-    window.UIFactory.addBackButton(this, () => window.showHomeScreen());
-  }
+    // Back button
+    window.UIFactory.addBackButton(this, () => window.showHomeScreen())
+      .setScrollFactor(0).setDepth(D);
 
-  // ── Table ─────────────────────────────────────────────────────────────────
+    // Auth hint (shown for logged-out users)
+    const uid = window.FirebaseAuth?.currentUser?.uid ?? null;
+    if (!uid) {
+      this.add.text(960, 100, 'Sign in to save your scores', {
+        fontFamily: 'Arial, sans-serif',
+        fontSize:   '20px',
+        fill:       '#ffcc66',
+        backgroundColor: '#181208',
+        padding:    { x: 14, y: 7 },
+      }).setOrigin(0.5, 0).setDepth(D).setScrollFactor(0);
+    }
 
-  _drawTable(entries) {
-    const currentUid = window.FirebaseAuth?.currentUser?.uid ?? null;
-
-    // ── Column x-positions (canvas = 1920) ──────────────────────────────
-    const LEFT    = 180;
-    const COL = {
-      rank:  LEFT,
-      name:  LEFT + 160,
-      score: LEFT + 1460,
-    };
-
-    // ── Header row ───────────────────────────────────────────────────────
-    const HEADER_Y = 148;
-    const headerStyle = {
+    // Column headers
+    const hStyle = {
       fontFamily:    'Arial, sans-serif',
-      fontSize:      '26px',
+      fontSize:      '20px',
       fill:          '#44ff88',
       letterSpacing: 3,
     };
+    this.add.text(LB.COL_RANK,  LB.HEADER_Y, 'RANK',   hStyle).setOrigin(0.5, 0).setDepth(D).setScrollFactor(0);
+    this.add.text(LB.COL_NAME,  LB.HEADER_Y, 'PLAYER', hStyle).setOrigin(0,   0).setDepth(D).setScrollFactor(0);
+    this.add.text(LB.COL_SCORE, LB.HEADER_Y, 'SCORE',  hStyle).setOrigin(1,   0).setDepth(D).setScrollFactor(0);
 
-    this.add.text(COL.rank,  HEADER_Y, 'RANK',   headerStyle).setOrigin(0.5, 0).setDepth(1);
-    this.add.text(COL.name,  HEADER_Y, 'PLAYER', headerStyle).setOrigin(0,   0).setDepth(1);
-    this.add.text(COL.score, HEADER_Y, 'SCORE',  headerStyle).setOrigin(1,   0).setDepth(1);
+    // Divider under headers
+    const g = this.add.graphics().setDepth(D).setScrollFactor(0);
+    g.lineStyle(1, 0x44ff88, 0.2);
+    g.lineBetween(140, LB.HEADER_Y + 34, 1780, LB.HEADER_Y + 34);
 
-    if (!currentUid) {
-      this.add.text(960, 102, 'Sign in to save your scores. Logged-out runs stay local on this device only.', {
-        fontFamily: 'Arial, sans-serif',
-        fontSize:   '24px',
-        fill:       '#ffcc66',
-        backgroundColor: 'rgba(24, 20, 8, 0.7)',
-        padding:    { x: 16, y: 10 },
-      }).setOrigin(0.5, 0.5).setDepth(2);
+    // Fade-out mask at bottom so rows dissolve before the edge
+    const fade = this.add.graphics().setDepth(D + 10).setScrollFactor(0);
+    fade.fillGradientStyle(0x0b0f0b, 0x0b0f0b, 0x0b0f0b, 0x0b0f0b, 0, 0, 1, 1);
+    fade.fillRect(0, 960, 1920, 120);
+  }
+
+  // ── Pagination ────────────────────────────────────────────────────────────
+
+  async _loadMore() {
+    if (this._loading || this._loadMoreBtn) {
+      this._loadMoreBtn?.destroy();
+      this._loadMoreBtn = null;
     }
+    this._loading = true;
+    this._showSpinner(true);
 
-    // Divider under header
-    const hDiv = this.add.graphics().setDepth(1);
-    hDiv.lineStyle(1, 0x44ff88, 0.35);
-    hDiv.lineBetween(LEFT - 60, HEADER_Y + 38, COL.score + 60, HEADER_Y + 38);
+    const { entries, lastDoc, hasMore } =
+      await window.LeaderboardService.fetchScores(LB.PAGE, this._cursor);
 
-    // ── Data rows ────────────────────────────────────────────────────────
-    const ROW_H    = 68;
-    const FIRST_Y  = HEADER_Y + 58;
-    const RANK_ICONS = ['🥇', '🥈', '🥉'];
+    this._cursor  = lastDoc;
+    this._hasMore = hasMore;
 
-    if (entries.length === 0) {
-      this.add.text(960, 540, 'No scores yet — play a level to get on the board!', {
-        fontFamily: 'Arial, sans-serif',
-        fontSize:   '34px',
-        fill:       '#444444',
-      }).setOrigin(0.5).setDepth(1);
+    this._showSpinner(false);
+    this._loading = false;
+
+    if (this._rowCount === 0 && entries.length === 0) {
+      this._drawEmpty();
       return;
     }
 
-    entries.forEach((entry, i) => {
-      const rowY  = FIRST_Y + i * ROW_H;
-      const isMe  = entry.uid === currentUid;
+    entries.forEach((entry) => this._drawRow(entry, this._rowCount++));
 
-      // Row background — alternate shades, highlight current user
-      const bgCol = isMe
-        ? 0x173317
-        : i % 2 === 0 ? 0x0d160d : 0x0a110a;
+    if (hasMore) {
+      this._drawLoadMoreBtn();
+    } else {
+      this._drawEndLabel();
+    }
 
-      this.add.rectangle(960, rowY + ROW_H * 0.5 - 2, 1640, ROW_H - 6, bgCol, 0.85)
-        .setDepth(1);
+    this._updateMaxScroll();
+  }
 
-      // Green left-edge accent for current user's row
-      if (isMe) {
-        this.add.rectangle(LEFT - 56, rowY + ROW_H * 0.5 - 2, 6, ROW_H - 6, 0x44ff88)
-          .setDepth(2);
-      }
+  // ── Row drawing ───────────────────────────────────────────────────────────
 
-      // Text colour: gold/silver/bronze for top 3, green for self, default grey
-      const nameColor = isMe
-        ? '#44ff88'
-        : i === 0 ? '#ffd700' : i === 1 ? '#c0c0c0' : i === 2 ? '#cd7f32' : '#cccccc';
+  _drawRow(entry, i) {
+    const uid   = window.FirebaseAuth?.currentUser?.uid ?? null;
+    const isMe  = entry.uid === uid;
+    const rowY  = LB.FIRST_Y + i * LB.ROW_H;
+    const cy    = rowY + LB.ROW_H * 0.5;
+    const D     = 10;
 
-      const rowStyle = {
-        fontFamily: isMe
-          ? 'Arial Black, Arial, sans-serif'
-          : 'Arial, sans-serif',
-        fontSize: '30px',
-        fill:     nameColor,
-      };
+    // Row background
+    const bgAlpha = isMe ? 0.9 : 0.7;
+    const bgColor = isMe ? 0x162b1c : (i % 2 === 0 ? 0x0f180f : 0x0b120b);
+    this.add.rectangle(960, cy, LB.TABLE_W, LB.ROW_H - 3, bgColor, bgAlpha).setDepth(D);
 
-      const cy = rowY + ROW_H * 0.5 - 2;
+    // Green left-edge accent for current user
+    if (isMe) {
+      this.add.rectangle(141, cy, 4, LB.ROW_H - 3, 0x44ff88).setDepth(D + 1);
+    }
 
-      // Rank
-      const rankLabel = i < 3 ? RANK_ICONS[i] : `#${i + 1}`;
-      this.add.text(COL.rank, cy, rankLabel, { ...rowStyle, fontSize: '32px' })
-        .setOrigin(0.5, 0.5).setDepth(2);
+    // Colours
+    const RANK_ICONS = ['🥇', '🥈', '🥉'];
+    const accent = isMe ? '#44ff88' : i === 0 ? '#ffd700' : i === 1 ? '#c0c0c0' : i === 2 ? '#cd7f32' : '#aaaaaa';
+    const family = isMe ? 'Arial Black, Arial, sans-serif' : 'Arial, sans-serif';
 
-      // Name (truncate long names so they don't overflow)
-      const name = this._truncate(entry.displayName || 'Anonymous', 32);
-      this.add.text(COL.name, cy, name, rowStyle)
-        .setOrigin(0, 0.5).setDepth(2);
+    const base = { fontFamily: family, fontSize: '26px', fill: accent };
 
-      // Total score — bold
-      const scoreStyle = { ...rowStyle, fontFamily: 'Arial Black, Arial, sans-serif' };
-      const scoreLabel = `${(entry.total_score ?? 0).toLocaleString()} pts`;
-      this.add.text(COL.score, cy, scoreLabel, scoreStyle)
-        .setOrigin(1, 0.5).setDepth(2);
-    });
+    // Rank
+    const rankLabel = i < 3 ? RANK_ICONS[i] : `#${i + 1}`;
+    this.add.text(LB.COL_RANK, cy, rankLabel, { ...base, fontSize: i < 3 ? '28px' : '24px' })
+      .setOrigin(0.5, 0.5).setDepth(D + 1);
 
-    // Bottom note
-    this.add.text(960, 1040, currentUid
-      ? 'Top 10 global scores  •  Updates after each completed level'
-      : 'Top 10 global scores  •  Sign in to keep your scores across sessions', {
+    // Name
+    const name = this._truncate(entry.displayName || 'Anonymous', 34);
+    this.add.text(LB.COL_NAME, cy, name, { ...base, fill: isMe ? '#44ff88' : '#cccccc' })
+      .setOrigin(0, 0.5).setDepth(D + 1);
+
+    // Score
+    const scoreLabel = `${(entry.total_score ?? 0).toLocaleString()} pts`;
+    this.add.text(LB.COL_SCORE, cy, scoreLabel, { ...base, fontFamily: 'Arial Black, Arial, sans-serif' })
+      .setOrigin(1, 0.5).setDepth(D + 1);
+
+    this._nextRowY = rowY + LB.ROW_H;
+    this._updateMaxScroll();
+  }
+
+  // ── Load More button ──────────────────────────────────────────────────────
+
+  _drawLoadMoreBtn() {
+    const y = this._nextRowY + 40;
+    this._loadMoreBtn = this.add.text(960, y, 'Load More', {
+      fontFamily:      'Arial, sans-serif',
+      fontSize:        '26px',
+      fill:            '#44ff88',
+      backgroundColor: '#162b1c',
+      padding:         { x: 36, y: 12 },
+    })
+      .setOrigin(0.5, 0)
+      .setDepth(20)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerover',  () => this._loadMoreBtn?.setStyle({ backgroundColor: '#1e3d28' }))
+      .on('pointerout',   () => this._loadMoreBtn?.setStyle({ backgroundColor: '#162b1c' }))
+      .on('pointerdown',  () => this._loadMore());
+
+    this._nextRowY = y + 60;
+    this._updateMaxScroll();
+  }
+
+  _drawEndLabel() {
+    const y = this._nextRowY + 32;
+    this.add.text(960, y, '— end of leaderboard —', {
       fontFamily: 'Arial, sans-serif',
-      fontSize:   '22px',
+      fontSize:   '20px',
       fill:       '#334433',
-    }).setOrigin(0.5, 1).setDepth(1);
+    }).setOrigin(0.5, 0).setDepth(10);
+    this._nextRowY = y + 40;
+  }
+
+  _drawEmpty() {
+    this.add.text(960, 500, 'No scores yet — play a level to get on the board!', {
+      fontFamily: 'Arial, sans-serif',
+      fontSize:   '30px',
+      fill:       '#334433',
+    }).setOrigin(0.5).setDepth(10);
+  }
+
+  // ── Spinner ───────────────────────────────────────────────────────────────
+
+  _showSpinner(visible) {
+    if (visible) {
+      this._spinner = this.add.text(960, this._nextRowY + 30, 'Loading…', {
+        fontFamily: 'Arial, sans-serif',
+        fontSize:   '26px',
+        fill:       '#334433',
+      }).setOrigin(0.5, 0).setDepth(20);
+    } else {
+      this._spinner?.destroy();
+      this._spinner = null;
+    }
+  }
+
+  // ── Scroll helpers ────────────────────────────────────────────────────────
+
+  _updateMaxScroll() {
+    // Content height minus the visible window (minus fixed header area)
+    this._maxScroll = Math.max(0, this._nextRowY - 1080 + 160);
+  }
+
+  _setScroll(y) {
+    this._scrollY = Phaser.Math.Clamp(y, 0, this._maxScroll);
+    this.cameras.main.setScrollY(this._scrollY);
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────

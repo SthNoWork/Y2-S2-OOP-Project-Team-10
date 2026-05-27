@@ -9,9 +9,11 @@
 //     const user = e.detail.user; // null when logged out
 //   });
 
-import { auth }                                        from './config.js';
-import { GoogleAuthProvider, signInWithPopup, signOut,
-         onAuthStateChanged }                          from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
+import { auth } from './config.js';
+import {
+  GoogleAuthProvider, signInWithPopup, signOut,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
 
 window.FirebaseAuth = {
 
