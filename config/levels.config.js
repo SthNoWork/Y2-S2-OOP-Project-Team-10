@@ -1,10 +1,6 @@
-// config/levels.config.js
-// Defines every level: spawn points, platforms, pre-placed objects,
-// allowed building types, and wave sequences.
-
 window.Levels = {
 
-  // ── Level 1 ── Tutorial: just light wood, one slow wave ──────────────────
+  // ── Level 1 ── Tutorial ───────────────────────────────────────────────────
   1: {
     playerSpawn:      { x: 960, y: 810 },
     waveDelayMs:      6000,
@@ -19,11 +15,11 @@ window.Levels = {
     ],
     allowedBuildings: { shortPlank: 4, whitePlank: 3, leaf: 4 },
     waves: [
-      { speed: 314, direction:  1, x: -163, y: 120 },
+      { speed: 314, direction:  1, x: -163, y: 120 },  // flies high, safe
     ],
   },
 
-  // ── Level 2 ── Introduce dirt/grass, two waves ────────────────────────────
+  // ── Level 2 ──────────────────────────────────────────────────────────────
   2: {
     playerSpawn:      { x: 960, y: 810 },
     waveDelayMs:      5000,
@@ -32,11 +28,11 @@ window.Levels = {
     allowedBuildings: { shortPlank: 3, thickPlank: 2, dirt: 3, grass: 3 },
     waves: [
       { speed: 360, direction:  1, x: -163, y: 120 },
-      { speed: 378, direction: -1, x: 2083, y: 120 },
+      { speed: 378, direction: -1, x: 2083, y: 120 },  // removed 3rd wave
     ],
   },
 
-  // ── Level 3 ── Sand + gravel, three waves ─────────────────────────────────
+  // ── Level 3 ──────────────────────────────────────────────────────────────
   3: {
     playerSpawn:      { x: 960, y: 810 },
     waveDelayMs:      5000,
@@ -45,12 +41,11 @@ window.Levels = {
     allowedBuildings: { thickPlank: 3, plank: 3, sand: 3, gravel: 2 },
     waves: [
       { speed: 404, direction:  1, x: -163, y: 120 },
-      { speed: 423, direction: -1, x: 2083, y: 120 },
-      { speed: 449, direction:  1, x: -163, y: 120 },
+      { speed: 423, direction: -1, x: 2083, y: 120 },  // cut from 3 → 2
     ],
   },
 
-  // ── Level 4 ── Stone enters, multi-platform ───────────────────────────────
+  // ── Level 4 ──────────────────────────────────────────────────────────────
   4: {
     playerSpawn:  { x: 960, y: 781 },
     waveDelayMs:  4500,
@@ -69,12 +64,11 @@ window.Levels = {
     waves: [
       { speed: 432, direction:  1, x: -163, y: 120 },
       { speed: 449, direction: -1, x: 2083, y: 120 },
-      { speed: 468, direction:  1, x: -163, y: 198 },
-      { speed: 486, direction: -1, x: 2083, y: 120 },
+      { speed: 468, direction:  1, x: -163, y: 120 },  // cut from 4 → 3, keep y safe
     ],
   },
 
-  // ── Level 5 ── Ice level: slippery blocks, tight platform ─────────────────
+  // ── Level 5 ──────────────────────────────────────────────────────────────
   5: {
     playerSpawn:  { x: 960, y: 810 },
     waveDelayMs:  4500,
@@ -90,19 +84,21 @@ window.Levels = {
     waves: [
       { speed: 468, direction:  1, x: -163, y: 120 },
       { speed: 486, direction: -1, x: 2083, y: 120 },
-      { speed: 505, direction:  1, x: -163, y: 120 },
-      { speed: 522, direction: -1, x: 2083, y: 120 },
+      { speed: 505, direction:  1, x: -163, y: 120 },  // cut from 4 → 3
     ],
   },
 
-  // ── Level 6 ── TNT is available, use it carefully ─────────────────────────
+  // ── Level 6 ── TNT level, planes fly HIGH so they don't hit player ────────
   6: {
     playerSpawn:  { x: 960, y: 742 },
-    waveDelayMs:  4000,
+    waveDelayMs:  4500,                                 // more breathing room
     platforms: [
       { x: 960,  y: 781, w: 605, h: 24 },
-      { x: 303,  y: 956, w: 311, h: 24 },
-      { x: 1617, y: 956, w: 311, h: 24 },
+      { x: 303,  y: 956, w: 500, h: 24 },
+      { x: 1617, y: 956, w: 500, h: 24 },
+      { x: 960,  y: 586, w: 380, h: 24 },              // upper refuge
+      { x: 407,  y: 878, w: 260, h: 24 },              // left mid-step
+      { x: 1513, y: 878, w: 260, h: 24 },              // right mid-step
     ],
     prePlaced: [
       { type: 'bomb_crate', x: 753,  y: 742 },
@@ -110,17 +106,15 @@ window.Levels = {
       { type: 'bomb_crate', x: 303,  y: 918 },
       { type: 'bomb_crate', x: 1617, y: 918 },
     ],
-    allowedBuildings: { wall: 3, stone: 2, sandstone: 2, tnt: 2 },
+    allowedBuildings: { wall: 3, stone: 3, sandstone: 2, tnt: 2 },
     waves: [
-      { speed: 494, direction:  1, x: -163, y: 120 },
+      { speed: 494, direction:  1, x: -163, y: 120 },  // all y:120 = flies above player
       { speed: 513, direction: -1, x: 2083, y: 120 },
-      { speed: 531, direction:  1, x: -163, y: 256 },
-      { speed: 549, direction: -1, x: 2083, y: 256 },
-      { speed: 567, direction:  1, x: -163, y: 120 },
+      { speed: 531, direction:  1, x: -163, y: 120 },  // cut from 5 → 3
     ],
   },
 
-  // ── Level 7 ── Coal and iron, start of ore blocks ─────────────────────────
+  // ── Level 7 ──────────────────────────────────────────────────────────────
   7: {
     playerSpawn:  { x: 960, y: 878 },
     waveDelayMs:  4000,
@@ -141,13 +135,11 @@ window.Levels = {
     waves: [
       { speed: 522, direction:  1, x: -163, y: 120 },
       { speed: 541, direction: -1, x: 2083, y: 120 },
-      { speed: 558, direction:  1, x: -163, y: 275 },
-      { speed: 576, direction: -1, x: 2083, y: 120 },
-      { speed: 595, direction:  1, x: -163, y: 275 },
+      { speed: 558, direction:  1, x: -163, y: 120 },  // cut from 5 → 3, all high
     ],
   },
 
-  // ── Level 8 ── Gold and diamond unlocked ─────────────────────────────────
+  // ── Level 8 ──────────────────────────────────────────────────────────────
   8: {
     playerSpawn:  { x: 960, y: 761 },
     waveDelayMs:  3500,
@@ -167,15 +159,13 @@ window.Levels = {
     allowedBuildings: { iron: 3, gold: 2, diamond: 2, tnt: 2 },
     waves: [
       { speed: 541, direction:  1, x: -163, y: 120 },
-      { speed: 558, direction: -1, x: 2083, y: 295 },
+      { speed: 558, direction: -1, x: 2083, y: 120 },
       { speed: 576, direction:  1, x: -163, y: 120 },
-      { speed: 595, direction: -1, x: 2083, y: 295 },
-      { speed: 612, direction:  1, x: -163, y: 120 },
-      { speed: 631, direction: -1, x: 2083, y: 120 },
+      { speed: 595, direction: -1, x: 2083, y: 120 },  // cut from 6 → 4
     ],
   },
 
-  // ── Level 9 ── Obsidian available, fast multi-wave ────────────────────────
+  // ── Level 9 ──────────────────────────────────────────────────────────────
   9: {
     playerSpawn:  { x: 960, y: 664 },
     waveDelayMs:  3500,
@@ -200,15 +190,12 @@ window.Levels = {
     waves: [
       { speed: 558, direction:  1, x: -163, y: 120 },
       { speed: 576, direction: -1, x: 2083, y: 120 },
-      { speed: 595, direction:  1, x: -163, y: 275 },
-      { speed: 612, direction: -1, x: 2083, y: 120 },
-      { speed: 811, direction:  1, x: -163, y: 120 },
-      { speed: 631, direction: -1, x: 2083, y: 275 },
-      { speed: 648, direction:  1, x: -163, y: 120 },
+      { speed: 595, direction:  1, x: -163, y: 120 },
+      { speed: 612, direction: -1, x: 2083, y: 120 },  // cut from 7 → 4
     ],
   },
 
-  // ── Level 10 ── Final: obsidian + TNT, all-out chaos ─────────────────────
+  // ── Level 10 ── Final boss ────────────────────────────────────────────────
   10: {
     playerSpawn:  { x: 960, y: 616 },
     waveDelayMs:  3000,
@@ -236,12 +223,9 @@ window.Levels = {
     waves: [
       { speed: 586, direction:  1, x: -163, y: 120 },
       { speed: 603, direction: -1, x: 2083, y: 120 },
-      { speed: 621, direction:  1, x: -163, y: 295 },
+      { speed: 621, direction:  1, x: -163, y: 120 },
       { speed: 640, direction: -1, x: 2083, y: 120 },
-      { speed: 657, direction:  1, x: -163, y: 295 },
-      { speed: 856, direction: -1, x: 2083, y: 120 },
-      { speed: 676, direction:  1, x: -163, y: 120 },
-      { speed: 882, direction: -1, x: 2083, y: 120 },
+      { speed: 657, direction:  1, x: -163, y: 120 },  // cut from 8 → 5
     ],
   },
 };
