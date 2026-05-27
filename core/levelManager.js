@@ -70,7 +70,20 @@ window.LevelManager = {
   },
 
   _createPlatforms() {
-    (this.levelCfg.platforms || []).forEach((p) => {
+    const platforms = this.levelCfg.platforms || [];
+
+    if (platforms.length === 0) {
+      // Add a default safe platform for levels that have no platforms.
+      platforms.push({
+        x: this.arena.ARENA_X + this.arena.ARENA_W * 0.5,
+        y: 936,
+        w: 1382,
+        h: 24,
+      });
+      this.levelCfg.platforms = platforms;
+    }
+
+    platforms.forEach((p) => {
       const platform = this.scene.add.rectangle(p.x, p.y, p.w, p.h, 0x888888);
 
       this.scene.matter.add.gameObject(platform, {

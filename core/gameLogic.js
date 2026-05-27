@@ -431,7 +431,25 @@ window.GameLogic = {
   _damagePlayer(amount) {
     if (this.gameOver || !this.player) return;
     this.player.health = Math.max(0, (this.player.health || 0) - amount);
-    if (this.player.health <= 0) this._triggerGameOver();
+    if (this.player.health <= 0) {
+      this._handlePlayerDeath();
+      this._triggerGameOver();
+    }
+  },
+
+  _handlePlayerDeath() {
+    if (!this.player) return;
+
+    const player = this.player;
+    this.player = null;
+
+    const playerCfg = window.ObjectConfig?.internalTypes?.player;
+    const shouldExplode = playerCfg?.onDeath === 'explode' && playerCfg?.explosion;
+    if (shouldExplode) {
+      this._chainExplosionQueue.push({ cfg: playerCfg, x: player.x, y: player.y });
+    }
+
+    try { window.ObjectFactory.destroy(player); } catch (e) { }
   },
 
   _triggerGameOver() {
