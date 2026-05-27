@@ -192,6 +192,7 @@ window.ObjectConfig = {
       imageKey: 'plane_atlas',
       physics: {
         friction: 0.8, restitution: 0.1, frictionAir: 0.01, label: 'bomb',
+        shape: { type: 'circle', radiusRatio: 0.35 },
         collisionFilter: { category: 0x0004, mask: 0x0001 | 0x0002 | 0x0008 },
       },
       explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 1.5, blastScale: 0.8 },

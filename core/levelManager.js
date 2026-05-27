@@ -299,7 +299,9 @@ window.LevelManager = {
 
       this.scene.matter.add.gameObject(platform, {
         label: 'platform',
-        isStatic: true
+        isStatic: true,
+        friction: 1.0,
+        frictionStatic: 10
       });
 
       this._platforms.push(platform);
