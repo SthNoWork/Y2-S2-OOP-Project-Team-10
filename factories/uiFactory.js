@@ -4,14 +4,17 @@
 
 window.UIFactory = {};
 
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+
 // Creates a right-aligned action button (e.g. Start, Reset).
 window.UIFactory.createButton = function (scene, x, y, label, onClick) {
   const btn = scene.add
     .text(x, y, label, {
-      fontSize:        '43px',
-      fill:            '#ffffff',
+      fontSize: '43px',
+      fill: '#ffffff',
       backgroundColor: '#000000',
-      padding:         { x: 38, y: 16 },
+      padding: { x: 38, y: 16 },
     })
     .setOrigin(1, 0)
     .setInteractive({ useHandCursor: true })
@@ -31,8 +34,8 @@ window.UIFactory.addBackButton = function (scene, onClick) {
   return scene.add
     .text(38, 22, 'Back', {
       fontFamily: 'Arial, sans-serif',
-      fontSize:   '43px',
-      color:      '#ffffff',
+      fontSize: '43px',
+      color: '#ffffff',
     })
     .setInteractive()
     .setOrigin(0, 0)
@@ -40,8 +43,9 @@ window.UIFactory.addBackButton = function (scene, onClick) {
     .on('pointerdown', onClick);
 };
 
-// Keep addHealthText and addBackground accessible via UIFactory for backwards
-// compatibility — they now delegate to HUDFactory.
+
+// ── HUDFactory delegates (backwards compatibility) ────────────────────────────
+
 window.UIFactory.addHealthText = function (scene, arena) {
   return window.HUDFactory.addHealthText(scene, arena);
 };

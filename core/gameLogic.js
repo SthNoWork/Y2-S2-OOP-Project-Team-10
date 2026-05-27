@@ -4,16 +4,17 @@
 
 window.GameLogic = {
 
-  scene: null,
-  player: null,
-  arena: null,
+  scene:   null,
+  player:  null,
+  arena:   null,
   buildings: [],
-  gameOver: false,
+  gameOver:  false,
 
-  _onCollision: null,
-  _run: null,              // active bombing run state
-  _activeBombs: [],
-  _chainExplosionQueue: [], // queued chain explosions, flushed each frame
+  _onCollision:        null,
+  _run:                null,   // active bombing run state
+  _activeBombs:        [],
+  _chainExplosionQueue: [],    // queued chain explosions, flushed each frame
+
 
   // ── Initialisation ────────────────────────────────────────────────────────
 
@@ -24,10 +25,10 @@ window.GameLogic = {
     this.player   = player;
     this.arena    = arena;
     this.buildings = [];
-    this._run     = null;
+    this._run      = null;
     this._activeBombs = [];
     this._chainExplosionQueue = [];
-    this.gameOver = false;
+    this.gameOver  = false;
 
     const maxHp = window.ObjectConfig.internalTypes?.player?.health ?? 100;
     if (this.player) this.player.health = maxHp;
@@ -48,8 +49,10 @@ window.GameLogic = {
     }
   },
 
-  // ── Per-frame update ──────────────────────────────────────────────────────
 
+  // ── Public API ────────────────────────────────────────────────────────────
+
+  // Called each frame by the scene.
   update(delta) {
     const dt = delta / 1000;
     this._processChainExplosions();
@@ -57,7 +60,31 @@ window.GameLogic = {
     this._updateBombs();
   },
 
-  // ── Bombing run entry point ───────────────────────────────────────────────
+  // Registers a placed building so it can receive blast damage.
+  addBuilding(building) {
+    this.buildings.push(building);
+    building.isBuilding = true;
+  },
+
+  // Resets run state between attempts (keeps the scene alive).
+  resetRun() {
+    this._destroyActivePlane();
+    this._run = null;
+
+    for (const bomb of this._activeBombs) {
+      if (bomb?.active) { try { bomb.destroy(); } catch (e) { } }
+    }
+    this._activeBombs = [];
+    this.gameOver     = false;
+
+    const maxHp = window.ObjectConfig.internalTypes?.player?.health ?? 100;
+    if (this.player) this.player.health = maxHp;
+
+    try { window.SfxManager?.stopAll?.(); } catch (e) { }
+  },
+
+
+  // ── Bombing run ───────────────────────────────────────────────────────────
 
   // Starts a new bombing run. Called by LevelManager for each wave.
   startBombingRun(velocityPxPerSec, spawnLocation, direction) {
@@ -74,7 +101,6 @@ window.GameLogic = {
     this._initRunState(planeCfg, plane, velocityPxPerSec, direction);
   },
 
-  // Validates that all required plane config fields exist.
   _validatePlaneCfg(planeCfg) {
     const required = ['spawnYOffsetY', 'bladeOffsetX', 'bladeOffsetY', 'bombDropYOffsetY'];
     for (const key of required) {
@@ -108,9 +134,7 @@ window.GameLogic = {
   // Creates the rotor-blade sprite and attaches it to the plane.
   _createBlade(planeCfg, plane, direction) {
     const blade = this.scene.add.sprite(plane.x, plane.y, 'plane_atlas', 'plane_blade_1');
-    if (planeCfg.bladeScale !== undefined) {
-      blade.setScale(planeCfg.bladeScale);
-    }
+    if (planeCfg.bladeScale !== undefined) blade.setScale(planeCfg.bladeScale);
     blade.setDepth((plane.depth || 0) + 1);
     blade.setFlipX(direction > 0);
     plane.setFlipX(direction > 0);
@@ -134,7 +158,8 @@ window.GameLogic = {
     };
   },
 
-  // ── Plane update (called each frame) ─────────────────────────────────────
+
+  // ── Plane update ──────────────────────────────────────────────────────────
 
   _updatePlane(dt) {
     if (!this._run?.plane?.active) return;
@@ -145,7 +170,6 @@ window.GameLogic = {
     this._checkPlaneExit();
   },
 
-  // Moves the plane horizontally.
   _movePlane(dt) {
     const run = this._run;
     run.plane.x += run.speed * run.direction * dt;
@@ -183,13 +207,13 @@ window.GameLogic = {
     if (exited) {
       if (run.plane._blade?.active) run.plane._blade.destroy();
       run.plane.destroy();
-      // Stop any lingering SFX when the plane leaves.
       try { window.SfxManager?.stopAll?.(); } catch (e) { }
       this._run = null;
     }
   },
 
-  // ── Bomb spawning ─────────────────────────────────────────────────────────
+
+  // ── Bomb spawning & update ────────────────────────────────────────────────
 
   _spawnBomb() {
     if (!this._run?.plane?.active) return;
@@ -212,16 +236,11 @@ window.GameLogic = {
     const animKey = direction > 0 ? 'bomb_ltr' : 'bomb_rtl';
     if (this.scene.anims.exists(animKey)) bomb.play(animKey);
 
-    Phaser.Physics.Matter.Matter.Body.setVelocity(bomb.body, {
-      x: 0,
-      y: speed / 60,
-    });
+    Phaser.Physics.Matter.Matter.Body.setVelocity(bomb.body, { x: 0, y: speed / 60 });
 
     this._activeBombs.push(bomb);
     try { window.SfxManager?.playDrop?.(); } catch (e) { }
   },
-
-  // ── Bomb update (called each frame) ──────────────────────────────────────
 
   _updateBombs() {
     if (!this._activeBombs.length) return;
@@ -242,13 +261,14 @@ window.GameLogic = {
     }
   },
 
+
   // ── Collision handling ────────────────────────────────────────────────────
 
   // Triggers a detonation when a bomb body touches anything that isn't another bomb.
   _handleCollision(bodyA, bodyB) {
     if (!bodyA || !bodyB) return;
 
-    const bombBody  = bodyA.label === 'bomb' ? bodyA : bodyB.label === 'bomb' ? bodyB : null;
+    const bombBody = bodyA.label === 'bomb' ? bodyA : bodyB.label === 'bomb' ? bodyB : null;
     if (!bombBody) return;
 
     const otherBody = bombBody === bodyA ? bodyB : bodyA;
@@ -260,6 +280,7 @@ window.GameLogic = {
     try { this._explodeAt(window.ObjectConfig.internalTypes.bomb, bombGO.x, bombGO.y); } catch (e) { }
     try { bombGO.destroy(); } catch (e) { }
   },
+
 
   // ── Detonation ────────────────────────────────────────────────────────────
 
@@ -324,6 +345,7 @@ window.GameLogic = {
     this._applyDamage(body.gameObject, falloff, blastMaxDmg);
   },
 
+
   // ── Blast maths ───────────────────────────────────────────────────────────
 
   // Returns the blast radius in pixels derived from the largest animation frame.
@@ -332,22 +354,24 @@ window.GameLogic = {
 
     const { animKey, scale, blastScale } = explosionCfg;
     if (!this.scene.anims.exists(animKey)) return null;
-    if (scale == null)      { console.error('[GameLogic._blastRadiusPx] explosionCfg.scale is not defined');      return null; }
+    if (scale      == null) { console.error('[GameLogic._blastRadiusPx] explosionCfg.scale is not defined');      return null; }
     if (blastScale == null) { console.error('[GameLogic._blastRadiusPx] explosionCfg.blastScale is not defined'); return null; }
 
     const anim = this.scene.anims.get(animKey);
     let maxRawDim = 0;
     for (const f of anim.frames) {
-      maxRawDim = Math.max(maxRawDim, f.frame.realWidth || f.frame.width || 0,
-        f.frame.realHeight || f.frame.height || 0);
+      maxRawDim = Math.max(maxRawDim,
+        f.frame.realWidth  || f.frame.width  || 0,
+        f.frame.realHeight || f.frame.height || 0
+      );
     }
     if (maxRawDim === 0) return null;
 
     return ((maxRawDim * scale) / 2) * blastScale;
   },
 
-  // Returns falloff in [0, 1] using the nearest point on the body's AABB,
-  // so large objects partially inside the blast radius take appropriate damage.
+  // Returns falloff in [0, 1] based on the nearest point on the body's AABB.
+  // Large objects partially inside the blast radius take appropriate damage.
   _calcFalloff(x, y, body, radius) {
     const closest = this._closestPointOnAABB(x, y, body);
     const dx   = closest.x - x;
@@ -365,6 +389,7 @@ window.GameLogic = {
       y: Math.max(min.y, Math.min(py, max.y)),
     };
   },
+
 
   // ── Damage & knockback ────────────────────────────────────────────────────
 
@@ -409,6 +434,15 @@ window.GameLogic = {
     if (this.player.health <= 0) this._triggerGameOver();
   },
 
+  _triggerGameOver() {
+    if (this.gameOver) return;
+    this.gameOver = true;
+    window.logDebug?.('Game Over!');
+  },
+
+
+  // ── Building death & chain explosions ────────────────────────────────────
+
   // Removes a building that reached 0 HP and optionally queues a chain explosion.
   _handleBuildingDeath(obj) {
     const savedX = obj.x;
@@ -436,35 +470,5 @@ window.GameLogic = {
     for (const exp of queue) {
       try { this._explodeAt(exp.cfg, exp.x, exp.y); } catch (e) { }
     }
-  },
-
-  // ── Public helpers ────────────────────────────────────────────────────────
-
-  addBuilding(building) {
-    this.buildings.push(building);
-    building.isBuilding = true;
-  },
-
-  // Resets run state between attempts (keeps the scene alive).
-  resetRun() {
-    this._destroyActivePlane();
-    this._run = null;
-
-    for (const bomb of this._activeBombs) {
-      if (bomb?.active) { try { bomb.destroy(); } catch (e) { } }
-    }
-    this._activeBombs = [];
-    this.gameOver     = false;
-
-    const maxHp = window.ObjectConfig.internalTypes?.player?.health ?? 100;
-    if (this.player) this.player.health = maxHp;
-    // Ensure all SFX stop when a run is reset.
-    try { window.SfxManager?.stopAll?.(); } catch (e) { }
-  },
-
-  _triggerGameOver() {
-    if (this.gameOver) return;
-    this.gameOver = true;
-    window.logDebug?.('Game Over!');
   },
 };

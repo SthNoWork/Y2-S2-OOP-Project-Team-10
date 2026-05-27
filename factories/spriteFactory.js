@@ -5,23 +5,6 @@ window.SpriteFactory = {
 
   // ── Public API ────────────────────────────────────────────────────────────
 
-  // Plays an animation on a sprite. Finite animations (repeat !== -1)
-  // automatically destroy the sprite when they complete.
-  playAnimation(sprite, animationKey) {
-    if (!sprite?.anims || !animationKey) return sprite;
-
-    const animCfg = this._findAnimConfig(animationKey);
-
-    if (this._isFiniteAnimation(animCfg)) {
-      sprite.once('animationcomplete', () => {
-        if (sprite.active) sprite.destroy();
-      });
-    }
-
-    sprite.play(animationKey);
-    return sprite;
-  },
-
   // Queues all images and atlases for loading by Phaser.
   preloadAll(scene) {
     const cfg = window.Assets;
@@ -50,13 +33,31 @@ window.SpriteFactory = {
       if (scene.anims.exists(anim.key)) scene.anims.remove(anim.key);
 
       scene.anims.create({
-        key:       anim.key,
-        frames:    anim.frames.map((frame) => ({ key: anim.atlasKey, frame })),
+        key: anim.key,
+        frames: anim.frames.map((frame) => ({ key: anim.atlasKey, frame })),
         frameRate: anim.frameRate ?? 10,
-        repeat:    this._toPhaserRepeat(anim.repeat),
+        repeat: this._toPhaserRepeat(anim.repeat),
       });
     });
   },
+
+  // Plays an animation on a sprite. Finite animations (repeat !== -1)
+  // automatically destroy the sprite when they complete.
+  playAnimation(sprite, animationKey) {
+    if (!sprite?.anims || !animationKey) return sprite;
+
+    const animCfg = this._findAnimConfig(animationKey);
+
+    if (this._isFiniteAnimation(animCfg)) {
+      sprite.once('animationcomplete', () => {
+        if (sprite.active) sprite.destroy();
+      });
+    }
+
+    sprite.play(animationKey);
+    return sprite;
+  },
+
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -70,7 +71,7 @@ window.SpriteFactory = {
   },
 
   // Assets use repeat as a play-count (e.g. repeat:1 = play once).
-  // Phaser uses repeat as an extra-cycles count (repeat:0 = play once, -1 = loop).
+  // Phaser uses repeat as extra-cycles count (repeat:0 = play once, -1 = loop).
   _toPhaserRepeat(repeat) {
     if (repeat == null || repeat === -1) return -1;
     return Math.max(0, repeat - 1);

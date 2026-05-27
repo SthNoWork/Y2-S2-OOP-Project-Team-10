@@ -2,7 +2,8 @@
 // Pure helper functions used by objectFactory.js.
 // Kept separate so the main factory file stays focused on object creation.
 
-// ── Size calculation ─────────────────────────────────────────────────────────
+
+// ── Size calculation ──────────────────────────────────────────────────────────
 
 // Returns { bodyW, bodyH, scaleX, scaleY, radius? } for a given config,
 // or null if the texture / frame is missing.
@@ -23,7 +24,7 @@ function _computeSize(scene, cfg) {
     return null;
   }
 
-  const texW = frame.realWidth  || frame.width;
+  const texW = frame.realWidth || frame.width;
   const texH = frame.realHeight || frame.height;
 
   if (!texW || !texH) {
@@ -32,15 +33,20 @@ function _computeSize(scene, cfg) {
   }
 
   if (cfg.physics?.shape?.type === 'circle') {
-    const radiusRatio = cfg.physics.shape.radiusRatio ?? 1;
-    const radius      = Math.max(2, Math.round((Math.min(texW, texH) / 2) * scale * radiusRatio));
-    return { bodyW: radius * 2, bodyH: radius * 2, scaleX: scale, scaleY: scale, radius };
+    return _computeCircleSize(texW, texH, scale, cfg.physics.shape);
   }
 
   return { bodyW: texW * scale, bodyH: texH * scale, scaleX: scale, scaleY: scale };
 }
 
-// ── Visual creation ──────────────────────────────────────────────────────────
+function _computeCircleSize(texW, texH, scale, shape) {
+  const radiusRatio = shape.radiusRatio ?? 1;
+  const radius = Math.max(2, Math.round((Math.min(texW, texH) / 2) * scale * radiusRatio));
+  return { bodyW: radius * 2, bodyH: radius * 2, scaleX: scale, scaleY: scale, radius };
+}
+
+
+// ── Visual creation ───────────────────────────────────────────────────────────
 
 function _buildVisual(scene, cfg, x, y, bodyW, bodyH, scaleX, scaleY) {
   const obj = scene.add.sprite(x, y, cfg.imageKey, cfg.startFrame);
@@ -52,17 +58,18 @@ function _buildVisual(scene, cfg, x, y, bodyW, bodyH, scaleX, scaleY) {
   return obj;
 }
 
-// ── Physics attachment ───────────────────────────────────────────────────────
+
+// ── Physics attachment ────────────────────────────────────────────────────────
 
 function _addPhysics(scene, obj, cfg, bodyW, bodyH, dims) {
-  const p     = cfg.physics;
+  const p = cfg.physics;
   const shape = _buildPhysicsShape(p, bodyW, bodyH, dims);
 
   scene.matter.add.gameObject(obj, {
-    friction:    p.friction,
+    friction: p.friction,
     restitution: p.restitution,
     frictionAir: p.frictionAir,
-    label:       p.label || 'object',
+    label: p.label || 'object',
     shape,
   });
 
@@ -82,20 +89,21 @@ function _buildPhysicsShape(p, bodyW, bodyH, dims) {
 
 function _applyMass(body, mass) {
   if (mass === undefined) return;
-  try { Phaser.Physics.Matter.Matter.Body.setMass(body, mass); } catch (e) {}
+  try { Phaser.Physics.Matter.Matter.Body.setMass(body, mass); } catch (e) { }
 }
 
 function _applyCollisionFilter(body, filter) {
   if (!filter || !body.collisionFilter) return;
   body.collisionFilter.category = filter.category;
-  body.collisionFilter.mask     = filter.mask;
+  body.collisionFilter.mask = filter.mask;
 }
 
-// ── Health system ────────────────────────────────────────────────────────────
+
+// ── Health system ─────────────────────────────────────────────────────────────
 
 // Attaches health, maxHealth, and a takeDamage method to obj.
 function _addHealth(obj, cfg) {
-  obj.health    = cfg.health;
+  obj.health = cfg.health;
   obj.maxHealth = cfg.health;
 
   obj.takeDamage = function (amount) {
@@ -120,7 +128,8 @@ function _updateHpLabelOnDamage(obj) {
   }
 }
 
-// ── Debug HP labels ──────────────────────────────────────────────────────────
+
+// ── Debug HP labels ───────────────────────────────────────────────────────────
 
 // Creates or updates the floating HP label above obj (debug mode only).
 function _updateHpLabel(obj) {
@@ -132,19 +141,25 @@ function _updateHpLabel(obj) {
   }
 
   if (!obj._hpLabel?.active) {
-    if (!obj.scene) return;
-    const label = obj.scene.add.text(obj.x, obj.y, `HP:${Math.max(0, Math.round(obj.health))}`, {
-      fontSize:        '18px',
-      fill:            '#ffffff',
-      backgroundColor: '#000000',
-      padding:         { x: 3, y: 2 },
-    });
-    label.setOrigin(0.5, 1);
-    label.setDepth(3000);
-    obj._hpLabel = label;
+    _createHpLabel(obj);
   }
 
   obj._hpLabel.x = obj.x;
   obj._hpLabel.y = obj.y - (obj.displayHeight ?? 0) * 0.5;
   obj._hpLabel.setText(`HP:${Math.max(0, Math.round(obj.health))}`);
+}
+
+function _createHpLabel(obj) {
+  if (!obj.scene) return;
+
+  const label = obj.scene.add.text(obj.x, obj.y, `HP:${Math.max(0, Math.round(obj.health))}`, {
+    fontSize: '18px',
+    fill: '#ffffff',
+    backgroundColor: '#000000',
+    padding: { x: 3, y: 2 },
+  });
+
+  label.setOrigin(0.5, 1);
+  label.setDepth(3000);
+  obj._hpLabel = label;
 }

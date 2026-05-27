@@ -4,17 +4,8 @@
 
 window.ObjectFactory = {};
 
-// ── Debug label API ──────────────────────────────────────────────────────────
 
-window.ObjectFactory.updateDebugLabels = function (objects) {
-  for (const obj of objects) _updateHpLabel(obj);
-};
-
-window.ObjectFactory.destroyDebugLabel = function (obj) {
-  if (obj?._hpLabel?.active) { obj._hpLabel.destroy(); obj._hpLabel = null; }
-};
-
-// ── Placeable buildings (player-placed) ──────────────────────────────────────
+// ── Placeable buildings (player-placed) ───────────────────────────────────────
 
 // Creates a building the player can drag and drop, registers it with GameLogic.
 window.ObjectFactory.createPlaceable = function (scene, type, x, y, arena, options = {}) {
@@ -40,17 +31,18 @@ window.ObjectFactory.createPlaceable = function (scene, type, x, y, arena, optio
 // Stamps all drag-and-drop metadata onto a placeable object.
 function _attachPlaceableProps(obj, type, cfg, x, y, options) {
   obj.setInteractive({ useHandCursor: true });
-  obj.objectType           = type;
-  obj.buildingType         = type;
-  obj.buildingConfig       = cfg;
-  obj.isBuilding           = true;
-  obj.isDragging           = false;
+  obj.objectType = type;
+  obj.buildingType = type;
+  obj.buildingConfig = cfg;
+  obj.isBuilding = true;
+  obj.isDragging = false;
   obj.spawnedFromInventory = !!options.fromInventory;
-  obj._dragOrigin          = { x, y };
-  obj._ghostRemoved        = false;
+  obj._dragOrigin = { x, y };
+  obj._ghostRemoved = false;
 }
 
-// ── Level-placed objects (pre-placed by the level designer) ──────────────────
+
+// ── Level-placed objects (pre-placed by the level designer) ───────────────────
 
 // Creates an object defined in levelTypes (e.g. bomb_crate), registers it with GameLogic.
 window.ObjectFactory.createLevelObject = function (scene, type, x, y, arena) {
@@ -65,18 +57,19 @@ window.ObjectFactory.createLevelObject = function (scene, type, x, y, arena) {
   obj._bodyW = bodyW;
   obj._bodyH = bodyH;
 
-  if (cfg.physics)              _addPhysics(scene, obj, cfg, bodyW, bodyH, dims);
+  if (cfg.physics) _addPhysics(scene, obj, cfg, bodyW, bodyH, dims);
   if (cfg.health !== undefined) _addHealth(obj, cfg);
 
-  obj.objectType     = type;
+  obj.objectType = type;
   obj.buildingConfig = cfg;
-  obj.isLevelObject  = true;
+  obj.isLevelObject = true;
 
   if (window.GameLogic?.addBuilding) window.GameLogic.addBuilding(obj);
   return obj;
 };
 
-// ── Internal engine objects (plane, bomb, player) ────────────────────────────
+
+// ── Internal engine objects (plane, bomb, player) ─────────────────────────────
 
 // Creates an object defined in internalTypes.
 // Accepts an optional spawnLocation override via options.
@@ -84,8 +77,8 @@ window.ObjectFactory.createInternal = function (scene, type, x, y, arena, option
   const cfg = window.ObjectConfig.internalTypes[type];
   if (!cfg) { console.error(`ObjectFactory.createInternal: unknown type "${type}"`); return null; }
 
-  const spawnX = options.spawnLocation ? options.spawnLocation.x : x;
-  const spawnY = options.spawnLocation ? options.spawnLocation.y : y;
+  const spawnX = options.spawnLocation?.x ?? x;
+  const spawnY = options.spawnLocation?.y ?? y;
 
   const dims = _computeSize(scene, cfg);
   if (!dims) return null;
@@ -95,7 +88,7 @@ window.ObjectFactory.createInternal = function (scene, type, x, y, arena, option
   obj._bodyW = bodyW;
   obj._bodyH = bodyH;
 
-  if (cfg.physics)              _addPhysics(scene, obj, cfg, bodyW, bodyH, dims);
+  if (cfg.physics) _addPhysics(scene, obj, cfg, bodyW, bodyH, dims);
   if (cfg.health !== undefined) _addHealth(obj, cfg);
 
   obj.objectType = type;
@@ -104,10 +97,22 @@ window.ObjectFactory.createInternal = function (scene, type, x, y, arena, option
   return obj;
 };
 
+
 // ── Destruction ───────────────────────────────────────────────────────────────
 
 window.ObjectFactory.destroy = function (obj) {
   if (!obj?.active) return;
   window.ObjectFactory.destroyDebugLabel(obj);
-  try { obj.destroy(); } catch (e) {}
+  try { obj.destroy(); } catch (e) { }
+};
+
+
+// ── Debug label API ───────────────────────────────────────────────────────────
+
+window.ObjectFactory.updateDebugLabels = function (objects) {
+  for (const obj of objects) _updateHpLabel(obj);
+};
+
+window.ObjectFactory.destroyDebugLabel = function (obj) {
+  if (obj?._hpLabel?.active) { obj._hpLabel.destroy(); obj._hpLabel = null; }
 };
