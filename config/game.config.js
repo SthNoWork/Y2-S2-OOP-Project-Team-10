@@ -7,7 +7,7 @@ const config = {
   width:           1920,
   height:          1080,
   parent:          'game-container',
-  backgroundColor: '#808080',
+  backgroundColor: '#000000',
 
   render: {
     pixelArt: true,
@@ -34,7 +34,7 @@ const config = {
     GameScene,
     LevelSelectScene,
     SettingsScene,
-    SavesScene,
+    ShopScene,
     LeaderboardScene,
     ProfileScene,
   ],

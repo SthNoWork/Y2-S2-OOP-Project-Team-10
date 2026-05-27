@@ -12,8 +12,14 @@ class GameScene extends Phaser.Scene {
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   create() {
-    this.cameras.main.setBackgroundColor('#808080');
-    window.UIFactory.addBackground(this, 'asset/background/1.jpg');
+    this.cameras.main.setBackgroundColor('#000000');
+    const bgChoices = [
+      'asset/background/1.jpg',
+      'asset/background/3.jpg',
+      'asset/background/5.jpg',
+    ];
+    const pick = bgChoices[Math.floor(Math.random() * bgChoices.length)];
+    window.UIFactory.addBackground(this, pick);
 
     this.arena = {
       ARENA_X: 96,
@@ -49,7 +55,7 @@ class GameScene extends Phaser.Scene {
     const { ARENA_X, ARENA_W, ARENA_Y } = this.arena;
     const btnX   = ARENA_X + ARENA_W - 19;
     const btnY   = ARENA_Y + 22;
-    const btnGap = 59;
+    const btnGap = 86;
 
     window.UIFactory.createButton(this, btnX, btnY,          'Start', () => window.LevelManager.startWave());
     window.UIFactory.createButton(this, btnX, btnY + btnGap, 'Reset', () => window.startScene('GameScene'));

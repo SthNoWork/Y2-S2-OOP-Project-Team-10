@@ -3,7 +3,7 @@ class SettingsScene extends Phaser.Scene {
   constructor() { super('SettingsScene'); }
 
   create() {
-    this.cameras.main.setBackgroundColor('#808080');
+    this.cameras.main.setBackgroundColor('#000000');
     window.UIFactory.addBackground(this, 'asset/background/3.jpg');
     window.UIFactory.addBackButton(this, () => window.showHomeScreen());
 
@@ -93,16 +93,22 @@ class SettingsScene extends Phaser.Scene {
       updateVolume((clampedX - leftX) / trackW);
     });
 
-    this.add.text(960, 600, 'Fullscreen', {
+    const fullscreenRowY = 640;
+    const fullscreenCenterX = 1000;
+    const fullscreenGap = 300;
+    const fullscreenLabelX = 800;
+    const fullscreenToggleX = 1250;
+
+    this.add.text(fullscreenLabelX, fullscreenRowY, 'Fullscreen', {
       fontFamily: 'Arial, sans-serif',
       fontSize:   '44px',
       color:      '#000000',
-    }).setOrigin(0.5);
+    }).setOrigin(1, 0.5);
 
     const toggleW   = 160;
     const toggleH   = 44;
-    const toggleX   = 960;
-    const toggleY   = 675;
+    const toggleX   = fullscreenToggleX;
+    const toggleY   = fullscreenRowY;
     const toggleL   = toggleX - toggleW / 2;
     const toggleR   = toggleX + toggleW / 2;
     const toggleRad = toggleH / 2;

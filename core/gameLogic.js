@@ -183,6 +183,8 @@ window.GameLogic = {
     if (exited) {
       if (run.plane._blade?.active) run.plane._blade.destroy();
       run.plane.destroy();
+      // Stop any lingering SFX when the plane leaves.
+      try { window.SfxManager?.stopAll?.(); } catch (e) { }
       this._run = null;
     }
   },
@@ -216,6 +218,7 @@ window.GameLogic = {
     });
 
     this._activeBombs.push(bomb);
+    try { window.SfxManager?.playDrop?.(); } catch (e) { }
   },
 
   // ── Bomb update (called each frame) ──────────────────────────────────────
@@ -288,6 +291,7 @@ window.GameLogic = {
 
     const explosion = this.scene.add.sprite(x, y, firstFrame.texture.key, firstFrame.name);
     explosion.setScale(scale);
+    try { window.SfxManager?.playExplosion?.(); } catch (e) { }
     window.SpriteFactory.playAnimation(explosion, animKey);
   },
 
@@ -454,6 +458,8 @@ window.GameLogic = {
 
     const maxHp = window.ObjectConfig.internalTypes?.player?.health ?? 100;
     if (this.player) this.player.health = maxHp;
+    // Ensure all SFX stop when a run is reset.
+    try { window.SfxManager?.stopAll?.(); } catch (e) { }
   },
 
   _triggerGameOver() {

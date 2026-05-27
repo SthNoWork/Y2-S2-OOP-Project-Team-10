@@ -7,14 +7,14 @@ class LevelSelectScene extends Phaser.Scene {
   }
 
   create() {
-    this.cameras.main.setBackgroundColor('#808080');
+    this.cameras.main.setBackgroundColor('#000000');
     window.UIFactory.addBackground(this, 'asset/background/2.jpg');
     window.UIFactory.addBackButton(this, () => window.showHomeScreen());
 
     this.add.text(960, 270, 'Select Level', {
       fontFamily: 'Arial, sans-serif',
       fontSize:   '86px',
-      color:      '#000000',
+      color:      'black',
     }).setOrigin(0.5);
 
     this._buildLevelGrid();

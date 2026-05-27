@@ -6,17 +6,24 @@ window.UIFactory = {};
 
 // Creates a right-aligned action button (e.g. Start, Reset).
 window.UIFactory.createButton = function (scene, x, y, label, onClick) {
-  return scene.add
+  const btn = scene.add
     .text(x, y, label, {
       fontSize:        '43px',
       fill:            '#ffffff',
-      backgroundColor: '#333333',
+      backgroundColor: '#000000',
       padding:         { x: 38, y: 16 },
     })
     .setOrigin(1, 0)
     .setInteractive({ useHandCursor: true })
     .setDepth(1000)
     .on('pointerdown', onClick);
+
+  const bounds = btn.getBounds();
+  const border = scene.add.graphics().setDepth(btn.depth - 1);
+  border.lineStyle(2, 0xffffff, 0.9);
+  border.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+
+  return btn;
 };
 
 // Adds a "Back" link in the top-left corner of the current scene.
@@ -25,7 +32,7 @@ window.UIFactory.addBackButton = function (scene, onClick) {
     .text(38, 22, 'Back', {
       fontFamily: 'Arial, sans-serif',
       fontSize:   '43px',
-      color:      '#000000',
+      color:      '#ffffff',
     })
     .setInteractive()
     .setOrigin(0, 0)

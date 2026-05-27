@@ -13,7 +13,13 @@ window.HUDFactory.addHealthText = function (scene, arena) {
     arena.ARENA_X + 19,
     arena.ARENA_Y + 11,
     '',
-    { fontSize: '32px', fill: '#ffffff' }
+    {
+      fontFamily: 'Arial Black, Arial, sans-serif',
+      fontSize: '36px',
+      fill: '#ff3333',
+      backgroundColor: '#000000',
+      padding: { x: 10, y: 6 },
+    }
   );
 };
 
@@ -101,6 +107,8 @@ window.HUDFactory._overlayBtn = function (scene, x, y, label, bgColor, hoverColo
 // ── Win screen ───────────────────────────────────────────────────────────────
 
 window.HUDFactory.showWinScreen = function (scene, arena, opts) {
+  try { window.SfxManager?.muteAll?.(); } catch (e) { }
+  try { window.SfxManager?.playComplete?.(); } catch (e) { }
   const { ARENA_X, ARENA_Y, ARENA_W, ARENA_H } = arena;
   const { levelNum, totalWaves, hp, maxHp, objectScore, playerBonus, total, onNext, onLevels } = opts;
 
@@ -213,6 +221,8 @@ window.HUDFactory.showWinScreen = function (scene, arena, opts) {
 // ── Lose screen ──────────────────────────────────────────────────────────────
 
 window.HUDFactory.showLoseScreen = function (scene, arena, opts) {
+  try { window.SfxManager?.muteAll?.(); } catch (e) { }
+  try { window.SfxManager?.playFail?.(); } catch (e) { }
   const { ARENA_X, ARENA_Y, ARENA_W, ARENA_H } = arena;
   const { levelNum, wavesSurvived, totalWaves, onRetry, onLevels } = opts;
 
