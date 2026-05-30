@@ -73,12 +73,19 @@ window.ObjectFactory.createLevelObject = function (scene, type, x, y, arena) {
 
 // Creates an object defined in internalTypes.
 // Accepts an optional spawnLocation override via options.
+// For player, accepts skinKey to override the default player image.
 window.ObjectFactory.createInternal = function (scene, type, x, y, arena, options = {}) {
   const cfg = window.ObjectConfig.internalTypes[type];
   if (!cfg) { console.error(`ObjectFactory.createInternal: unknown type "${type}"`); return null; }
 
   const spawnX = options.spawnLocation?.x ?? x;
   const spawnY = options.spawnLocation?.y ?? y;
+
+  // For player, override the imageKey with the equipped skin if provided
+  const originalImageKey = cfg.imageKey;
+  if (type === 'player' && options.skinKey) {
+    cfg.imageKey = options.skinKey;
+  }
 
   const dims = _computeSize(scene, cfg);
   if (!dims) return null;
@@ -87,6 +94,9 @@ window.ObjectFactory.createInternal = function (scene, type, x, y, arena, option
   const obj = _buildVisual(scene, cfg, spawnX, spawnY, bodyW, bodyH, scaleX, scaleY);
   obj._bodyW = bodyW;
   obj._bodyH = bodyH;
+
+  // Restore original imageKey
+  cfg.imageKey = originalImageKey;
 
   if (cfg.physics) _addPhysics(scene, obj, cfg, bodyW, bodyH, dims);
   if (cfg.health !== undefined) _addHealth(obj, cfg);

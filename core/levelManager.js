@@ -37,8 +37,12 @@ window.LevelManager = {
     this._createPrePlacedObjects();
 
     const spawn  = this.levelCfg.playerSpawn ?? { x: 960, y: 810 };
+    
+    // Get the equipped skin from GameData
+    const equippedSkin = window.GameData?.getEquippedSkin?.() || 'skin_1';
+    
     const player = window.ObjectFactory.createInternal(
-      scene, 'player', spawn.x, spawn.y, arena
+      scene, 'player', spawn.x, spawn.y, arena, { skinKey: equippedSkin }
     );
 
     window.GameLogic.init(scene, player, arena);

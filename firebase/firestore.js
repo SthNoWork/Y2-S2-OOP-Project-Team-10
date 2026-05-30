@@ -108,4 +108,21 @@ window.FirebaseStore = {
 
     await this.pushLevelScore(user.uid, levelNum, score);
   },
+
+  // ── Shop purchases ──────────────────────────────────────────────────────
+
+  // Pushes shop purchase data to Firestore (deducted score, purchased skins, equipped skin)
+  async recordPurchase(uid, totalScore, purchasedSkins, equippedSkin) {
+    try {
+      await updateDoc(doc(db, 'users', uid), {
+        total_score: totalScore,
+        purchased_skins: purchasedSkins,
+        equipped_skin: equippedSkin,
+      });
+      return true;
+    } catch (e) {
+      console.error('[FirebaseStore.recordPurchase]', e);
+      return false;
+    }
+  },
 };

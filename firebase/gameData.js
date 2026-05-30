@@ -122,6 +122,61 @@ window.GameData = {
       return [];
     }
   },
+  // ── Skins (purchased items) ────────────────────────────────────────────
+
+  // Returns purchased skins array from active source
+  getPurchasedSkins() {
+    const skins = this.getActiveScores().purchased_skins || [];
+    return Array.isArray(skins) ? skins : [];
+  },
+
+  // Check if a specific skin is purchased
+  isSkinPurchased(skinId) {
+    return this.getPurchasedSkins().includes(skinId);
+  },
+
+  // Add a purchased skin (offline or server cache depending on auth state)
+  addPurchasedSkin(skinId) {
+    const scores = this.getActiveScores();
+    if (!scores.purchased_skins) {
+      scores.purchased_skins = [];
+    }
+    if (!scores.purchased_skins.includes(skinId)) {
+      scores.purchased_skins.push(skinId);
+    }
+    
+    if (window.FirebaseAuth?.currentUser) {
+      this.setServerCache(scores);
+    } else {
+      try {
+        localStorage.setItem(this.OFFLINE_KEY, JSON.stringify(scores));
+      } catch (e) {
+        console.warn('[GameData.addPurchasedSkin] localStorage write failed', e);
+      }
+    }
+  },
+
+  // Get the currently equipped skin (default: skin_1)
+  getEquippedSkin() {
+    const equipped = this.getActiveScores().equipped_skin || 'skin_1';
+    return equipped;
+  },
+
+  // Set the equipped skin
+  setEquippedSkin(skinId) {
+    const scores = this.getActiveScores();
+    scores.equipped_skin = skinId;
+    
+    if (window.FirebaseAuth?.currentUser) {
+      this.setServerCache(scores);
+    } else {
+      try {
+        localStorage.setItem(this.OFFLINE_KEY, JSON.stringify(scores));
+      } catch (e) {
+        console.warn('[GameData.setEquippedSkin] localStorage write failed', e);
+      }
+    }
+  },
 
   // ── Helpers ─────────────────────────────────────────────────────────────
 
