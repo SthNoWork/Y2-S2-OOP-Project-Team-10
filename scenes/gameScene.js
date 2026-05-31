@@ -36,8 +36,15 @@ class GameScene extends Phaser.Scene {
 
     window.BuildingManager.init(this, this.arena);
 
+    // ── Power-up heal button (bottom-right, one use per level) ────────────
+    window.PowerUpManager.init(this, this.arena);
+
     this._createActionButtons();
     window.UIFactory.addBackButton(this, () => window.startScene('LevelSelectScene'));
+
+    // Clean up PowerUpManager when the scene shuts down.
+    this.events.once('shutdown', () => window.PowerUpManager.destroy());
+    this.events.once('destroy',  () => window.PowerUpManager.destroy());
   }
 
   update(_time, delta) {
