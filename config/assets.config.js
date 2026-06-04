@@ -68,6 +68,13 @@ window.Assets = {
       frameRate: 6,
       repeat:    1,
     },
+    {
+      key:       'bomb_fly',
+      atlasKey:  'plane_atlas',
+      frames:    ['bomb_1', 'bomb_2', 'bomb_3', 'bomb_4'],
+      frameRate: 6,
+      repeat:    1,   // play once → freezes on bomb_4
+    },
 
     // ── Items (item_atlas) ───────────────────────────────────────────────────
     {

@@ -85,6 +85,8 @@ window.ObjectFactory.createInternal = function (scene, type, x, y, arena, option
   const originalImageKey = cfg.imageKey;
   if (type === 'player' && options.skinKey) {
     cfg.imageKey = options.skinKey;
+  } else if (cfg.spriteKey && !cfg.imageKey) {
+    cfg.imageKey = cfg.spriteKey;
   }
 
   const dims = _computeSize(scene, cfg);
@@ -102,7 +104,7 @@ window.ObjectFactory.createInternal = function (scene, type, x, y, arena, option
   if (cfg.health !== undefined) _addHealth(obj, cfg);
 
   obj.objectType = type;
-  if (type === 'bomb') obj.isBomb = true;
+  if (type === 'bomb' || type === 'smallBomb' || cfg.physics?.label === 'bomb') obj.isBomb = true;
 
   return obj;
 };

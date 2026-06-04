@@ -13,7 +13,7 @@ window.Levels = {
       { type: 'bomb_crate', x: 614,  y: 897 },
       { type: 'bomb_crate', x: 1306, y: 897 },
     ],
-    allowedBuildings: { shortPlank: 4, whitePlank: 3, leaf: 4 },
+    allowedBuildings: { shortPlank: 4, whitePlank: 3, leaf: 4, trampoline: 2 },
     waves: [
       { speed: 314, direction:  1, x: -163, y: 120 },  // flies high, safe
     ],
@@ -25,7 +25,7 @@ window.Levels = {
     waveDelayMs:      5000,
     platforms:        [],
     prePlaced:        [],
-    allowedBuildings: { shortPlank: 3, thickPlank: 2, dirt: 3, grass: 3 },
+    allowedBuildings: { shortPlank: 3, thickPlank: 2, dirt: 3, grass: 3, trampoline: 2 },
     waves: [
       { speed: 360, direction:  1, x: -163, y: 120 },
       { speed: 378, direction: -1, x: 2083, y: 120 },  // removed 3rd wave
@@ -38,7 +38,7 @@ window.Levels = {
     waveDelayMs:      5000,
     platforms:        [],
     prePlaced:        [],
-    allowedBuildings: { thickPlank: 3, plank: 3, sand: 3, gravel: 2 },
+    allowedBuildings: { thickPlank: 3, plank: 3, sand: 3, gravel: 2, trampoline: 2 },
     waves: [
       { speed: 404, direction:  1, x: -163, y: 120 },
       { speed: 423, direction: -1, x: 2083, y: 120 },  // cut from 3 → 2
@@ -60,7 +60,7 @@ window.Levels = {
       { type: 'bomb_crate', x: 960,  y: 606 },
       { type: 'bomb_crate', x: 1478, y: 470 },
     ],
-    allowedBuildings: { thickPlank: 2, wall: 2, stone: 3, sandstone: 2 },
+    allowedBuildings: { thickPlank: 2, wall: 2, stone: 3, sandstone: 2, trampoline: 2 },
     waves: [
       { speed: 432, direction:  1, x: -163, y: 120 },
       { speed: 449, direction: -1, x: 2083, y: 120 },
@@ -80,7 +80,7 @@ window.Levels = {
       { type: 'bomb_crate', x: 960,  y: 918 },
       { type: 'bomb_crate', x: 1444, y: 918 },
     ],
-    allowedBuildings: { snow: 4, ice: 3, thickIce: 2, stone: 2 },
+    allowedBuildings: { snow: 4, ice: 3, thickIce: 2, stone: 2, trampoline: 2 },
     waves: [
       { speed: 468, direction:  1, x: -163, y: 120 },
       { speed: 486, direction: -1, x: 2083, y: 120 },

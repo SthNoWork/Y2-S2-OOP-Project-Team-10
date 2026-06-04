@@ -169,6 +169,22 @@ window.ObjectConfig = {
       blastMaxDamage: 90,
       maxCount: 2,
     },
+
+    // ── Trampoline / Bounce Board ────────────────────────────────────────────
+    // Flat board that bounces bombs upward.
+    // Has normal physics so it can be knocked around.  Configurable: bounceForce, bounceVelocityCap.
+    trampoline: {
+      scale: 10,
+      imageKey: 'block_atlas', startFrame: 'small_wood',
+      physics: {
+        friction: 0.3, restitution: 0.0, frictionAir: 0.01, label: 'trampoline', mass: 10,
+        collisionFilter: { category: 0x0008, mask: 0x0001 | 0x0002 | 0x0004 },
+      },
+      bounceForce: 28,          // upward velocity impulse applied to bombs
+      bounceVelocityCap: 30,    // clamp resulting Y velocity
+      health: -1, onDeath: 'none',  // indestructible
+      maxCount: 3,
+    },
   },
 
   // ── Level-placed objects (pre-placed by the level designer) ──────────────
@@ -190,6 +206,11 @@ window.ObjectConfig = {
     bomb: {
       scale: 2,
       imageKey: 'plane_atlas',
+      animKey: 'bomb_fly',
+      speed: 200,
+      lifetime: 5000,
+      damage: 50,
+      poolable: true,
       physics: {
         friction: 0.8, restitution: 0.1, frictionAir: 0.01, label: 'bomb',
         shape: { type: 'circle', radiusRatio: 0.35 },
@@ -198,6 +219,24 @@ window.ObjectConfig = {
       explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 1.5, blastScale: 0.8 },
       blastForce: 100,
       blastMaxDamage: 50,
+    },
+
+    smallBomb: {
+      scale: 2,
+      imageKey: 'plane_atlas',
+      animKey: 'bomb_fly',
+      speed: 200,
+      lifetime: 5000,
+      damage: 25,
+      poolable: true,
+      physics: {
+        friction: 0.8, restitution: 0.1, frictionAir: 0.01, label: 'bomb',
+        shape: { type: 'circle', radiusRatio: 0.35 },
+        collisionFilter: { category: 0x0004, mask: 0x0001 | 0x0002 | 0x0008 },
+      },
+      explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 1.5, blastScale: 0.8 },
+      blastForce: 100,
+      blastMaxDamage: 25,
     },
 
     plane: {
@@ -212,6 +251,7 @@ window.ObjectConfig = {
       bombDropDelayRangeSec: { min: 0.18, max: 0.45 },
       bombDropOffsetRatioRange: { min: -0.35, max: 0.35 },
       bombDropYOffsetY: 39,
+      bomb: 'bomb',
     },
 
     player: {

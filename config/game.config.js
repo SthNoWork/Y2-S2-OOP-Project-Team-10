@@ -3,10 +3,10 @@
 // Loaded LAST so all scene classes are already defined before this runs.
 
 const config = {
-  type:            Phaser.AUTO,
-  width:           1920,
-  height:          1080,
-  parent:          'game-container',
+  type: Phaser.AUTO,
+  width: 1920,
+  height: 1080,
+  parent: 'game-container',
   backgroundColor: '#000000',
 
   render: {
@@ -14,18 +14,18 @@ const config = {
   },
 
   scale: {
-    mode:             Phaser.Scale.FIT,
-    autoCenter:       Phaser.Scale.CENTER_BOTH,
-    orientation:      Phaser.Scale.Orientation.LANDSCAPE,
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+    orientation: Phaser.Scale.Orientation.LANDSCAPE,
     fullscreenTarget: 'parent',
-    expandParent:     false,
+    expandParent: false,
   },
 
   physics: {
     default: 'matter',
     matter: {
       gravity: { y: 1 },
-      debug:   false,
+      debug: true,
     },
   },
 

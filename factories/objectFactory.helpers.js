@@ -10,6 +10,16 @@
 function _computeSize(scene, cfg) {
   const scale = cfg.scale ?? 1;
 
+  if (cfg.collisionSize) {
+    const w = cfg.collisionSize.width !== undefined ? cfg.collisionSize.width : cfg.collisionSize[0];
+    const h = cfg.collisionSize.height !== undefined ? cfg.collisionSize.height : cfg.collisionSize[1];
+    if (cfg.physics?.shape?.type === 'circle') {
+      const radius = Math.max(2, Math.round(Math.min(w, h) / 2));
+      return { bodyW: radius * 2, bodyH: radius * 2, scaleX: scale, scaleY: scale, radius };
+    }
+    return { bodyW: w, bodyH: h, scaleX: scale, scaleY: scale };
+  }
+
   if (!scene.textures.exists(cfg.imageKey)) {
     console.error(`[ObjectFactory._computeSize] texture "${cfg.imageKey}" not loaded`);
     return null;
@@ -108,6 +118,8 @@ function _addHealth(obj, cfg) {
 
   obj.takeDamage = function (amount) {
     if (!this.active) return false;
+    // Negative health means indestructible — ignore all damage.
+    if (this.maxHealth < 0) return false;
     this.health -= amount;
     _updateHpLabelOnDamage(this);
     return this.health <= 0;
