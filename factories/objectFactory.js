@@ -46,7 +46,7 @@ function _attachPlaceableProps(obj, type, cfg, x, y, options) {
 
 // Creates an object defined in levelTypes (e.g. bomb_crate), registers it with GameLogic.
 window.ObjectFactory.createLevelObject = function (scene, type, x, y, arena) {
-  const cfg = window.ObjectConfig.levelTypes[type];
+  const cfg = window.ObjectConfig.levelTypes[type] || window.ObjectConfig.internalTypes[type];
   if (!cfg) { console.error(`ObjectFactory.createLevelObject: unknown type "${type}"`); return null; }
 
   const dims = _computeSize(scene, cfg);

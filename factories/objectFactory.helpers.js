@@ -58,7 +58,121 @@ function _computeCircleSize(texW, texH, scale, shape) {
 
 // ── Visual creation ───────────────────────────────────────────────────────────
 
+const _graphicsDrawers = {
+  // ── Pillbox: sturdy trapezoidal bunker ──────────────────────────────────
+  pillbox(scene, x, y, bodyW, bodyH, cfg) {
+    const texKey = '__pillbox_tex';
+
+    if (!scene.textures.exists(texKey)) {
+      const g = scene.add.graphics();
+      const w = bodyW;
+      const h = bodyH;
+
+      // Base bunker
+      g.fillStyle(0x3a3a3a, 1);
+      g.beginPath();
+      g.moveTo(0, h);
+      g.lineTo(w, h);
+      g.lineTo(w * 0.8, h * 0.4);
+      g.lineTo(w * 0.2, h * 0.4);
+      g.closePath();
+      g.fillPath();
+
+      // Gun turret block
+      g.fillStyle(0x111111, 1);
+      g.fillRect(w * 0.3, 0, w * 0.4, h * 0.5);
+
+      // Gun barrel
+      g.fillStyle(0x222222, 1);
+      g.fillRect(w * 0.45, -h * 0.2, w * 0.1, h * 0.3);
+
+      g.generateTexture(texKey, Math.ceil(w), Math.ceil(h));
+      g.destroy();
+    }
+
+    const obj = scene.add.sprite(x, y, texKey);
+    obj._factoryScaled = true;
+    return obj;
+  },
+
+  // ── Pillbox: static bunker ────────────────────────────────────────────────
+  pillbox: (scene, x, y, bodyW, bodyH, cfg) => {
+    const texKey = '__pillbox_tex';
+
+    if (!scene.textures.exists(texKey)) {
+      const g = scene.add.graphics();
+      const w = bodyW;
+      const h = bodyH;
+
+      // Base bunker
+      g.fillStyle(0x333333, 1);
+      g.fillRoundedRect(0, 0, w, h, 8);
+
+      // Gun slot
+      g.fillStyle(0x111111, 1);
+      g.fillRect(w * 0.2, h * 0.3, w * 0.6, h * 0.2);
+
+      // Detail
+      g.lineStyle(2, 0x111111, 1);
+      g.strokeRoundedRect(0, 0, w, h, 8);
+
+      g.generateTexture(texKey, Math.ceil(w), Math.ceil(h));
+      g.destroy();
+    }
+
+    const obj = scene.add.sprite(x, y, texKey);
+    obj._factoryScaled = true;
+    return obj;
+  },
+
+  // ── Mortar: tall dark battery with launch tubes ─────────────────────────
+  mortar: (scene, x, y, bodyW, bodyH, cfg) => {
+    const texKey = '__mortar_tex';
+
+    if (!scene.textures.exists(texKey)) {
+      const g = scene.add.graphics();
+      const w = bodyW;
+      const h = bodyH;
+
+      // Base body — dark grey tall rectangle
+      g.fillStyle(0x404040, 1);
+      g.fillRect(0, 0, w, h);
+
+      // Add a sturdy base
+      g.fillStyle(0x202020, 1);
+      g.fillRect(-w * 0.1, h * 0.9, w * 1.2, h * 0.1);
+
+      // Draw 3 vertical launch tubes
+      g.fillStyle(0x111111, 1);
+      const tubeW = w * 0.2;
+      const tubeH = h * 0.6;
+      g.fillRect(w * 0.15, h * 0.1, tubeW, tubeH);
+      g.fillRect(w * 0.40, h * 0.1, tubeW, tubeH);
+      g.fillRect(w * 0.65, h * 0.1, tubeW, tubeH);
+
+      // Warning stripes on the front
+      g.fillStyle(0xdba614, 1);
+      for (let i = 0; i < 3; i++) {
+        g.fillRect(w * 0.1, h * 0.75 + i * h * 0.05, w * 0.8, h * 0.02);
+      }
+
+      g.generateTexture(texKey, Math.ceil(w), Math.ceil(h));
+      g.destroy();
+    }
+
+    const obj = scene.add.sprite(x, y, texKey);
+    obj._factoryScaled = true;
+    return obj;
+  },
+};
+
 function _buildVisual(scene, cfg, x, y, bodyW, bodyH, scaleX, scaleY) {
+  if (cfg.useGraphics && cfg.graphicsType && _graphicsDrawers[cfg.graphicsType]) {
+    const obj = _graphicsDrawers[cfg.graphicsType](scene, x, y, bodyW, bodyH, cfg);
+    obj.setScale(scaleX, scaleY);
+    return obj;
+  }
+
   const obj = scene.add.sprite(x, y, cfg.imageKey, cfg.startFrame);
 
   if (cfg.animKey && scene.anims?.exists?.(cfg.animKey)) obj.play(cfg.animKey);
@@ -81,11 +195,15 @@ function _addPhysics(scene, obj, cfg, bodyW, bodyH, dims) {
     frictionAir: p.frictionAir,
     label: p.label || 'object',
     shape,
+    isSensor: !!p.isSensor,
   });
 
   if (obj.body) {
     _applyMass(obj.body, p.mass);
     _applyCollisionFilter(obj.body, p.collisionFilter);
+    if (p.isStatic) obj.setStatic(true);
+    if (p.ignoreGravity) obj.setIgnoreGravity(true);
+    if (p.isSensor) obj.setSensor(true);
   }
 }
 

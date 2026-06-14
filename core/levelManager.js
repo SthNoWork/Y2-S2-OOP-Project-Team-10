@@ -4,17 +4,17 @@
 
 window.LevelManager = {
 
-  scene:    null,
-  arena:    null,
+  scene: null,
+  arena: null,
   levelNum: 1,
   levelCfg: null,
 
-  _state:       'idle',
-  _waveIndex:   0,
+  _state: 'idle',
+  _waveIndex: 0,
   _countdownMs: 0,
   _screenShown: false,
 
-  _waveText:   null,
+  _waveText: null,
   _healthText: null,
 
   _platforms: [],
@@ -26,8 +26,8 @@ window.LevelManager = {
   // ── Level loading ─────────────────────────────────────────────────────────
 
   load(scene, arena, levelNum) {
-    this.scene    = scene;
-    this.arena    = arena;
+    this.scene = scene;
+    this.arena = arena;
     this.levelNum = levelNum;
     this.levelCfg = window.Levels?.[levelNum] ?? this._fallbackConfig();
 
@@ -36,11 +36,11 @@ window.LevelManager = {
     this._createPlatforms();
     this._createPrePlacedObjects();
 
-    const spawn  = this.levelCfg.playerSpawn ?? { x: 960, y: 810 };
-    
+    const spawn = this.levelCfg.playerSpawn ?? { x: 960, y: 810 };
+
     // Get the equipped skin from GameData
     const equippedSkin = window.GameData?.getEquippedSkin?.() || 'skin_1';
-    
+
     const player = window.ObjectFactory.createInternal(
       scene, 'player', spawn.x, spawn.y, arena, { skinKey: equippedSkin }
     );
@@ -48,20 +48,21 @@ window.LevelManager = {
     window.GameLogic.init(scene, player, arena);
 
     this._healthText = window.UIFactory.addHealthText(scene, arena);
-    this._waveText   = this._createWaveText();
+    this._waveText = this._createWaveText();
 
     return player;
   },
 
   _resetLevelState() {
-    this._state       = 'idle';
-    this._waveIndex   = 0;
+    this._state = 'idle';
+    this._waveIndex = 0;
     this._countdownMs = 0;
     this._screenShown = false;
-    this._platforms   = [];
-    this._prePlaced   = [];
-    this._waveText    = null;
-    this._healthText  = null;
+    this._platforms = [];
+    this._prePlaced = [];
+    this._waveText = null;
+    this._healthText = null;
+    this.airSuperiorityBonus = 0;
   },
 
   _applyAllowedBuildings() {
@@ -106,15 +107,23 @@ window.LevelManager = {
       const obj = window.ObjectFactory.createLevelObject(
         this.scene, e.type, e.x, e.y, this.arena
       );
-      if (obj) this._prePlaced.push(obj);
+      if (obj) {
+        this._prePlaced.push(obj);
+        if (e.type === 'pillbox') {
+          try { window.PillboxManager?.registerPillbox?.(obj, e); } catch (err) { }
+        }
+        if (e.type === 'mortar') {
+          try { window.MortarManager?.registerMortar?.(obj); } catch (err) { }
+        }
+      }
     });
   },
 
   _fallbackConfig() {
     return {
-      playerSpawn:      { x: 960, y: 810 },
-      platforms:        [],
-      prePlaced:        [],
+      playerSpawn: { x: 960, y: 810 },
+      platforms: [],
+      prePlaced: [],
       allowedBuildings: {},
       waves: [{ speed: 300, direction: 1, x: -100, y: 100 }],
     };
@@ -127,16 +136,16 @@ window.LevelManager = {
     this._refreshHUD();
 
     if (window.GameLogic.gameOver &&
-        this._state !== 'won' &&
-        this._state !== 'lost') {
+      this._state !== 'won' &&
+      this._state !== 'lost') {
       this._state = 'lost';
     }
 
     switch (this._state) {
       case 'running': this._tickRunning(delta); break;
-      case 'waiting': this._tickWaiting();      break;
-      case 'won':     this._tickWon();          break;
-      case 'lost':    this._tickLost();         break;
+      case 'waiting': this._tickWaiting(); break;
+      case 'won': this._tickWon(); break;
+      case 'lost': this._tickLost(); break;
     }
   },
 
@@ -155,7 +164,9 @@ window.LevelManager = {
   },
 
   _tickWaiting() {
-    if (!window.GameLogic._run) this._state = 'won';
+    const planeActive = !!window.GameLogic._run;
+    const mortarActive = !!window.MortarManager?._barrageActive;
+    if (!planeActive && !mortarActive) this._state = 'won';
   },
 
   _tickWon() {
@@ -181,7 +192,7 @@ window.LevelManager = {
     window.BuildingManager.lockPlacement();
 
     this._fireNextWave();
-    this._state       = this._waveIndex < this.levelCfg.waves.length ? 'running' : 'waiting';
+    this._state = this._waveIndex < this.levelCfg.waves.length ? 'running' : 'waiting';
     this._countdownMs = this.levelCfg.waveDelayMs ?? 3000;
   },
 
@@ -190,12 +201,33 @@ window.LevelManager = {
     if (!waves?.length || this._waveIndex >= waves.length) return;
 
     const wave = waves[this._waveIndex];
+    const levelType = this.levelCfg.levelType || 'airplane';
 
-    window.GameLogic.startBombingRun(
-      wave.speed,
-      { x: wave.x, y: wave.y },
-      wave.direction
-    );
+    // Trigger mortar barrage and pillbox shooting
+    try { window.MortarManager?.startShooting?.(); } catch (e) { }
+    try { window.PillboxManager?.startShooting?.(); } catch (e) { }
+
+    if (levelType === 'mortar_barrage') {
+      // ── Mortar-only level: skip the airplane, fire a configurable barrage ──
+      const mb = this.levelCfg.mortarBarrage || {};
+      try {
+        window.MortarManager?.startBarrageLevel?.({
+          fireRateMs:   mb.fireRateMs   ?? 40,
+          durationMs:   mb.durationMs   ?? 2000,
+          bombType:     mb.bombType     ?? 'bomb',
+          spread:       mb.spread       ?? 15,
+          bombCount:    mb.bombCount,           // optional, overrides duration-based calc
+        });
+      } catch (e) { console.error('[LevelManager] mortar_barrage error:', e); }
+    } else {
+      // ── Standard airplane bombing run ──
+      window.GameLogic.startBombingRun(
+        wave.speed,
+        { x: wave.x, y: wave.y },
+        wave.direction,
+        wave.bomb
+      );
+    }
 
     this._waveIndex++;
     this._refreshHUD();
@@ -220,7 +252,7 @@ window.LevelManager = {
     }
 
     if (this._waveText) {
-      const total   = this.levelCfg?.waves?.length ?? 0;
+      const total = this.levelCfg?.waves?.length ?? 0;
       const current = Math.min(this._waveIndex, total);
       this._waveText.setText(this._waveStatusLabel(current, total));
     }
@@ -228,16 +260,20 @@ window.LevelManager = {
 
   _waveStatusLabel(current, total) {
     switch (this._state) {
-      case 'idle':    return 'Press Start';
+      case 'idle': return 'Press Start';
       case 'waiting': return 'Last wave…';
-      case 'won':     return 'Level clear!';
-      case 'lost':    return 'Eliminated';
-      default:        return `Wave ${current} / ${total}`;
+      case 'won': return 'Level clear!';
+      case 'lost': return 'Eliminated';
+      default: return `Wave ${current} / ${total}`;
     }
   },
 
 
   // ── Win / lose screens ────────────────────────────────────────────────────
+
+  addAirSuperiorityBonus(points) {
+    this.airSuperiorityBonus += points;
+  },
 
   _showWinScreen() {
     this._unlockNextLevel(this.levelNum);
@@ -246,30 +282,30 @@ window.LevelManager = {
 
     window.FirebaseStore?.recordWin(this.levelNum, total);
 
-    const hp           = Math.max(0, Math.round(window.GameLogic.player?.health ?? 0));
-    const maxHp        = window.ObjectConfig.internalTypes?.player?.health ?? 100;
+    const hp = Math.max(0, Math.round(window.GameLogic.player?.health ?? 0));
+    const maxHp = window.ObjectConfig.internalTypes?.player?.health ?? 100;
     const currentLevel = this.levelNum;
-    const hasNext      = !!(window.Levels?.[(currentLevel + 1)]?.waves?.length);
+    const hasNext = !!(window.Levels?.[(currentLevel + 1)]?.waves?.length);
 
     window.HUDFactory.showWinScreen(this.scene, this.arena, {
-      levelNum:   currentLevel,
+      levelNum: currentLevel,
       totalWaves: this.levelCfg.waves.length,
       hp,
       maxHp,
       objectScore,
       playerBonus,
       total,
-      onNext:   hasNext ? () => { window._currentLevel = currentLevel + 1; window.startScene('GameScene'); } : null,
+      onNext: hasNext ? () => { window._currentLevel = currentLevel + 1; window.startScene('GameScene'); } : null,
       onLevels: () => window.startScene('LevelSelectScene'),
     });
   },
 
   _showLoseScreen() {
     window.HUDFactory.showLoseScreen(this.scene, this.arena, {
-      levelNum:      this.levelNum,
+      levelNum: this.levelNum,
       wavesSurvived: Math.max(0, this._waveIndex - 1),
-      totalWaves:    this.levelCfg.waves.length,
-      onRetry:  () => window.startScene('GameScene'),
+      totalWaves: this.levelCfg.waves.length,
+      onRetry: () => window.startScene('GameScene'),
       onLevels: () => window.startScene('LevelSelectScene'),
     });
   },
@@ -286,7 +322,7 @@ window.LevelManager = {
       const cfg = window.ObjectConfig.placeableTypes[type];
       if (!cfg) continue;
 
-      const total      = window.BuildingManager._totalPlacedCounts[type] || 0;
+      const total = window.BuildingManager._totalPlacedCounts[type] || 0;
       const neverPlaced = Math.max(0, cap - total);
       objectScore += neverPlaced * cfg.health * 10;
     }
@@ -298,14 +334,14 @@ window.LevelManager = {
       }
     }
 
-    const playerHp  = window.GameLogic.player?.health ?? 0;
+    const playerHp = window.GameLogic.player?.health ?? 0;
     const playerMax = window.ObjectConfig.internalTypes?.player?.health ?? 100;
-    const bonus     = playerHp >= playerMax ? 1000 : 0;
+    const bonus = (playerHp >= playerMax ? 1000 : 0) + this.airSuperiorityBonus;
 
     return {
       objectScore: Math.round(objectScore),
       playerBonus: bonus,
-      total:       Math.round(objectScore) + bonus,
+      total: Math.round(objectScore) + bonus,
     };
   },
 
@@ -350,7 +386,7 @@ window.LevelManager = {
     // so localStorage only needs updating for logged-out players.
     if (window.FirebaseAuth?.currentUser) return;
 
-    const total  = this._getTotalLevels();
+    const total = this._getTotalLevels();
     const target = Math.min(total, (currentLevel || 1) + 1);
     if (target > this.getMaxUnlockedLevel()) {
       try {
