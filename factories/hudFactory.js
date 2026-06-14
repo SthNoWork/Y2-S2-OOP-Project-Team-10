@@ -108,7 +108,7 @@ window.HUDFactory._overlayBtn = function (scene, x, y, label, bgColor, hoverColo
   const normalCss = toCss(bgColor);
   const hoverCss = toCss(hoverColor);
 
-  return scene.add.text(x, y, label, {
+  const btn = scene.add.text(x, y, label, {
     fontFamily: 'Arial, sans-serif',
     fontSize: '39px',
     fill: '#ffffff',
@@ -121,6 +121,8 @@ window.HUDFactory._overlayBtn = function (scene, x, y, label, bgColor, hoverColo
     .on('pointerover', () => btn.setStyle({ backgroundColor: hoverCss }))
     .on('pointerout', () => btn.setStyle({ backgroundColor: normalCss }))
     .on('pointerdown', onClick);
+    
+  return btn;
 };
 
 

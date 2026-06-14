@@ -5,7 +5,7 @@ class GameScene extends Phaser.Scene {
 
   constructor() {
     super('GameScene');
-    this.arena  = null;
+    this.arena = null;
     this.player = null;
   }
 
@@ -28,11 +28,18 @@ class GameScene extends Phaser.Scene {
       ARENA_H: 972,
     };
 
-    // Extend physics bounds beyond the visible area so objects don't teleport.
-    this.matter.world.setBounds(-1920, 0, 5760, 1080, 32);
+    // Extend physics bounds beyond the visible area so objects don't teleport or hit an invisible roof.
+    // The top bound is raised significantly (-3000) to allow high 75-degree mortar arcs.
+    this.matter.world.setBounds(-1920, -3000, 5760, 4080, 32);
+
+    // Combat managers MUST init before LevelManager.load() because load()
+    // creates pre-placed objects (pillboxes, mortars) that register with their managers.
+    // window.ClusterManager.init(this); // Disabled to prevent duplicate cluster bomb splits (handled by gameLogic.js)
+    window.PillboxManager.init(this);
+    window.MortarManager.init(this, this.arena);
 
     const levelNum = window._currentLevel;
-    this.player    = window.LevelManager.load(this, this.arena, levelNum);
+    this.player = window.LevelManager.load(this, this.arena, levelNum);
 
     window.BuildingManager.init(this, this.arena);
 
@@ -44,14 +51,16 @@ class GameScene extends Phaser.Scene {
 
     // Clean up PowerUpManager when the scene shuts down.
     this.events.once('shutdown', () => window.PowerUpManager.destroy());
-    this.events.once('destroy',  () => window.PowerUpManager.destroy());
+    this.events.once('destroy', () => window.PowerUpManager.destroy());
   }
 
   update(_time, delta) {
     window.GameLogic.update(delta);
     window.LevelManager.update(delta);
+    try { window.PillboxManager?.update?.(delta); } catch (e) { }
+    try { window.MortarManager?.update?.(delta); } catch (e) { }
 
-    const placed    = window.BuildingManager.getPlacedBuildings();
+    const placed = window.BuildingManager.getPlacedBuildings();
     const prePlaced = window.LevelManager._prePlaced;
     window.ObjectFactory.updateDebugLabels([...placed, ...prePlaced]);
   }
@@ -60,11 +69,11 @@ class GameScene extends Phaser.Scene {
 
   _createActionButtons() {
     const { ARENA_X, ARENA_W, ARENA_Y } = this.arena;
-    const btnX   = ARENA_X + ARENA_W - 19;
-    const btnY   = ARENA_Y + 22;
+    const btnX = ARENA_X + ARENA_W - 19;
+    const btnY = ARENA_Y + 22;
     const btnGap = 86;
 
-    window.UIFactory.createButton(this, btnX, btnY,          'Start', () => window.LevelManager.startWave());
+    window.UIFactory.createButton(this, btnX, btnY, 'Start', () => window.LevelManager.startWave());
     window.UIFactory.createButton(this, btnX, btnY + btnGap, 'Reset', () => window.startScene('GameScene'));
 
     if (window.DEBUG) {

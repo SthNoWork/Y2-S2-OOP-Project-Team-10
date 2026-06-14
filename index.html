@@ -280,6 +280,8 @@
   <script src="core/powerUpManager.js"></script>
   <script src="core/gameLogic.helper.js"></script>
   <script src="core/gameLogic.js"></script>
+  <script src="core/pillboxManager.js"></script>
+  <script src="core/mortarManager.js"></script>
   <script src="core/sfxManager.js"></script>
   <script src="core/buildingManager.js"></script>
   <script src="core/levelManager.js"></script>
@@ -308,7 +310,7 @@
     let profilePanelHiddenByScene = false;
 
     function getProfileName(user) {
-      return user?.displayName || user?.email?.split('@')[0] || 'Player'; 
+      return user?.displayName || user?.email?.split('@')[0] || 'Player';
     }
 
     function updateProfilePanel(user = window.FirebaseAuth?.currentUser) {
@@ -344,7 +346,7 @@
         profileBtn.textContent = name.slice(0, 2).toUpperCase();
       }
     }
-  
+
     // ── MusicManager ────────────────────────────────────────────────────
     // Per-level music path from levels config (restructured); volume
     // persistence and getVolume/setVolume kept from HEAD.
@@ -499,7 +501,7 @@
     // ── Button wiring ────────────────────────────────────────────────────
     document.getElementById('play-btn').addEventListener('click', () => window.startScene('LevelSelectScene'));
     document.getElementById('saves-btn').addEventListener('click', () => window.startScene('ShopScene'));
-    document.getElementById('leaderboard-btn') .addEventListener('click', () => window.startScene('LeaderboardScene'));
+    document.getElementById('leaderboard-btn').addEventListener('click', () => window.startScene('LeaderboardScene'));
     document.getElementById('settings-btn').addEventListener('click', () => window.startScene('SettingsScene'));
     if (profileBtn) profileBtn.addEventListener('click', () => window.startScene('ProfileScene'));
 
