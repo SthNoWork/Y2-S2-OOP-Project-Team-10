@@ -99,56 +99,27 @@ window.PillboxManager = {
     if (!target || !target.active) return;
 
     // 1. Calculate rough angle to target just to position the spawn point safely outside
-    const roughAngleRad = Math.atan2(target.y - gameObject.y, target.x - gameObject.x);
-    const spawnDist = Math.max(gameObject.displayWidth || 120, gameObject.displayHeight || 80) * 0.75;
-    const spawnX = gameObject.x + Math.cos(roughAngleRad) * spawnDist;
-    const spawnY = gameObject.y + Math.sin(roughAngleRad) * spawnDist;
+    const { x: spawnX, y: spawnY } = window.GameLogicHelper.getSafeSpawnPosition(gameObject, target, 0.75);
 
     // 2. Now calculate perfect ballistic trajectory from the EXACT spawn point!
     const dx = target.x - spawnX;
     const dy = target.y - spawnY;
 
-    const bombCfg = window.ObjectConfig.internalTypes[bombType] || window.ObjectConfig.internalTypes.smallBomb;
-
-    // Get world gravity
-    const gravityObj = scene.matter?.world?.localWorld?.gravity || scene.matter?.world?.engine?.gravity;
-    const worldGravity = (gravityObj && gravityObj.y !== undefined && gravityObj.scale !== undefined)
-      ? (gravityObj.y * gravityObj.scale * 1000000)
-      : 1000;
-    const g = bombCfg?.gravity !== undefined ? bombCfg.gravity : worldGravity;
-
     // 3. Force angle to be at least 75 degrees, and compute required launch speed and angle
-    const { speed: solvedSpeed, angleDeg: solvedAngle } = window.GameLogicHelper.solveHighArcSpeedAndAngle(dx, dy, g, 75);
-    let speed = solvedSpeed;
-    let baseAngleDeg = solvedAngle;
-
-    // Spattering Randomization
-    // 1. Randomize angle by +/- 5 degrees (if not specified in config)
     const inaccuracyAngle = cfg?.inaccuracy?.angleDeg ?? 5;
-    const angleOffset = (Math.random() * 2 - 1) * inaccuracyAngle;
-    baseAngleDeg += angleOffset;
 
-    // 2. Randomize speed by +/- 15% for distance spattering
-    const speedMultiplier = 1 + ((Math.random() * 2 - 1) * 0.15);
-    speed *= speedMultiplier;
-
-    const bomb = window.spawnBomb(scene, bombType, spawnX, spawnY, baseAngleDeg, target, gameObject);
-    if (bomb) {
-      bomb.owner = gameObject;
-
-      // Override velocity with our precisely computed speed
-      if (bomb.body) {
-        const vx = (speed / 60) * Math.cos(Phaser.Math.DegToRad(baseAngleDeg));
-        const vy = (speed / 60) * Math.sin(Phaser.Math.DegToRad(baseAngleDeg));
-        Phaser.Physics.Matter.Matter.Body.setVelocity(bomb.body, { x: vx, y: vy });
-
-        // CRITICAL FIX: Matter.js has air friction by default, which drastically slows down the 
-        // bomb mid-air and completely breaks the perfect ballistic trajectory math!
-        // We must remove air friction for this projectile so it flies in a true vacuum parabola.
-        bomb.body.frictionAir = 0;
-
-        console.log(`[Pillbox Shoot] ID: ${bomb.body.id} | Spawn: (${spawnX.toFixed(1)}, ${spawnY.toFixed(1)}) | Target at shoot: (${target.x.toFixed(1)}, ${target.y.toFixed(1)}) | Velocity: (${vx.toFixed(2)}, ${vy.toFixed(2)})`);
-      }
-    }
+    window.GameLogicHelper.fireHighArcBomb(scene, {
+      bombType,
+      spawnX,
+      spawnY,
+      dx,
+      dy,
+      target,
+      owner: gameObject,
+      spreadAngleDeg: inaccuracyAngle,
+      speedSpreadRatio: 0.15,
+      minAngleDeg: 75,
+      logPrefix: 'Pillbox Shoot'
+    });
   },
 };

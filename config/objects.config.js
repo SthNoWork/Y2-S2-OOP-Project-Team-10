@@ -277,10 +277,10 @@ window.ObjectConfig = {
       blastMaxDamage: 30,
       // Cluster sub-munitions
       cluster: {
-        subBomb:    'clusterBomblet',   // bomb type for each sub-munition
-        count:      5,             // number of sub-bombs
-        spreadDeg:  60,            // angular spread cone (degrees)
-        speed:      180,           // launch speed of sub-bombs
+        subBomb: 'clusterBomblet',   // bomb type for each sub-munition
+        count: 5,             // number of sub-bombs
+        spreadDeg: 60,            // angular spread cone (degrees)
+        speed: 180,           // launch speed of sub-bombs
       },
     },
 
@@ -341,9 +341,9 @@ window.ObjectConfig = {
       bombDropOffsetRatioRange: { min: -0.35, max: 0.35 },
       bombDropYOffsetY: 39,
       bomb: 'bomb',
-      
+
       // Make plane killable via Air-to-Air reflection
-      health: 50, onDeath: 'explode',
+      health: 10000, onDeath: 'explode',
       explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 2.5, blastScale: 1.2 },
       physics: {
         friction: 0.1, restitution: 0.0, frictionAir: 0.01,

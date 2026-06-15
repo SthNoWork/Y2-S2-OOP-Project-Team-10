@@ -269,23 +269,26 @@ window.GameLogic = {
     for (let i = this._activeBombs.length - 1; i >= 0; i--) {
       const bomb = this._activeBombs[i];
 
-      // PERFORMANCE OPTIMIZATION: Clean up bombs that go far off-screen horizontally or fly too high.
-      const isOffScreen = bomb.x < -300 || bomb.x > 2220 || bomb.y < -2000;
+      if (!bomb || !bomb.active || !bomb.body) {
+        this._activeBombs.splice(i, 1);
+        continue;
+      }
 
-      if (!bomb.active || bomb.y >= bottom || isOffScreen) {
-        if (bomb.active) {
-          if (bomb.y >= bottom) {
-            // Explode on ground contact
-            const bombCfg = window.ObjectConfig.internalTypes[bomb.objectType] || window.ObjectConfig.internalTypes.bomb;
-            try { this.scene.events.emit('bomb:explode', bomb); } catch (e) { }
-            try { this._explodeAt(bombCfg, bomb.x, bomb.y, bomb); } catch (e) { }
-            try { this.scene.events.emit('bomb:destroy', bomb); } catch (e) { }
-            try { bomb.destroy(); } catch (e) { }
-          } else {
-            // Silently reclaim off-screen bombs without triggering performance-heavy explosions
-            try { this.scene.events.emit('bomb:destroy', bomb); } catch (e) { }
-            try { bomb.destroy(); } catch (e) { }
-          }
+      // PERFORMANCE OPTIMIZATION: Clean up bombs that go far off-screen horizontally or fly too high.
+      const isOffScreen = bomb.x < -1000 || bomb.x > 2920 || bomb.y < -2000;
+
+      if (bomb.y >= bottom || isOffScreen) {
+        if (bomb.y >= bottom) {
+          // Explode on ground contact
+          const bombCfg = window.ObjectConfig.internalTypes[bomb.objectType] || window.ObjectConfig.internalTypes.bomb;
+          try { this.scene.events.emit('bomb:explode', bomb); } catch (e) { }
+          try { this._explodeAt(bombCfg, bomb.x, bomb.y, bomb); } catch (e) { }
+          try { this.scene.events.emit('bomb:destroy', bomb); } catch (e) { }
+          try { bomb.destroy(); } catch (e) { }
+        } else {
+          // Silently reclaim off-screen bombs without triggering performance-heavy explosions
+          try { this.scene.events.emit('bomb:destroy', bomb); } catch (e) { }
+          try { bomb.destroy(); } catch (e) { }
         }
         this._activeBombs.splice(i, 1);
       }
@@ -494,8 +497,9 @@ window.GameLogic = {
 
     // 1. Check player
     if (this.player && this.player.active && this.player.body) {
-      const dx = this.player.x - x;
-      const dy = this.player.y - y;
+      const closest = this._closestPointOnAABB(x, y, this.player.body);
+      const dx = closest.x - x;
+      const dy = closest.y - y;
       if (dx * dx + dy * dy <= radiusSq) {
         affectedBodies.push(this.player.body);
       }
@@ -505,31 +509,44 @@ window.GameLogic = {
     for (let i = 0; i < this.buildings.length; i++) {
       const b = this.buildings[i];
       if (b && b.active && !b._dying && b.body) {
-        const dx = b.x - x;
-        const dy = b.y - y;
+        const closest = this._closestPointOnAABB(x, y, b.body);
+        const dx = closest.x - x;
+        const dy = closest.y - y;
         if (dx * dx + dy * dy <= radiusSq) {
           affectedBodies.push(b.body);
         }
       }
     }
 
-    // 3. Check active bombs (excluding self and same-owner friendly entities)
-    for (let i = 0; i < this._activeBombs.length; i++) {
-      const bomb = this._activeBombs[i];
-      if (bomb && bomb.active && !bomb._dying && bomb.body) {
-        if (bomb === sourceBomb) continue;
+    // 3. Check active bombs (only if explosion is from a bomb_crate)
+    const isBombCrateExplosion = sourceBomb && sourceBomb.objectType === 'bomb_crate';
+    if (isBombCrateExplosion) {
+      for (let i = 0; i < this._activeBombs.length; i++) {
+        const bomb = this._activeBombs[i];
+        if (bomb && bomb.active && !bomb._dying && bomb.body) {
+          if (bomb === sourceBomb) continue;
 
-        const dx = bomb.x - x;
-        const dy = bomb.y - y;
-        if (dx * dx + dy * dy <= radiusSq) {
-          if (sourceBomb) {
-            const sourceOwner = sourceBomb.owner;
-            const targetOwner = bomb.owner;
-            if (sourceOwner && targetOwner && sourceOwner === targetOwner) {
-              continue; // Friendly fire exception
-            }
+          const closest = this._closestPointOnAABB(x, y, bomb.body);
+          const dx = closest.x - x;
+          const dy = closest.y - y;
+          if (dx * dx + dy * dy <= radiusSq) {
+            affectedBodies.push(bomb.body);
           }
-          affectedBodies.push(bomb.body);
+        }
+      }
+    }
+
+    // 4. Check targets (like the plane)
+    if (this._targets) {
+      for (let i = 0; i < this._targets.length; i++) {
+        const t = this._targets[i];
+        if (t && t.active && !t._dying && t.body) {
+          const closest = this._closestPointOnAABB(x, y, t.body);
+          const dx = closest.x - x;
+          const dy = closest.y - y;
+          if (dx * dx + dy * dy <= radiusSq) {
+            affectedBodies.push(t.body);
+          }
         }
       }
     }
@@ -700,8 +717,16 @@ window.GameLogic = {
     this.buildings = this.buildings.filter((b) => b !== obj);
     this._targets = this._targets.filter((t) => t !== obj);
 
+    if (obj.objectType === 'plane') {
+      if (obj._blade?.active) {
+        try { obj._blade.destroy(); } catch (e) { }
+      }
+      this._run = null;
+      try { obj.destroy(); } catch (e) { }
+    }
+
     if (willChainBlast && this.scene) {
-      this._chainExplosionQueue.push({ cfg, x: savedX, y: savedY, owner: obj });
+      this._chainExplosionQueue.push({ cfg, x: savedX, y: savedY, owner: obj, sourceBomb: obj });
     }
   },
 
