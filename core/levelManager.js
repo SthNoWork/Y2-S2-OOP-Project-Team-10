@@ -34,7 +34,6 @@ window.LevelManager = {
     this._resetLevelState();
     this._applyAllowedBuildings();
     this._createPlatforms();
-    this._createPrePlacedObjects();
 
     const spawn = this.levelCfg.playerSpawn ?? { x: 960, y: 810 };
 
@@ -46,6 +45,9 @@ window.LevelManager = {
     );
 
     window.GameLogic.init(scene, player, arena);
+
+    // Call preplaced creation AFTER GameLogic.init so that preplaced objects are not cleared from GameLogic.buildings!
+    this._createPrePlacedObjects();
 
     this._healthText = window.UIFactory.addHealthText(scene, arena);
     this._waveText = this._createWaveText();
@@ -212,11 +214,11 @@ window.LevelManager = {
       const mb = this.levelCfg.mortarBarrage || {};
       try {
         window.MortarManager?.startBarrageLevel?.({
-          fireRateMs:   mb.fireRateMs   ?? 40,
-          durationMs:   mb.durationMs   ?? 2000,
-          bombType:     mb.bombType     ?? 'bomb',
-          spread:       mb.spread       ?? 15,
-          bombCount:    mb.bombCount,           // optional, overrides duration-based calc
+          fireRateMs: mb.fireRateMs ?? 40,
+          durationMs: mb.durationMs ?? 2000,
+          bombType: mb.bombType ?? 'bomb',
+          spread: mb.spread ?? 15,
+          bombCount: mb.bombCount,           // optional, overrides duration-based calc
         });
       } catch (e) { console.error('[LevelManager] mortar_barrage error:', e); }
     } else {

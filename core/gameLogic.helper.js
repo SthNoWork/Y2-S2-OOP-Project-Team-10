@@ -130,6 +130,82 @@ window.GameLogicHelper = {
     }
 
     return { speed, angleDeg };
+  },
+
+  // Fires a bomb with a high-arc trajectory towards a target, applying randomization to angle and speed.
+  // Consolidates duplicated physics/trajectory/spawning setup from pillboxManager.js and mortarManager.js.
+  fireHighArcBomb(scene, {
+    bombType,
+    spawnX,
+    spawnY,
+    dx,
+    dy,
+    target,
+    owner = {},
+    spreadAngleDeg = 5,
+    speedSpreadRatio = 0.15,
+    minAngleDeg = 75,
+    logPrefix = null
+  }) {
+    const bombCfg = window.ObjectConfig.internalTypes[bombType] || window.ObjectConfig.internalTypes.bomb || window.ObjectConfig.internalTypes.smallBomb;
+    
+    // Resolve gravity
+    const gravityObj = scene.matter?.world?.localWorld?.gravity || scene.matter?.world?.engine?.gravity;
+    const worldGravity = (gravityObj && gravityObj.y !== undefined && gravityObj.scale !== undefined)
+      ? (gravityObj.y * gravityObj.scale * 1000000)
+      : 1000;
+    const g = bombCfg?.gravity !== undefined ? bombCfg.gravity : worldGravity;
+
+    // Calculate trajectory
+    const { speed: solvedSpeed, angleDeg: solvedAngle } = this.solveHighArcSpeedAndAngle(dx, dy, g, minAngleDeg);
+    let speed = solvedSpeed;
+    let baseAngleDeg = solvedAngle;
+
+    // Apply angle spread randomization
+    if (spreadAngleDeg > 0) {
+      const angleOffset = (Math.random() * 2 - 1) * spreadAngleDeg;
+      baseAngleDeg += angleOffset;
+    }
+
+    // Apply speed randomization for range spattering
+    if (speedSpreadRatio > 0) {
+      const speedMultiplier = 1 + ((Math.random() * 2 - 1) * speedSpreadRatio);
+      speed *= speedMultiplier;
+    }
+
+    // Spawn the bomb
+    const bomb = window.spawnBomb(scene, bombType, spawnX, spawnY, baseAngleDeg, target, owner);
+    if (bomb) {
+      // Ensure owner reference is set
+      bomb.owner = owner;
+
+      if (bomb.body) {
+        const vx = (speed / 60) * Math.cos(Phaser.Math.DegToRad(baseAngleDeg));
+        const vy = (speed / 60) * Math.sin(Phaser.Math.DegToRad(baseAngleDeg));
+        Phaser.Physics.Matter.Matter.Body.setVelocity(bomb.body, { x: vx, y: vy });
+        bomb.body.frictionAir = 0;
+
+        if (logPrefix) {
+          console.log(`[${logPrefix}] ID: ${bomb.body.id} | Spawn: (${spawnX.toFixed(1)}, ${spawnY.toFixed(1)}) | Target at shoot: (${target.x.toFixed(1)}, ${target.y.toFixed(1)}) | Velocity: (${vx.toFixed(2)}, ${vy.toFixed(2)})`);
+        }
+      }
+    }
+    return bomb;
+  },
+
+  // Calculates a safe spawn position offset radially from the shooter's center towards the target,
+  // preventing the spawned bomb from instantly colliding with the shooter's own physics body.
+  getSafeSpawnPosition(shooter, target, scaleMultiplier = 0.8) {
+    if (!shooter) return { x: 0, y: 0 };
+    if (!target) return { x: shooter.x, y: shooter.y };
+
+    const roughAngleRad = Math.atan2(target.y - shooter.y, target.x - shooter.x);
+    const spawnDist = Math.max(shooter.displayWidth || 120, shooter.displayHeight || 80) * scaleMultiplier;
+    
+    return {
+      x: shooter.x + Math.cos(roughAngleRad) * spawnDist,
+      y: shooter.y + Math.sin(roughAngleRad) * spawnDist
+    };
   }
 
 };

@@ -69,40 +69,22 @@ window.MortarManager = {
           return;
         }
 
-        const spawnX = mortar.x;
-        const spawnY = mortar.y - mortar.displayHeight * 0.4;
+        const { x: spawnX, y: spawnY } = window.GameLogicHelper.getSafeSpawnPosition(mortar, curTarget, 0.8);
         const dx = curTarget.x - spawnX;
         const dy = curTarget.y - spawnY;
 
-        // High-arc ballistic (≥75°) — same method as pillboxManager
-        const bombCfg = window.ObjectConfig.internalTypes[bombType] || window.ObjectConfig.internalTypes.bomb;
-        const gravityObj = this.scene.matter?.world?.localWorld?.gravity || this.scene.matter?.world?.engine?.gravity;
-        const worldGravity = (gravityObj && gravityObj.y !== undefined && gravityObj.scale !== undefined)
-          ? (gravityObj.y * gravityObj.scale * 1000000) : 1000;
-        const g = bombCfg?.gravity !== undefined ? bombCfg.gravity : worldGravity;
-
-        // High-arc ballistic (≥75°) — using solveHighArcSpeedAndAngle helper
-        const { speed: solvedSpeed, angleDeg: solvedAngle } = window.GameLogicHelper.solveHighArcSpeedAndAngle(dx, dy, g, 75);
-        let speed = solvedSpeed;
-        let baseAngleDeg = solvedAngle;
-
-        // Apply spread randomness
-        const angleOffset = (Math.random() * 2 - 1) * spread;
-        baseAngleDeg += angleOffset;
-        const speedMultiplier = 1 + ((Math.random() * 2 - 1) * 0.15);
-        speed *= speedMultiplier;
-
-        const bomb = window.spawnBomb(
-          this.scene, bombType, spawnX, spawnY, baseAngleDeg, curTarget, mortar
-        );
-
-        if (bomb && bomb.body) {
-          const vx = (speed / 60) * Math.cos(Phaser.Math.DegToRad(baseAngleDeg));
-          const vy = (speed / 60) * Math.sin(Phaser.Math.DegToRad(baseAngleDeg));
-          Phaser.Physics.Matter.Matter.Body.setVelocity(bomb.body, { x: vx, y: vy });
-          bomb.body.frictionAir = 0;
-          bomb.owner = mortar;
-        }
+        window.GameLogicHelper.fireHighArcBomb(this.scene, {
+          bombType,
+          spawnX,
+          spawnY,
+          dx,
+          dy,
+          target: curTarget,
+          owner: mortar,
+          spreadAngleDeg: spread,
+          speedSpreadRatio: 0.15,
+          minAngleDeg: 75
+        });
 
         fired++;
         if (fired >= count) {
@@ -140,7 +122,7 @@ window.MortarManager = {
     let launchPositions = [];
     for (const m of this._mortars) {
       if (m.active && !m._dying) {
-        launchPositions.push({ x: m.x, y: m.y - (m.displayHeight || 100) * 0.4, obj: m });
+        launchPositions.push({ x: m.x, y: m.y, obj: m });
       }
     }
     if (launchPositions.length === 0) {
@@ -176,37 +158,29 @@ window.MortarManager = {
           return;
         }
 
-        const dx = target.x - pos.x;
-        const dy = target.y - pos.y;
-
-        // Use high-arc ballistic with elevation ≥ 75°
-        const bombCfg = window.ObjectConfig.internalTypes[bombType] || window.ObjectConfig.internalTypes.bomb;
-        const gravityObj = this.scene.matter?.world?.localWorld?.gravity || this.scene.matter?.world?.engine?.gravity;
-        const worldGravity = (gravityObj && gravityObj.y !== undefined && gravityObj.scale !== undefined)
-          ? (gravityObj.y * gravityObj.scale * 1000000) : 1000;
-        const g = bombCfg?.gravity !== undefined ? bombCfg.gravity : worldGravity;
-
-        // Force high arc (≥75°) — using solveHighArcSpeedAndAngle helper
-        const { speed: solvedSpeed, angleDeg: solvedAngle } = window.GameLogicHelper.solveHighArcSpeedAndAngle(dx, dy, g, 75);
-        let speed = solvedSpeed;
-        let baseAngleDeg = solvedAngle;
-
-        // Apply spread randomness
-        const angleOffset = (Math.random() * 2 - 1) * spread;
-        baseAngleDeg += angleOffset;
-        const speedMultiplier = 1 + ((Math.random() * 2 - 1) * 0.15);
-        speed *= speedMultiplier;
-
-        const bomb = window.spawnBomb(
-          this.scene, bombType, pos.x, pos.y, baseAngleDeg, target, pos.obj || {}
-        );
-
-        if (bomb && bomb.body) {
-          const vx = (speed / 60) * Math.cos(Phaser.Math.DegToRad(baseAngleDeg));
-          const vy = (speed / 60) * Math.sin(Phaser.Math.DegToRad(baseAngleDeg));
-          Phaser.Physics.Matter.Matter.Body.setVelocity(bomb.body, { x: vx, y: vy });
-          bomb.body.frictionAir = 0;
+        let spawnX = pos.x;
+        let spawnY = pos.y;
+        if (pos.obj && pos.obj.active) {
+          const safePos = window.GameLogicHelper.getSafeSpawnPosition(pos.obj, target, 0.8);
+          spawnX = safePos.x;
+          spawnY = safePos.y;
         }
+
+        const dx = target.x - spawnX;
+        const dy = target.y - spawnY;
+
+        window.GameLogicHelper.fireHighArcBomb(this.scene, {
+          bombType,
+          spawnX,
+          spawnY,
+          dx,
+          dy,
+          target,
+          owner: pos.obj || {},
+          spreadAngleDeg: spread,
+          speedSpreadRatio: 0.15,
+          minAngleDeg: 75
+        });
 
         fired++;
       },
