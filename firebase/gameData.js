@@ -156,6 +156,38 @@ window.GameData = {
     }
   },
 
+  // Returns purchased powers array from active source
+  getPurchasedPowers() {
+    const powers = this.getActiveScores().purchased_powers || [];
+    return Array.isArray(powers) ? powers : [];
+  },
+
+  // Check if a specific power is purchased
+  isPowerPurchased(powerId) {
+    return this.getPurchasedPowers().includes(powerId);
+  },
+
+  // Add a purchased power (offline or server cache depending on auth state)
+  addPurchasedPower(powerId) {
+    const scores = this.getActiveScores();
+    if (!scores.purchased_powers) {
+      scores.purchased_powers = [];
+    }
+    if (!scores.purchased_powers.includes(powerId)) {
+      scores.purchased_powers.push(powerId);
+    }
+
+    if (window.FirebaseAuth?.currentUser) {
+      this.setServerCache(scores);
+    } else {
+      try {
+        localStorage.setItem(this.OFFLINE_KEY, JSON.stringify(scores));
+      } catch (e) {
+        console.warn('[GameData.addPurchasedPower] localStorage write failed', e);
+      }
+    }
+  },
+
   // Get the currently equipped skin (default: skin_1)
   getEquippedSkin() {
     const equipped = this.getActiveScores().equipped_skin || 'skin_1';
@@ -174,6 +206,28 @@ window.GameData = {
         localStorage.setItem(this.OFFLINE_KEY, JSON.stringify(scores));
       } catch (e) {
         console.warn('[GameData.setEquippedSkin] localStorage write failed', e);
+      }
+    }
+  },
+
+  // Get the currently equipped power (default: none)
+  getEquippedPower() {
+    const equipped = this.getActiveScores().equipped_power || null;
+    return equipped;
+  },
+
+  // Set the equipped power
+  setEquippedPower(powerId) {
+    const scores = this.getActiveScores();
+    scores.equipped_power = powerId;
+    
+    if (window.FirebaseAuth?.currentUser) {
+      this.setServerCache(scores);
+    } else {
+      try {
+        localStorage.setItem(this.OFFLINE_KEY, JSON.stringify(scores));
+      } catch (e) {
+        console.warn('[GameData.setEquippedPower] localStorage write failed', e);
       }
     }
   },

@@ -298,6 +298,13 @@ window.LevelManager = {
       }
     }
 
+    // Apply Double Item multiplier if active
+    if (window.GameLogic?._doubleItemActive && window.GameLogic?._doubleItemEnd) {
+      if (Date.now() < window.GameLogic._doubleItemEnd) {
+        objectScore *= 2;
+      }
+    }
+
     const playerHp  = window.GameLogic.player?.health ?? 0;
     const playerMax = window.ObjectConfig.internalTypes?.player?.health ?? 100;
     const bonus     = playerHp >= playerMax ? 1000 : 0;

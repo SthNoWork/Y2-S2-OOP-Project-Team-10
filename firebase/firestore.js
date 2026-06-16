@@ -31,6 +31,10 @@ window.FirebaseStore = {
           displayName: user.displayName || 'Unknown',
           email: user.email || '',
           total_score: 0,
+          purchased_skins: [],
+          purchased_powers: [],
+          equipped_skin: 'skin_1',
+          equipped_power: null,
         });
       }
     } catch (e) {
@@ -112,12 +116,14 @@ window.FirebaseStore = {
   // ── Shop purchases ──────────────────────────────────────────────────────
 
   // Pushes shop purchase data to Firestore (deducted score, purchased skins, equipped skin)
-  async recordPurchase(uid, totalScore, purchasedSkins, equippedSkin) {
+  async recordPurchase(uid, totalScore, purchasedSkins, equippedSkin, purchasedPowers, equippedPower) {
     try {
       await updateDoc(doc(db, 'users', uid), {
         total_score: totalScore,
         purchased_skins: purchasedSkins,
+        purchased_powers: purchasedPowers,
         equipped_skin: equippedSkin,
+        equipped_power: equippedPower || null,
       });
       return true;
     } catch (e) {

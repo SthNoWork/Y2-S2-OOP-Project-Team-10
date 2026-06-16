@@ -1,21 +1,23 @@
 // core/powerUpManager.js
-// Manages the Heal power-up button shown in GameScene.
+// Manages power-up buttons shown in GameScene.
 //
 // Rules:
 //   • One use per level visit — once used, the button is disabled for the rest
 //     of that level run (even on wave-running state).
-//   • Heals the player by HEAL_AMOUNT HP. If the player is at full HP,
-//     it grants an overheal (max becomes 150).
-//   • Uses the 'Heal' frame from item_atlas as the button icon.
+//   • Button appearance depends on equipped power: Heal, Double Item, or Shield.
 //   • Positioned at the bottom-right of the arena.
 
 window.PowerUpManager = {
 
   HEAL_AMOUNT: 50,
+  DOUBLE_ITEM_DURATION: 15000,    // 15 seconds
+  SHIELD_DURATION: 5000,            // 5 seconds
+  SHIELD_HEALTH_BONUS: 60,          // extra health granted
 
   _scene:    null,
   _arena:    null,
   _used:     false,   // resets each time init() is called (= each level load)
+  _equippedPower: null,  // tracks current equipped power
 
   // ── Sprite references ────────────────────────────────────────────────────
 
@@ -32,12 +34,20 @@ window.PowerUpManager = {
     this._scene  = scene;
     this._arena  = arena;
     this._used   = false;   // fresh state for every new level
+    this._equippedPower = window.GameData?.getEquippedPower() || null;
 
     this._createButton();
   },
 
-  // Destroys all Phaser objects owned by this manager (called on scene shutdown).
-  destroy() {
+  // Update equipped power (called from shop when user equips a power)
+  updateEquippedPower(powerId) {
+    this._equippedPower = powerId;
+    // Recreate button to reflect the new equipped power
+    this._destroyButton();
+    this._createButton();
+  },
+
+  _destroyButton() {
     [this._bgRect, this._iconSprite, this._labelText, this._coolText].forEach(o => {
       try { if (o?.active) o.destroy(); } catch (_) {}
     });
@@ -45,6 +55,11 @@ window.PowerUpManager = {
     this._iconSprite = null;
     this._labelText  = null;
     this._coolText   = null;
+  },
+
+  // Destroys all Phaser objects owned by this manager (called on scene shutdown).
+  destroy() {
+    this._destroyButton();
     this._scene      = null;
   },
 
@@ -59,7 +74,7 @@ window.PowerUpManager = {
     const BTN_H  = 108;
     const MARGIN = 24;
     const cx = ARENA_X + ARENA_W - MARGIN - BTN_W / 2;
-    const cy = ARENA_Y + ARENA_H - MARGIN - BTN_H / 2 - 60; // -60 to sit above inventory
+    const cy = ARENA_Y + ARENA_H - MARGIN - BTN_H / 2 - 60;
 
     const DEPTH = 1500;
 
@@ -69,15 +84,25 @@ window.PowerUpManager = {
       .setDepth(DEPTH)
       .setStrokeStyle(2, 0x44ff88, 0.9);
 
-    // ── 'H' heal icon from item_atlas ──
-    // The sprite is tiny (22×20 px) so we scale it up to fill the button nicely.
+    // ── Icon from item_atlas (depends on equipped power) ──
+    let iconFrame = 'Heal';  // default
+    let label = '+50 HP';
+    
+    if (this._equippedPower === 'power_double_item') {
+      iconFrame = 'Skill2';
+      label = '2x Items';
+    } else if (this._equippedPower === 'power_shield_5s') {
+      iconFrame = 'Skill3';
+      label = 'Shield';
+    }
+
     this._iconSprite = this._scene.add
-      .image(cx, cy - 10, 'item_atlas', 'Heal')
+      .image(cx, cy - 10, 'item_atlas', iconFrame)
       .setScale(3.2)
       .setDepth(DEPTH + 1);
 
     // ── Label underneath ──
-    this._labelText = this._scene.add.text(cx, cy + 38, '+50 HP', {
+    this._labelText = this._scene.add.text(cx, cy + 38, label, {
       fontFamily: 'Arial Black, Arial, sans-serif',
       fontSize:   '17px',
       fill:       '#44ff88',
@@ -117,28 +142,92 @@ window.PowerUpManager = {
     const player = window.GameLogic?.player;
     if (!player?.active) return;
 
-    // ── KEY FIX ──────────────────────────────────────────────────────────
-    // maxHealth is 100 (the player's base HP). Simply capping at maxHealth
-    // means a full-HP player gets no benefit. Instead we allow the heal to
-    // push HP up to baseMax + HEAL_AMOUNT (i.e. up to 150).
+    // Route to the appropriate power effect
+    if (this._equippedPower === 'power_double_item') {
+      this._activateDoubleItem();
+    } else if (this._equippedPower === 'power_shield_5s') {
+      this._activateShield(player);
+    } else {
+      // Default: heal
+      this._activateHeal(player);
+    }
+
+    this._markUsed();
+  },
+
+  _activateHeal(player) {
     const baseMax = player.maxHealth
                  ?? window.ObjectConfig?.internalTypes?.player?.health
                  ?? 100;
-    const healCap    = baseMax + this.HEAL_AMOUNT;   // 150
+    const healCap    = baseMax + this.HEAL_AMOUNT;
     const before     = player.health ?? 0;
     player.health    = Math.min(healCap, before + this.HEAL_AMOUNT);
-    player.maxHealth = healCap;   // keep maxHealth in sync so HUD bar looks right
-    // ─────────────────────────────────────────────────────────────────────
+    player.maxHealth = healCap;
 
-    // Play a light sound if available.
     try {
       window.SfxManager?.play?.('mixkit-game-level-completed-2059.wav', { trimMs: 300, volume: 0.4 });
     } catch (_) {}
 
-    // Flash a "+50 HP" floating text near the player for feedback.
-    this._showFloatingText(player);
+    this._showFloatingText(player, `+${this.HEAL_AMOUNT} HP`);
+  },
 
-    this._markUsed();
+  _activateDoubleItem() {
+    if (!window.GameLogic) return;
+
+    // Set a flag on GameLogic to double item drops for the duration
+    window.GameLogic._doubleItemActive = true;
+    window.GameLogic._doubleItemEnd = Date.now() + this.DOUBLE_ITEM_DURATION;
+
+    try {
+      window.SfxManager?.play?.('mixkit-game-level-completed-2059.wav', { trimMs: 300, volume: 0.5 });
+    } catch (_) {}
+
+    const player = window.GameLogic.player;
+    if (player) {
+      this._showFloatingText(player, '2x ITEMS! +' + this.DOUBLE_ITEM_DURATION / 1000 + 's');
+    }
+
+    // Auto-disable after duration
+    if (this._scene) {
+      this._scene.time.delayedCall(this.DOUBLE_ITEM_DURATION, () => {
+        if (window.GameLogic) {
+          window.GameLogic._doubleItemActive = false;
+          window.GameLogic._doubleItemEnd = 0;
+        }
+      });
+    }
+  },
+
+  _activateShield(player) {
+    if (!player?.active) return;
+
+    // Grant temporary extra health and mark player as shielded
+    const baseMax = player.maxHealth ?? 100;
+    player.maxHealth = baseMax + this.SHIELD_HEALTH_BONUS;
+    player.health = Math.min(player.maxHealth, (player.health || baseMax) + this.SHIELD_HEALTH_BONUS);
+    
+    // Set shield flag with expiry
+    player._shielded = true;
+    player._shieldEnd = Date.now() + this.SHIELD_DURATION;
+
+    // Optional: add visual effect (e.g., tint)
+    if (player.sprite) {
+      player.sprite.setTint(0x4488ff);  // blue tint for shield
+    }
+
+    try {
+      window.SfxManager?.play?.('mixkit-game-level-completed-2059.wav', { trimMs: 300, volume: 0.5 });
+    } catch (_) {}
+
+    this._showFloatingText(player, 'SHIELD!');
+
+    // Remove shield effect after duration
+    this._scene.time.delayedCall(this.SHIELD_DURATION, () => {
+      if (player?.active && player.sprite) {
+        player.sprite.clearTint();
+      }
+      player._shielded = false;
+    });
   },
 
   _markUsed() {
@@ -154,13 +243,13 @@ window.PowerUpManager = {
 
   // ── Floating feedback text ────────────────────────────────────────────────
 
-  _showFloatingText(player) {
+  _showFloatingText(player, text) {
     if (!this._scene) return;
 
     const floatX = player.x;
     const floatY = player.y - 60;
 
-    const txt = this._scene.add.text(floatX, floatY, `+${this.HEAL_AMOUNT} HP`, {
+    const txt = this._scene.add.text(floatX, floatY, text, {
       fontFamily: 'Arial Black, Arial, sans-serif',
       fontSize:   '36px',
       fill:       '#44ff88',

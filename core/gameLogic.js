@@ -531,6 +531,13 @@ window.GameLogic = {
 
   _damagePlayer(amount) {
     if (this.gameOver || !this.player) return;
+    
+    // Check if shield is active and still valid
+    if (this.player._shielded && this.player._shieldEnd && Date.now() < this.player._shieldEnd) {
+      // Shield is active - reduce damage by 50% or block depending on design
+      amount = Math.ceil(amount * 0.5);  // Shield reduces damage by half
+    }
+    
     this.player.health = Math.max(0, (this.player.health || 0) - amount);
     if (this.player.health <= 0) {
       this._handlePlayerDeath();
