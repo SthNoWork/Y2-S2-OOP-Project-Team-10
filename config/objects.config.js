@@ -183,6 +183,7 @@ window.ObjectConfig = {
       bounceForce: 28,          // upward velocity impulse applied to bombs
       bounceVelocityCap: 30,    // clamp resulting Y velocity
       health: -1, onDeath: 'none',  // indestructible
+      maxBounces: 10,            // destroys after x bounces
       maxCount: 3,
     },
   },

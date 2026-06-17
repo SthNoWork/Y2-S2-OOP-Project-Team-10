@@ -335,7 +335,8 @@ window.GameLogic = {
     }
   },
 
-  // Applies bounce velocity to bombs hitting the trampoline, perpendicular to its surface.
+  // Applies bounce velocity to bombs hitting the trampoline, mirroring the incoming velocity
+  // across the normal and applying a bounce force boost.
   _applyTrampolineBounce(trampolineBody, bombBody) {
     const trampolineGO = trampolineBody.gameObject;
     const trampolineCfg = trampolineGO?.buildingConfig
@@ -353,26 +354,38 @@ window.GameLogic = {
     const nx = Math.sin(angle);
     const ny = -Math.cos(angle);
 
-    // Tangent vector perpendicular to normal
-    const tx = -ny;
-    const ty = nx;
-
     const cv = bombBody.velocity;
 
-    // Decompose current velocity into normal and tangential components
+    // Decompose current velocity into normal component (dot product with normal)
     const vn = cv.x * nx + cv.y * ny;
-    const vt = cv.x * tx + cv.y * ty;
 
-    // Reverse inward normal velocity and apply bounce force
-    let newVn = Math.max(0, -vn) + bounceForce;
-    newVn = Math.min(velocityCap, newVn);
+    // We only bounce if the bomb is moving towards the trampoline surface (vn < 0)
+    if (vn >= 0) return;
 
-    // Reconstruct velocity from components
-    const rx = newVn * nx + vt * tx;
-    const ry = newVn * ny + vt * ty;
+    // Mirror incoming velocity across the normal vector
+    // R = V - 2 * (V . N) * N
+    const rx_mirror = cv.x - 2 * vn * nx;
+    const ry_mirror = cv.y - 2 * vn * ny;
+
+    const mirrorSpeed = Math.sqrt(rx_mirror * rx_mirror + ry_mirror * ry_mirror);
+
+    let rx, ry;
+    if (mirrorSpeed > 0.0001) {
+      // Scale mirrored velocity to add the bounce force boost, and cap the total speed.
+      let outgoingSpeed = mirrorSpeed + bounceForce;
+      outgoingSpeed = Math.min(outgoingSpeed, velocityCap);
+
+      rx = (rx_mirror / mirrorSpeed) * outgoingSpeed;
+      ry = (ry_mirror / mirrorSpeed) * outgoingSpeed;
+    } else {
+      // Fallback if the bomb was static or had near-zero velocity: launch along the normal direction.
+      let outgoingSpeed = Math.min(bounceForce, velocityCap);
+      rx = nx * outgoingSpeed;
+      ry = ny * outgoingSpeed;
+    }
 
     // Trampoline reflection: take ownership!
-    if (this.player) {
+    if (this.player && bombBody.gameObject) {
       bombBody.gameObject.owner = this.player;
     }
 
@@ -382,6 +395,19 @@ window.GameLogic = {
     });
 
     try { window.SfxManager?.playBounce?.(); } catch (e) { }
+
+    // Increment bounce counter and handle trampoline lifecycle / destruction
+    if (trampolineGO) {
+      trampolineGO.bouncesCount = (trampolineGO.bouncesCount || 0) + 1;
+
+      const maxBounces = trampolineCfg.maxBounces;
+      if (maxBounces !== undefined && maxBounces !== null && maxBounces > 0) {
+        if (trampolineGO.bouncesCount >= maxBounces) {
+          // Cleanly destroy/remove the trampoline building
+          this._handleBuildingDeath(trampolineGO);
+        }
+      }
+    }
   },
 
 
