@@ -189,8 +189,17 @@ function _addPhysics(scene, obj, cfg, bodyW, bodyH, dims) {
   const p = cfg.physics;
   const shape = _buildPhysicsShape(p, bodyW, bodyH, dims);
 
+  const frictionMult = window.ObjectConfig.globalFrictionMultiplier ?? 3.0;
+  const staticFrictionMult = window.ObjectConfig.globalStaticFrictionMultiplier ?? 3.0;
+
+  const scaledFriction = p.friction !== undefined ? p.friction * frictionMult : undefined;
+  const scaledFrictionStatic = p.frictionStatic !== undefined 
+    ? p.frictionStatic * staticFrictionMult 
+    : (p.friction !== undefined ? p.friction * staticFrictionMult * 1.25 : undefined);
+
   scene.matter.add.gameObject(obj, {
-    friction: p.friction,
+    friction: scaledFriction,
+    frictionStatic: scaledFrictionStatic,
     restitution: p.restitution,
     frictionAir: p.frictionAir,
     label: p.label || 'object',
