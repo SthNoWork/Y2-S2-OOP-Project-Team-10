@@ -93,11 +93,14 @@ window.LevelManager = {
     platforms.forEach((p) => {
       const platform = this.scene.add.rectangle(p.x, p.y, p.w, p.h, 0x888888);
 
+      const frictionMult = window.ObjectConfig.globalFrictionMultiplier ?? 3.0;
+      const staticFrictionMult = window.ObjectConfig.globalStaticFrictionMultiplier ?? 3.0;
+
       this.scene.matter.add.gameObject(platform, {
         label: 'platform',
         isStatic: true,
-        friction: 1.0,
-        frictionStatic: 10,
+        friction: 1.0 * frictionMult,
+        frictionStatic: 10 * staticFrictionMult,
       });
 
       this._platforms.push(platform);

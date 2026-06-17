@@ -4,6 +4,10 @@
 
 window.ObjectConfig = {
 
+  // Global friction multipliers (scales kinetic and static friction of objects)
+  globalFrictionMultiplier: 3.0,
+  globalStaticFrictionMultiplier: 3.0,
+
   // ── Placeable buildings (player places these before a wave) ──────────────
   placeableTypes: {
 
