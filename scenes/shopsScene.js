@@ -4,19 +4,47 @@ class ShopScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.setBackgroundColor('#1a1a2e');
+    this.cameras.main.setBounds(0, 0, 1920, 2400);
+    this.cameras.main.setScroll(0, 0);
     window.UIFactory.addBackground(this, 'asset/background/4.jpg');
     window.UIFactory.addBackButton(this, () => window.showHomeScreen());
 
     this._renderables = [];
-    this._onAuth = () => this._refresh();
+    this._selectedSkinId = null;
+    this._selectedPowerId = null;
+    this._onAuth = () => {
+      this._selectedSkinId = null;
+      this._selectedPowerId = null;
+      this._refresh();
+    };
+    this._onWheel = (pointer, gameObject, deltaX, deltaY) => {
+      const maxScroll = Math.max(0, 2400 - this.scale.height);
+      const nextScroll = Phaser.Math.Clamp(
+        this.cameras.main.scrollY - deltaY * 0.8,
+        0,
+        maxScroll
+      );
+      this.cameras.main.setScroll(0, nextScroll);
+    };
+
+    this.input.on('wheel', this._onWheel, this);
     window.addEventListener('authStateChanged', this._onAuth);
-    this.events.once('shutdown', () => window.removeEventListener('authStateChanged', this._onAuth));
-    this.events.once('destroy',  () => window.removeEventListener('authStateChanged', this._onAuth));
+    this.events.once('shutdown', () => {
+      window.removeEventListener('authStateChanged', this._onAuth);
+      this.input.off('wheel', this._onWheel, this);
+    });
+    this.events.once('destroy', () => {
+      window.removeEventListener('authStateChanged', this._onAuth);
+      this.input.off('wheel', this._onWheel, this);
+    });
 
     this._render();
   }
 
   _refresh() {
+    const scores = window.GameData?.getActiveScores?.() || {};
+    this._selectedSkinId = scores.equipped_skin || this._selectedSkinId || 'skin_1';
+    this._selectedPowerId = scores.equipped_power || this._selectedPowerId || 'power_heal';
     this._renderables.forEach(o => { try { if (o?.active) o.destroy(); } catch (e) {} });
     this._renderables = [];
     this._render();
@@ -149,7 +177,7 @@ class ShopScene extends Phaser.Scene {
     this._track(borderGfx);
 
     // Get equipped skin
-    const equippedId = window.GameData.getEquippedSkin();
+    const equippedId = this._selectedSkinId || window.GameData?.getEquippedSkin?.() || 'skin_1';
     const skinNames = { 'skin_1': 'Classic', 'skin_2': 'Skin 2', 'skin_3': 'Skin 3' };
     const skinName = skinNames[equippedId] || 'Unknown';
 
@@ -175,7 +203,7 @@ class ShopScene extends Phaser.Scene {
     this._track(borderGfx);
 
     // Get equipped power
-    const equippedId = window.GameData.getEquippedPower() || 'power_heal';
+    const equippedId = this._selectedPowerId || window.GameData?.getEquippedPower?.() || 'power_heal';
     const powerNames = {
       'power_heal': 'Heal',
       'power_double_item': 'Double Item',
@@ -220,7 +248,7 @@ class ShopScene extends Phaser.Scene {
 
     // Check if purchased
     const isPurchased = window.GameData.isSkinPurchased(id);
-    const isEquipped = window.GameData.getEquippedSkin() === id;
+    const isEquipped = this._selectedSkinId === id;
     const currentScore = window.GameData.getActiveScores().total_score || 0;
     const canAfford = currentScore >= cost;
 
@@ -245,6 +273,7 @@ class ShopScene extends Phaser.Scene {
           .on('pointerover', () => btn.setStyle({ backgroundColor: '#2266ff' }))
           .on('pointerout', () => btn.setStyle({ backgroundColor: '#4488ff' }))
           .on('pointerdown', () => {
+            this._selectedSkinId = id;
             window.GameData.setEquippedSkin(id);
             this._refresh();
           });
@@ -270,6 +299,7 @@ class ShopScene extends Phaser.Scene {
           .on('pointerover', () => btn.setStyle({ backgroundColor: '#2266ff' }))
           .on('pointerout', () => btn.setStyle({ backgroundColor: '#4488ff' }))
           .on('pointerdown', () => {
+            this._selectedSkinId = id;
             window.GameData.setEquippedSkin(id);
             this._refresh();
           });
@@ -336,7 +366,7 @@ class ShopScene extends Phaser.Scene {
     this._track(icon);
 
     const isPurchased = window.GameData.isPowerPurchased(id) || id === 'power_heal';
-    const isEquipped = window.GameData.getEquippedPower() === id;
+    const isEquipped = this._selectedPowerId === id;
     const currentScore = window.GameData.getActiveScores().total_score || 0;
     const canAfford = currentScore >= cost || id === 'power_heal';
 
@@ -376,26 +406,23 @@ class ShopScene extends Phaser.Scene {
           })
           .on('pointerdown', () => {
             try {
+              this._selectedPowerId = id;
               window.GameData.setEquippedPower(id);
-              // Notify PowerUpManager if game scene is running
+              const scores = window.GameData.getActiveScores();
               if (window.PowerUpManager?.updateEquippedPower) {
                 window.PowerUpManager.updateEquippedPower(id);
               }
-              if (window.FirebaseAuth?.currentUser) {
-                const scores = window.GameData.getActiveScores();
-                if (window.FirebaseStore?.recordPurchase) {
-                  window.FirebaseStore.recordPurchase(
-                    window.FirebaseAuth.currentUser.uid,
-                    scores.total_score || 0,
-                    scores.purchased_skins || [],
-                    scores.equipped_skin || 'skin_1',
-                    scores.purchased_powers || [],
-                    id
-                  ).catch(e => console.warn('Failed to sync equipped power', e));
-                }
+              if (window.FirebaseAuth?.currentUser && window.FirebaseStore?.recordPurchase) {
+                window.FirebaseStore.recordPurchase(
+                  window.FirebaseAuth.currentUser.uid,
+                  scores.total_score || 0,
+                  scores.purchased_skins || [],
+                  scores.equipped_skin || 'skin_1',
+                  scores.purchased_powers || [],
+                  id
+                ).catch(e => console.warn('Failed to sync equipped power', e));
               }
-              // Refresh after a brief delay to ensure state updates
-              setTimeout(() => { if (this?._refresh) this._refresh(); }, 50);
+              this._refresh();
             } catch (e) {
               console.error('[Shop] Equip button click error:', e);
             }
@@ -549,6 +576,7 @@ class ShopScene extends Phaser.Scene {
         scores.purchased_skins.push(item.id);
       }
       scores.equipped_skin = item.id;
+      this._selectedSkinId = item.id;
     } else if (item.type === 'power') {
       if (!scores.purchased_powers) {
         scores.purchased_powers = [];
@@ -556,6 +584,8 @@ class ShopScene extends Phaser.Scene {
       if (!scores.purchased_powers.includes(item.id)) {
         scores.purchased_powers.push(item.id);
       }
+      scores.equipped_power = item.id;
+      this._selectedPowerId = item.id;
     }
 
     if (window.FirebaseAuth?.currentUser) {
