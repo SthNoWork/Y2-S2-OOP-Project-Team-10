@@ -2,18 +2,79 @@
 class ShopScene extends Phaser.Scene {
   constructor() { super('ShopScene'); }
 
-  create() {
+create() {
     this.cameras.main.setBackgroundColor('#1a1a2e');
+    this.cameras.main.setBounds(0, 0, 1920, 2400);
+    this.cameras.main.setScroll(0, 0);
     window.UIFactory.addBackground(this, 'asset/background/4.jpg');
     window.UIFactory.addBackButton(this, () => window.showHomeScreen());
 
     this._renderables = [];
     this._onAuth = () => this._refresh();
+    this._onKeyDown = (event) => {
+      const key = event.key || '';
+      if (key === 'PageUp' || key === 'PageDown') {
+        event.preventDefault();
+        const direction = key === 'PageUp' ? -1 : 1;
+        const amount = 220 * direction;
+        const cam = this.cameras.main;
+        const maxScroll = Math.max(0, 2400 - this.scale.height);
+        cam.setScroll(0, Phaser.Math.Clamp(cam.scrollY + amount, 0, maxScroll));
+      }
+    };
     window.addEventListener('authStateChanged', this._onAuth);
-    this.events.once('shutdown', () => window.removeEventListener('authStateChanged', this._onAuth));
-    this.events.once('destroy',  () => window.removeEventListener('authStateChanged', this._onAuth));
+    window.addEventListener('keydown', this._onKeyDown);
+    this.events.once('shutdown', () => {
+      window.removeEventListener('authStateChanged', this._onAuth);
+      window.removeEventListener('keydown', this._onKeyDown);
+    });
+    this.events.once('destroy',  () => {
+      window.removeEventListener('authStateChanged', this._onAuth);
+      window.removeEventListener('keydown', this._onKeyDown);
+    });
 
     this._render();
+
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.upKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
+    this.downKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
+    this.pageUpKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.PAGE_UP);
+    this.pageDownKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.PAGE_DOWN);
+
+    this.input.keyboard.addCapture([
+      Phaser.Input.Keyboard.KeyCodes.UP,
+      Phaser.Input.Keyboard.KeyCodes.DOWN,
+      Phaser.Input.Keyboard.KeyCodes.PAGE_UP,
+      Phaser.Input.Keyboard.KeyCodes.PAGE_DOWN,
+    ]);
+
+    this._scrollSpeed = 900;
+    this._onWheel = (pointer, gameObject, deltaX, deltaY) => {
+      const maxScroll = Math.max(0, 2400 - this.scale.height);
+      const nextScroll = Phaser.Math.Clamp(
+        this.cameras.main.scrollY - deltaY * 0.9,
+        0,
+        maxScroll
+      );
+      this.cameras.main.setScroll(0, nextScroll);
+    };
+    this.input.on('wheel', this._onWheel, this);
+    this.events.once('shutdown', () => this.input.off('wheel', this._onWheel, this));
+    this.events.once('destroy', () => this.input.off('wheel', this._onWheel, this));
+  }
+
+update(time, delta) {
+    const cam = this.cameras.main;
+    const dt = delta / 1000;
+    const maxScroll = Math.max(0, 2400 - this.scale.height);
+
+    if (this.cursors.up.isDown || this.upKey.isDown || this.pageUpKey.isDown) {
+      cam.scrollY -= this._scrollSpeed * dt;
+    } else if (this.cursors.down.isDown || this.downKey.isDown || this.pageDownKey.isDown) {
+      cam.scrollY += this._scrollSpeed * dt;
+    }
+
+    cam.scrollY = Phaser.Math.Clamp(cam.scrollY, 0, maxScroll);
   }
 
   _refresh() {
