@@ -436,31 +436,36 @@ update(time, delta) {
             } catch (e) { console.warn('[Shop] Equip button out error:', e); }
           })
           .on('pointerdown', () => {
-            try {
-              window.GameData.setEquippedPower(id);
-              // Notify PowerUpManager if game scene is running
-              if (window.PowerUpManager?.updateEquippedPower) {
-                window.PowerUpManager.updateEquippedPower(id);
-              }
-              if (window.FirebaseAuth?.currentUser) {
-                const scores = window.GameData.getActiveScores();
-                if (window.FirebaseStore?.recordPurchase) {
-                  window.FirebaseStore.recordPurchase(
-                    window.FirebaseAuth.currentUser.uid,
-                    scores.total_score || 0,
-                    scores.purchased_skins || [],
-                    scores.equipped_skin || 'skin_1',
-                    scores.purchased_powers || [],
-                    id
-                  ).catch(e => console.warn('Failed to sync equipped power', e));
+              try {
+                // 1. Update local state first
+                window.GameData.setEquippedPower(id);
+
+                // 2. Refresh UI immediately (same pattern as skin equip)
+                this._refresh();
+
+                // 3. Notify PowerUpManager if game scene is running (non-blocking)
+                if (window.PowerUpManager?.updateEquippedPower) {
+                  window.PowerUpManager.updateEquippedPower(id);
                 }
+
+                // 4. Sync to Firebase in background (fire-and-forget)
+                if (window.FirebaseAuth?.currentUser) {
+                  const scores = window.GameData.getActiveScores();
+                  if (window.FirebaseStore?.recordPurchase) {
+                    window.FirebaseStore.recordPurchase(
+                      window.FirebaseAuth.currentUser.uid,
+                      scores.total_score || 0,
+                      scores.purchased_skins || [],
+                      scores.equipped_skin || 'skin_1',
+                      scores.purchased_powers || [],
+                      id
+                    ).catch(e => console.warn('Failed to sync equipped power', e));
+                  }
+                }
+              } catch (e) {
+                console.error('[Shop] Equip button click error:', e);
               }
-              // Refresh after a brief delay to ensure state updates
-              setTimeout(() => { if (this?._refresh) this._refresh(); }, 50);
-            } catch (e) {
-              console.error('[Shop] Equip button click error:', e);
-            }
-          });
+            });
       }
       this._track(btn);
     } else {
