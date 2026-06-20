@@ -50,6 +50,7 @@ class GameScene extends Phaser.Scene {
   update(_time, delta) {
     window.GameLogic.update(delta);
     window.LevelManager.update(delta);
+    window.PowerUpManager.updateShieldBubble();   // ← add this line
 
     const placed    = window.BuildingManager.getPlacedBuildings();
     const prePlaced = window.LevelManager._prePlaced;

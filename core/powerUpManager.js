@@ -47,7 +47,7 @@ window.PowerUpManager = {
     this._createButton();
   },
 
-  _destroyButton() {
+    _destroyButton() {
     [this._bgRect, this._iconSprite, this._labelText, this._coolText].forEach(o => {
       try { if (o?.active) o.destroy(); } catch (_) {}
     });
@@ -55,6 +55,10 @@ window.PowerUpManager = {
     this._iconSprite = null;
     this._labelText  = null;
     this._coolText   = null;
+
+    // Clean up shield bubble if scene is shutting down
+    try { if (this._shieldBubble?.active) this._shieldBubble.destroy(); } catch (_) {}
+    this._shieldBubble = null;
   },
 
   // Destroys all Phaser objects owned by this manager (called on scene shutdown).
@@ -208,36 +212,76 @@ window.PowerUpManager = {
       });
     }
   },
-
+  // Add this new method to update the bubble position each frame.
+  updateShieldBubble() {
+  if (!this._shieldBubble || !this._shieldBubble.active) return;
+  const player = window.GameLogic?.player;
+  if (!player?.active) return;
+  this._shieldBubble.setPosition(player.x, player.y);
+  },
   _activateShield(player) {
     if (!player?.active) return;
 
-    // Grant temporary extra health and mark player as shielded
-    const baseMax = player.maxHealth ?? 100;
-    player.maxHealth = baseMax + this.SHIELD_HEALTH_BONUS;
-    player.health = Math.min(player.maxHealth, (player.health || baseMax) + this.SHIELD_HEALTH_BONUS);
-    
-    // Set shield flag with expiry
+    // Grant only +20 HP (no maxHealth change, no damage reduction)
+  const baseMax = player.maxHealth ?? window.ObjectConfig?.internalTypes?.player?.health ?? 100;
+  const healCap    = baseMax + 20;
+  const before     = player.health ?? 0;
+  player.health    = Math.min(healCap, before + 20);
+  player.maxHealth = healCap;
+
+    // Set shield flag — blocks ALL incoming damage while active
     player._shielded = true;
     player._shieldEnd = Date.now() + this.SHIELD_DURATION;
 
-    // Optional: add visual effect (e.g., tint)
-    if (player.sprite) {
-      player.sprite.setTint(0x4488ff);  // blue tint for shield
-    }
+    // ── Bubble VFX ──────────────────────────────────────────────────────────
+    const radius = Math.max(
+      (player._bodyW ?? 40),
+      (player._bodyH ?? 40)
+    ) * 1.4;
+
+    // Outer glow ring
+    this._shieldBubble = this._scene.add.graphics();
+    this._shieldBubble.setDepth(2000);
+    this._shieldBubble.lineStyle(4, 0x44aaff, 0.9);
+    this._shieldBubble.fillStyle(0x88ccff, 0.15);
+    this._shieldBubble.strokeCircle(0, 0, radius);
+    this._shieldBubble.fillCircle(0, 0, radius);
+    this._shieldBubble.setPosition(player.x, player.y);
+
+    // Pulse tween: breathes in/out for visual feedback
+    this._scene.tweens.add({
+      targets: this._shieldBubble,
+      scaleX: 1.12,
+      scaleY: 1.12,
+      alpha: 0.7,
+      duration: 600,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
 
     try {
       window.SfxManager?.play?.('mixkit-game-level-completed-2059.wav', { trimMs: 300, volume: 0.5 });
     } catch (_) {}
 
-    this._showFloatingText(player, 'SHIELD!');
+    this._showFloatingText(player, 'SHIELD! +20 HP');
 
-    // Remove shield effect after duration
+    // Remove shield and bubble after duration
     this._scene.time.delayedCall(this.SHIELD_DURATION, () => {
-      if (player?.active && player.sprite) {
-        player.sprite.clearTint();
-      }
       player._shielded = false;
+
+      if (this._shieldBubble?.active) {
+        // Fade out then destroy
+        this._scene?.tweens?.add({
+          targets: this._shieldBubble,
+          alpha: 0,
+          duration: 300,
+          onComplete: () => {
+            try { this._shieldBubble?.destroy(); } catch (_) {}
+            this._shieldBubble = null;
+          },
+        });
+      }
     });
   },
 
