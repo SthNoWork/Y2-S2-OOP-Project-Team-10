@@ -172,27 +172,38 @@ window.PowerUpManager = {
   },
 
   _activateDoubleItem() {
-    if (!window.GameLogic) return;
+  const allowed = window.LevelManager?.levelCfg?.allowedBuildings || {};
+  const originalCounts = {};
 
-    // Set a flag on GameLogic to double item drops for the duration
-    window.GameLogic._doubleItemActive = true;
-    window.GameLogic._doubleItemEnd = Date.now() + this.DOUBLE_ITEM_DURATION;
+    // Double maxCount for each allowed building type and refresh the UI label
+    for (const type of Object.keys(allowed)) {
+      const cfg = window.ObjectConfig?.placeableTypes?.[type];
+      if (cfg && typeof cfg.maxCount === 'number') {
+        originalCounts[type] = cfg.maxCount;
+        cfg.maxCount = cfg.maxCount * 2;
+        // Refresh the inventory button label immediately
+        window.BuildingManager._refreshInventoryLabel(type);
+      }
+    }
 
     try {
       window.SfxManager?.play?.('mixkit-game-level-completed-2059.wav', { trimMs: 300, volume: 0.5 });
     } catch (_) {}
 
-    const player = window.GameLogic.player;
+    const player = window.GameLogic?.player;
     if (player) {
       this._showFloatingText(player, '2x ITEMS! +' + this.DOUBLE_ITEM_DURATION / 1000 + 's');
     }
 
-    // Auto-disable after duration
+    // Restore original maxCounts and refresh labels again after duration
     if (this._scene) {
       this._scene.time.delayedCall(this.DOUBLE_ITEM_DURATION, () => {
-        if (window.GameLogic) {
-          window.GameLogic._doubleItemActive = false;
-          window.GameLogic._doubleItemEnd = 0;
+        for (const [type, original] of Object.entries(originalCounts)) {
+          const cfg = window.ObjectConfig?.placeableTypes?.[type];
+          if (cfg) {
+            cfg.maxCount = original;
+            window.BuildingManager._refreshInventoryLabel(type);
+          }
         }
       });
     }
