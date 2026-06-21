@@ -21,7 +21,21 @@ window.Assets = {
     { key: 'block_atlas', imagePath: 'asset/block/block.png', jsonPath: 'asset/block/block.json' },
     { key: 'explosion_atlas', imagePath: 'asset/explosion/explosion.png', jsonPath: 'asset/explosion/explosion.json' },
     { key: 'item_atlas', imagePath: 'asset/item/item.png', jsonPath: 'asset/item/item.json' },
+    {key: 'spring_atlas',    imagePath: 'asset/spring/spritesheet.png',    jsonPath: 'asset/spring/spritesheet.json' },
   ],
+
+  animations: [
+  // ... all existing animations ...
+
+  // ── Spring / Trampoline ──────────────────────────────────────────────────
+  {
+    key:       'spring_bounce',
+    atlasKey:  'spring_atlas',
+    frames:    ['spring1', 'spring2', 'spring3', 'spring4'],
+    frameRate: 12,
+    repeat:    0,   // plays once per bounce trigger
+  },
+],
 
   animations: [
     {

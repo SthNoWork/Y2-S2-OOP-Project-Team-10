@@ -1,0 +1,22 @@
+{
+  "frames": {
+    "spring1": {
+      "frame": { "x": 64, "y": 287, "w": 210, "h": 329 }
+    },
+    "spring2": {
+      "frame": { "x": 408, "y": 390, "w": 239, "h": 226 }
+    },
+    "spring3": {
+      "frame": { "x": 800, "y": 208, "w": 176, "h": 408 }
+    },
+    "spring4": {
+      "frame": { "x": 1167, "y": 227, "w": 193, "h": 389 }
+    }
+  },
+
+  "meta": {
+    "image": "spritesheet.png",
+    "format": "RGBA8888",
+    "scale": "1"
+  }
+}

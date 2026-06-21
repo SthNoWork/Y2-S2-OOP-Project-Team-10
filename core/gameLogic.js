@@ -175,7 +175,7 @@ window.GameLogic = {
       bombInterval: min + Math.random() * Math.max(0, max - min),
       bombType: waveBombType,
       // World bounds are at -1920 and 3840. We must exit before hitting the walls!
-      exitX: direction > 0 ? 3700 : -1700,
+      exitX: direction > 0 ? 2200 : -300,
     };
   },
 
@@ -395,6 +395,33 @@ window.GameLogic = {
     });
 
     try { window.SfxManager?.playBounce?.(); } catch (e) { }
+
+// Play spring bounce animation
+  const springGO = trampolineBody.gameObject;
+  if (springGO?.active) {
+    try {
+      // Stop any currently playing animation first
+      springGO.stop();
+      springGO.setFrame('spring1');
+
+      // Manually step through frames using tweens since Matter sprites
+      // can lose animation context after physics attachment
+      const frames = ['spring1', 'spring2', 'spring3', 'spring4', 'spring1'];
+      let frameIndex = 0;
+      const playNextFrame = () => {
+        if (!springGO?.active) return;
+        springGO.setFrame(frames[frameIndex]);
+        frameIndex++;
+        if (frameIndex < frames.length) {
+          this.scene.time.delayedCall(80, playNextFrame);
+        }
+      };
+      playNextFrame();
+    } catch (e) {
+      console.warn('[GameLogic] Spring animation error:', e);
+    }
+  }
+
 
     // Increment bounce counter and handle trampoline lifecycle / destruction
     if (trampolineGO) {

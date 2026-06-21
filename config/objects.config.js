@@ -178,16 +178,16 @@ window.ObjectConfig = {
     // Flat board that bounces bombs upward.
     // Has normal physics so it can be knocked around.  Configurable: bounceForce, bounceVelocityCap.
     trampoline: {
-      scale: 7,
-      imageKey: 'block_atlas', startFrame: 'small_wood',
+      scale: 0.3,                          // tune this to fit your arena
+      imageKey: 'spring_atlas',
+      startFrame: 'spring1',               // resting frame           
       physics: {
         friction: 0.3, restitution: 0.0, frictionAir: 0.01, label: 'trampoline', mass: 10,
         collisionFilter: { category: 0x0008, mask: 0x0001 | 0x0002 | 0x0004 },
       },
-      bounceForce: 28,          // upward velocity impulse applied to bombs
-      bounceVelocityCap: 30,    // clamp resulting Y velocity
-      health: -1, onDeath: 'none',  // indestructible
-      maxBounces: 10,            // destroys after x bounces
+      bounceForce: 28,
+      bounceVelocityCap: 30,
+      health: -1, onDeath: 'none',
       maxCount: 3,
     },
   },
