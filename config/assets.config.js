@@ -5,15 +5,19 @@
 window.Assets = {
 
   images: [
-    { key: 'player',                    path: 'asset/character/result.png' },
-    { key: 'skin_1',                    path: 'asset/character/result.png' },
-    { key: 'skin_2',                    path: 'asset/character/Skin2.png' },
-    { key: 'skin_3',                    path: 'asset/character/Skin3.png' },
+    { key: 'player',        path: 'asset/character/result.png' },
+    { key: 'skin_1',        path: 'asset/character/result.png' },
+    { key: 'skin_1_happy',  path: 'asset/character/skin1-happy.png' },
+    { key: 'skin_2',        path: 'asset/character/Skin2.png' },
+    { key: 'skin_3',        path: 'asset/character/Skin3.png' },
+    { key: 'skin_3_happy',  path: 'asset/character/skin3-happy.png' },
+    { key: 'skin_2_damage', path: 'asset/character/skin2-damage.png' },
     { key: 'bg_asset_background_1_jpg', path: 'asset/background/background.jpg' },
     { key: 'bg_asset_background_2_jpg', path: 'asset/background/background1.jpg' },
     { key: 'bg_asset_background_3_jpg', path: 'asset/background/background2.jpg' },
     { key: 'bg_asset_background_4_jpg', path: 'asset/background/background3.jpg' },
     { key: 'bg_asset_background_5_jpg', path: 'asset/background/background5.jpg' },
+
   ],
 
   atlases: [

@@ -40,9 +40,17 @@ window.LevelManager = {
     // Get the equipped skin from GameData
     const equippedSkin = window.GameData?.getEquippedSkin?.() || 'skin_1';
 
+    // Use happy variant as starting skin for skin_1 and skin_3
+    const startSkin = equippedSkin === 'skin_1' ? 'skin_1_happy'
+                    : equippedSkin === 'skin_3' ? 'skin_3_happy'
+                    : equippedSkin;
+
     const player = window.ObjectFactory.createInternal(
-      scene, 'player', spawn.x, spawn.y, arena, { skinKey: equippedSkin }
+      scene, 'player', spawn.x, spawn.y, arena, { skinKey: startSkin }
     );
+
+    // Store equipped skin on player for reference
+    player._equippedSkin = equippedSkin;
 
     window.GameLogic.init(scene, player, arena);
 
