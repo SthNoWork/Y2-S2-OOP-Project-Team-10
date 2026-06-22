@@ -340,13 +340,17 @@ window.LevelManager = {
     }
 
     const playerHp = window.GameLogic.player?.health ?? 0;
-    const playerMax = window.ObjectConfig.internalTypes?.player?.health ?? 100;
-    const bonus = (playerHp >= playerMax ? 1000 : 0) + this.airSuperiorityBonus;
+    const baseMax = window.ObjectConfig.internalTypes?.player?.health ?? 100;
+    
+    // Score based on remaining HP percentage + survival bonus
+    const survivalBonus = playerHp > 0 ? 1000 : 0;
+    const hpBonus       = playerHp > 0 ? Math.round((playerHp / baseMax) * 500) : 0;
+    const bonus         = survivalBonus + hpBonus + this.airSuperiorityBonus;
 
     return {
       objectScore: Math.round(objectScore),
       playerBonus: bonus,
-      total: Math.round(objectScore) + bonus,
+      total:       Math.round(objectScore) + bonus,
     };
   },
 
