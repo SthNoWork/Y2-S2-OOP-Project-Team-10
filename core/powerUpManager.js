@@ -25,6 +25,9 @@ window.PowerUpManager = {
   _bgRect:     null,
   _labelText:  null,
   _coolText:   null,
+  _shieldBubble:   null,
+  _pickerElements: [],
+  _pickerHovered:  false,
 
 
   // ── Public API ────────────────────────────────────────────────────────────
@@ -47,7 +50,7 @@ window.PowerUpManager = {
     this._createButton();
   },
 
-    _destroyButton() {
+  _destroyButton() {
     [this._bgRect, this._iconSprite, this._labelText, this._coolText].forEach(o => {
       try { if (o?.active) o.destroy(); } catch (_) {}
     });
@@ -56,7 +59,8 @@ window.PowerUpManager = {
     this._labelText  = null;
     this._coolText   = null;
 
-    // Clean up shield bubble if scene is shutting down
+    this._hideSkillPicker();
+
     try { if (this._shieldBubble?.active) this._shieldBubble.destroy(); } catch (_) {}
     this._shieldBubble = null;
   },
@@ -71,66 +75,193 @@ window.PowerUpManager = {
   // ── Button creation ───────────────────────────────────────────────────────
 
   _createButton() {
-    const { ARENA_X, ARENA_Y, ARENA_W, ARENA_H } = this._arena;
+  const { ARENA_X, ARENA_Y, ARENA_W, ARENA_H } = this._arena;
 
-    // Position: bottom-right corner of the arena, above the inventory bar.
-    const BTN_W  = 108;
-    const BTN_H  = 108;
-    const MARGIN = 24;
-    const cx = ARENA_X + ARENA_W - MARGIN - BTN_W / 2;
-    const cy = ARENA_Y + ARENA_H - MARGIN - BTN_H / 2 - 60;
+  const BTN_W  = 108;
+  const BTN_H  = 108;
+  const MARGIN = 24;
+  const cx = ARENA_X + ARENA_W - MARGIN - BTN_W / 2;
+  const cy = ARENA_Y + ARENA_H - MARGIN - BTN_H / 2 - 60;
 
-    const DEPTH = 1500;
+  const DEPTH = 1500;
 
-    // ── Background panel ──
-    this._bgRect = this._scene.add
-      .rectangle(cx, cy, BTN_W, BTN_H, 0x0d1f0d, 0.92)
-      .setDepth(DEPTH)
-      .setStrokeStyle(2, 0x44ff88, 0.9);
+  // ── Background panel ──
+  this._bgRect = this._scene.add
+    .rectangle(cx, cy, BTN_W, BTN_H, 0x0d1f0d, 0.92)
+    .setDepth(DEPTH)
+    .setStrokeStyle(2, 0x44ff88, 0.9);
 
-    // ── Icon from item_atlas (depends on equipped power) ──
-    let iconFrame = 'Heal';  // default
-    let label = '+50 HP';
-    
-    if (this._equippedPower === 'power_double_item') {
-      iconFrame = 'Skill2';
-      label = '2x Items';
-    } else if (this._equippedPower === 'power_shield_5s') {
-      iconFrame = 'Skill3';
-      label = 'Shield';
+  // ── Icon ──
+  let iconFrame = 'Heal';
+  let label = '+50 HP';
+  if (this._equippedPower === 'power_double_item') { iconFrame = 'Skill2'; label = '2x Items'; }
+  else if (this._equippedPower === 'power_shield_5s') { iconFrame = 'Skill3'; label = 'Shield'; }
+
+  this._iconSprite = this._scene.add
+    .image(cx, cy - 10, 'item_atlas', iconFrame)
+    .setScale(3.2)
+    .setDepth(DEPTH + 1);
+
+  this._labelText = this._scene.add.text(cx, cy + 38, label, {
+    fontFamily: 'Arial Black, Arial, sans-serif',
+    fontSize: '17px',
+    fill: '#44ff88',
+  }).setOrigin(0.5).setDepth(DEPTH + 1);
+
+  this._coolText = this._scene.add.text(cx, cy, 'USED', {
+    fontFamily: 'Arial Black, Arial, sans-serif',
+    fontSize: '22px',
+    fill: '#ff4444',
+    stroke: '#000000',
+    strokeThickness: 3,
+  }).setOrigin(0.5).setDepth(DEPTH + 2).setVisible(false);
+
+  // ── Hit area ──
+  const hit = this._scene.add
+    .rectangle(cx, cy, BTN_W, BTN_H, 0x000000, 0)
+    .setDepth(DEPTH + 3)
+    .setInteractive({ useHandCursor: true });
+
+  hit.on('pointerover', () => {
+    this._onHover(true);
+    if (!this._used) this._showSkillPicker(cx, cy, DEPTH);
+  });
+  hit.on('pointerout', () => {
+    this._onHover(false);
+    if (!this._used) {
+      this._scene.time.delayedCall(200, () => {
+        if (!this._pickerHovered) this._hideSkillPicker();
+      });
+    }
+  });
+  hit.on('pointerdown', () => this._onPress());
+},
+
+// ── Skill picker popup ────────────────────────────────────────────────────
+
+_pickerElements: [],
+_pickerHovered: false,
+
+_showSkillPicker(btnCx, btnCy, DEPTH) {
+  if (this._pickerElements.length > 0) return; // already showing
+
+  const skills = [
+    { id: 'power_heal',        frame: 'Heal',   label: 'Heal',     desc: '+50 HP' },
+    { id: 'power_double_item', frame: 'Skill2', label: '2x Items', desc: '15s' },
+    { id: 'power_shield_5s',   frame: 'Skill3', label: 'Shield',   desc: '5s' },
+  ];
+
+  const itemW = 90;
+  const itemH = 100;
+  const gap   = 8;
+  const totalW = skills.length * itemW + (skills.length - 1) * gap;
+  const popX  = btnCx - totalW / 2 - itemW / 2;
+  const popY  = btnCy - 130;
+
+  // Check which powers are purchased
+  const purchased = window.GameData?.getActiveScores()?.purchased_powers || [];
+
+  skills.forEach((skill, i) => {
+    const x = popX + i * (itemW + gap) + itemW / 2;
+    const y = popY;
+
+    const isEquipped  = this._equippedPower === skill.id ||
+      (skill.id === 'power_heal' && !this._equippedPower);
+    const isOwned     = skill.id === 'power_heal' || purchased.includes(skill.id);
+
+    // Card background
+    const cardColor = isEquipped ? 0x1a3a1a : (isOwned ? 0x0d1f2d : 0x1a1a1a);
+    const borderCol = isEquipped ? 0x44ff88 : (isOwned ? 0x4488ff : 0x444444);
+
+    const card = this._scene.add.rectangle(x, y, itemW, itemH, cardColor, 0.95)
+      .setDepth(DEPTH + 10)
+      .setStrokeStyle(2, borderCol, 1);
+
+    // Icon
+    const icon = this._scene.add.image(x, y - 18, 'item_atlas', skill.frame)
+      .setScale(2.5)
+      .setDepth(DEPTH + 11);
+
+    // Label
+    const lbl = this._scene.add.text(x, y + 22, skill.label, {
+      fontFamily: 'Arial Black, Arial, sans-serif',
+      fontSize: '13px',
+      fill: isEquipped ? '#44ff88' : (isOwned ? '#ffffff' : '#555555'),
+    }).setOrigin(0.5).setDepth(DEPTH + 11);
+
+    // Desc
+    const desc = this._scene.add.text(x, y + 38, skill.desc, {
+      fontFamily: 'Arial, sans-serif',
+      fontSize: '11px',
+      fill: '#aaaaaa',
+    }).setOrigin(0.5).setDepth(DEPTH + 11);
+
+    // Equipped badge
+    if (isEquipped) {
+      const badge = this._scene.add.text(x, y - 42, '✓ ON', {
+        fontFamily: 'Arial Black, Arial, sans-serif',
+        fontSize: '11px',
+        fill: '#44ff88',
+      }).setOrigin(0.5).setDepth(DEPTH + 12);
+      this._pickerElements.push(badge);
     }
 
-    this._iconSprite = this._scene.add
-      .image(cx, cy - 10, 'item_atlas', iconFrame)
-      .setScale(3.2)
-      .setDepth(DEPTH + 1);
+    // Hit area for owned skills
+    if (isOwned && !isEquipped) {
+      const cardHit = this._scene.add
+        .rectangle(x, y, itemW, itemH, 0x000000, 0)
+        .setDepth(DEPTH + 12)
+        .setInteractive({ useHandCursor: true });
 
-    // ── Label underneath ──
-    this._labelText = this._scene.add.text(cx, cy + 38, label, {
-      fontFamily: 'Arial Black, Arial, sans-serif',
-      fontSize:   '17px',
-      fill:       '#44ff88',
-    }).setOrigin(0.5).setDepth(DEPTH + 1);
+      cardHit.on('pointerover', () => {
+        this._pickerHovered = true;
+        card.setFillStyle(0x1a2a3a, 0.95);
+      });
+      cardHit.on('pointerout', () => {
+        card.setFillStyle(cardColor, 0.95);
+        this._scene.time.delayedCall(150, () => {
+          // Check if still hovering any picker element
+          this._pickerHovered = false;
+        });
+      });
+      cardHit.on('pointerdown', () => {
+        // Equip this skill instantly
+        window.GameData.setEquippedPower(skill.id);
+        this._equippedPower = skill.id;
 
-    // ── "USED" overlay text (hidden until activated) ──
-    this._coolText = this._scene.add.text(cx, cy, 'USED', {
-      fontFamily: 'Arial Black, Arial, sans-serif',
-      fontSize:   '22px',
-      fill:       '#ff4444',
-      stroke:     '#000000',
-      strokeThickness: 3,
-    }).setOrigin(0.5).setDepth(DEPTH + 2).setVisible(false);
+        // Sync to Firebase in background
+        if (window.FirebaseAuth?.currentUser) {
+          const scores = window.GameData.getActiveScores();
+          window.FirebaseStore?.recordPurchase?.(
+            window.FirebaseAuth.currentUser.uid,
+            scores.total_score || 0,
+            scores.purchased_skins || [],
+            scores.equipped_skin || 'skin_1',
+            scores.purchased_powers || [],
+            skill.id
+          ).catch(e => console.warn('Failed to sync equipped power', e));
+        }
 
-    // ── Hit area ──
-    const hit = this._scene.add
-      .rectangle(cx, cy, BTN_W, BTN_H, 0x000000, 0)
-      .setDepth(DEPTH + 3)
-      .setInteractive({ useHandCursor: true });
+        this._hideSkillPicker();
+        // Rebuild button to show new skill
+        this._destroyButton();
+        this._createButton();
+      });
 
-    hit.on('pointerover',  () => this._onHover(true));
-    hit.on('pointerout',   () => this._onHover(false));
-    hit.on('pointerdown',  () => this._onPress());
-  },
+      this._pickerElements.push(cardHit);
+    }
+
+    this._pickerElements.push(card, icon, lbl, desc);
+  });
+},
+
+_hideSkillPicker() {
+  this._pickerElements.forEach(o => {
+    try { if (o?.active) o.destroy(); } catch (_) {}
+  });
+  this._pickerElements = [];
+  this._pickerHovered  = false;
+},
 
 
   // ── Interaction callbacks ─────────────────────────────────────────────────
@@ -142,6 +273,9 @@ window.PowerUpManager = {
 
   _onPress() {
     if (this._used) return;
+
+    // Hide skill picker immediately when skill is activated
+    this._hideSkillPicker();
 
     const player = window.GameLogic?.player;
     if (!player?.active) return;

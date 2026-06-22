@@ -57,7 +57,8 @@ class GameScene extends Phaser.Scene {
   update(_time, delta) {
     window.GameLogic.update(delta);
     window.LevelManager.update(delta);
-    window.PowerUpManager.updateShieldBubble();   // ← add this line
+    window.PowerUpManager.updateShieldBubble(); 
+    this._updatePlayerSkin(); 
     try { window.PillboxManager?.update?.(delta); } catch (e) { }
     try { window.MortarManager?.update?.(delta); } catch (e) { }
 
@@ -94,5 +95,33 @@ class GameScene extends Phaser.Scene {
     window.GameLogic.buildings.forEach((b, i) => {
       console.log(`  [GL ${i}] type=${b.buildingType} active=${b.active} x=${Math.round(b.x)} y=${Math.round(b.y)} health=${b.health}`);
     });
+  }
+
+  _updatePlayerSkin() {
+    const player = window.GameLogic?.player;
+    if (!player?.active) return;
+
+    const equippedSkin = player._equippedSkin
+                      ?? window.GameData?.getEquippedSkin?.()
+                      ?? 'skin_1';
+    const hp        = player.health ?? 0;
+    const isDamaged = hp < 50;
+
+    let targetTexture;
+    if (equippedSkin === 'skin_1') {
+      targetTexture = isDamaged ? 'skin_1' : 'skin_1_happy';
+    } else if (equippedSkin === 'skin_2') {
+      targetTexture = isDamaged ? 'skin_2_damage' : 'skin_2';  // no happy/damage variant
+    } else if (equippedSkin === 'skin_3') {
+      targetTexture = isDamaged ? 'skin_3' : 'skin_3_happy';
+    } else {
+      targetTexture = equippedSkin;
+    }
+
+    // Only call setTexture when state actually changes
+    if (player._currentSkinTexture !== targetTexture) {
+      player._currentSkinTexture = targetTexture;
+      try { player.setTexture(targetTexture); } catch (e) {}
+    }
   }
 }

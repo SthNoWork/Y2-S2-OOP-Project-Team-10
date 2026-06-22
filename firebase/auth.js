@@ -41,6 +41,25 @@ window.FirebaseAuth = {
       throw e;
     }
   },
+  async updateDisplayName(newName) {
+    const user = this.currentUser;
+    if (!user) throw new Error('Not signed in');
+
+    const { updateProfile } = await import(
+      'https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js'
+    );
+
+    // Update Firebase Auth
+    await updateProfile(user, { displayName: newName });
+
+    // Also update Firestore so leaderboard reflects new name
+    await window.FirebaseStore?.updateDisplayName(user.uid, newName);
+
+    // Fire authStateChanged so profile scene re-renders with new name
+    window.dispatchEvent(
+      new CustomEvent('authStateChanged', { detail: { user } })
+    );
+  },
 
   // ── Initialisation ──────────────────────────────────────────────────────
 

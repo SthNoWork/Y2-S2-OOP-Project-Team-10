@@ -112,6 +112,23 @@ window.FirebaseStore = {
 
     await this.pushLevelScore(user.uid, levelNum, score);
   },
+  // ── Update display name ─────────────────────────────────────────────────
+
+  async updateDisplayName(uid, newName) {
+    try {
+      await updateDoc(doc(db, 'users', uid), {
+        displayName: newName,
+      });
+      // Update local cache too so profile refreshes immediately
+      const cache = window.GameData.getServerCache();
+      cache.displayName = newName;
+      window.GameData.setServerCache(cache);
+      return true;
+    } catch (e) {
+      console.error('[FirebaseStore.updateDisplayName]', e);
+      return false;
+    }
+  },
 
   // ── Shop purchases ──────────────────────────────────────────────────────
 

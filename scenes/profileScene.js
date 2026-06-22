@@ -127,9 +127,9 @@ class ProfileScene extends Phaser.Scene {
     // Panel sizing — grows with level count
     const panelW  = 860;
     const rowH    = 52;
-    const headerH = 280;   // avatar + name + email + divider
+    const headerH = 310;   // avatar + name + email + divider
     const footerH = 100;   // total row + sign-out
-    const panelH  = Math.min(920, Math.max(660, headerH + totalLevels * rowH + footerH));
+    const panelH = headerH + totalLevels * rowH + footerH + 60;
     const topEdge = cy - panelH / 2;
 
     // ── Panel chrome ──────────────────────────────────────────────────────
@@ -159,6 +159,20 @@ class ProfileScene extends Phaser.Scene {
       fontSize: '20px',
       fill: '#4a6888',
     }).setOrigin(0.5).setDepth(D + 2));
+    // ── Name change button ────────────────────────────────────────────────
+    const editBtn = this.add.text(cx, nameY + 92, '✎ Change Name', {
+      fontFamily: 'Arial, sans-serif',
+      fontSize: '18px',
+      fill: '#4488ff',
+      backgroundColor: '#0a1825',
+      padding: { x: 16, y: 7 },
+    })
+      .setOrigin(0.5).setDepth(D + 2)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerover', () => editBtn.setStyle({ fill: '#66aaff' }))
+      .on('pointerout',  () => editBtn.setStyle({ fill: '#4488ff' }))
+      .on('pointerdown', () => this._showNameChangeDialog(user, D));
+    this._track(editBtn);
 
     // ── Divider ───────────────────────────────────────────────────────────
     const divY1 = nameY + 86;
@@ -238,23 +252,62 @@ class ProfileScene extends Phaser.Scene {
     const photoURL = user.photoURL;
     const key      = `pfp_${user.uid}`;
 
-    const drawPhoto = () => {
-      const img = this.add.image(cx, cy, key)
-        .setDisplaySize(r * 2, r * 2)
-        .setDepth(depth);
+      const drawPhoto = () => {
+      // Remove any existing avatar overlay
+      const existingEl = document.getElementById('profile-avatar-overlay');
+      if (existingEl) existingEl.remove();
 
-      // Circular clip mask
-      const maskGfx = this.make.graphics({ add: false });
-      maskGfx.fillStyle(0xffffff);
-      maskGfx.fillCircle(cx, cy, r);
-      img.setMask(maskGfx.createGeometryMask());
+      // Get the game container to position relative to it
+      const container = document.getElementById('game-container');
+      const canvas = container?.querySelector('canvas');
+      if (!canvas) { drawInitials(); return; }
 
-      // Accent ring
+      const canvasRect = canvas.getBoundingClientRect();
+      const scaleX = canvasRect.width / 1920;
+      const scaleY = canvasRect.height / 1080;
+
+      const screenX = canvasRect.left + cx * scaleX;
+      const screenY = canvasRect.top + cy * scaleY;
+      const screenR = r * Math.min(scaleX, scaleY);
+
+      const el = document.createElement('div');
+      el.id = 'profile-avatar-overlay';
+      Object.assign(el.style, {
+        position: 'fixed',
+        left: `${screenX - screenR}px`,
+        top:  `${screenY - screenR}px`,
+        width:  `${screenR * 2}px`,
+        height: `${screenR * 2}px`,
+        borderRadius: '50%',
+        overflow: 'hidden',
+        border: '3px solid #4488ff',
+        zIndex: '9998',
+        pointerEvents: 'none',
+      });
+
+      const img = document.createElement('img');
+      img.src = photoURL;
+      img.crossOrigin = 'anonymous';
+      Object.assign(img.style, {
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover',
+        display: 'block',
+      });
+      img.onerror = () => { el.remove(); drawInitials(); };
+
+      el.appendChild(img);
+      document.body.appendChild(el);
+
+      // Remove when scene shuts down
+      this.events.once('shutdown', () => el.remove());
+      this.events.once('destroy',  () => el.remove());
+
+      // Draw the ring in Phaser
       const ring = this.add.graphics().setDepth(depth + 1);
-      ring.lineStyle(3, 0x4488ff, 0.85);
-      ring.strokeCircle(cx, cy, r + 2);
-
-      this._track(img, maskGfx, ring);
+      ring.lineStyle(4, 0x4488ff, 1.0);
+      ring.strokeCircle(cx, cy, r + 3);
+      this._track(ring);
     };
 
     const drawInitials = () => {
@@ -299,4 +352,102 @@ class ProfileScene extends Phaser.Scene {
     g.lineBetween(cx - w / 2, y, cx + w / 2, y);
     this._track(g);
   }
+  _showNameChangeDialog(user, D = 10) {
+  const cx = 960, cy = 540;
+  const pw = 560, ph = 280;
+  const top = cy - ph / 2;
+  const els = [];
+
+  const track = (...o) => { o.forEach(x => { if (x) { els.push(x); this._track(x); } }); };
+  const destroy = () => {
+    els.forEach(e => { try { if (e?.active) e.destroy(); } catch (_) {} });
+  };
+
+  // Overlay
+  track(this.add.rectangle(cx, cy, 1920, 1080, 0x000000, 0.6).setDepth(D + 10).setInteractive());
+
+  // Panel
+  track(this.add.rectangle(cx, cy, pw, ph, 0x0b1828, 0.98).setDepth(D + 11));
+  const borderGfx = this.add.graphics().setDepth(D + 11);
+  borderGfx.lineStyle(2, 0x4488ff, 0.8);
+  borderGfx.strokeRect(cx - pw / 2, top, pw, ph);
+  track(borderGfx);
+
+  // Title
+  track(this.add.text(cx, top + 44, 'Change Display Name', {
+    fontFamily: 'Arial Black, Arial, sans-serif',
+    fontSize: '28px', fill: '#ddeeff',
+  }).setOrigin(0.5).setDepth(D + 12));
+
+  // Current name hint
+  track(this.add.text(cx, top + 90, `Current: ${user.displayName || 'Player'}`, {
+    fontFamily: 'Arial, sans-serif',
+    fontSize: '18px', fill: '#4a6888',
+  }).setOrigin(0.5).setDepth(D + 12));
+
+  // HTML input overlay
+  const inputEl = document.createElement('input');
+  inputEl.type = 'text';
+  inputEl.placeholder = 'Enter new name…';
+  inputEl.maxLength = 30;
+  inputEl.value = user.displayName || '';
+  Object.assign(inputEl.style, {
+    position: 'absolute', zIndex: 9999,
+    left: '50%', top: '50%',
+    transform: 'translate(-50%, -30%)',
+    width: '340px', padding: '10px 14px',
+    fontSize: '20px', borderRadius: '6px',
+    border: '2px solid #4488ff',
+    background: '#0d1f33', color: '#ffffff',
+    outline: 'none', fontFamily: 'Arial, sans-serif',
+  });
+  document.getElementById('game-container').appendChild(inputEl);
+  inputEl.focus();
+
+  const removeInput = () => {
+    try { inputEl.remove(); } catch (_) {}
+  };
+
+  // Status text
+  const statusText = this.add.text(cx, top + 190, '', {
+    fontFamily: 'Arial, sans-serif',
+    fontSize: '17px', fill: '#ff6666',
+  }).setOrigin(0.5).setDepth(D + 12);
+  track(statusText);
+
+  // Cancel button
+  const cancelBtn = this.add.text(cx - 100, top + 234, 'Cancel', {
+    fontFamily: 'Arial, sans-serif', fontSize: '20px', fill: '#ffffff',
+    backgroundColor: '#4a2020', padding: { x: 22, y: 10 },
+  })
+    .setOrigin(0.5).setDepth(D + 12)
+    .setInteractive({ useHandCursor: true })
+    .on('pointerdown', () => { removeInput(); destroy(); });
+  track(cancelBtn);
+
+  // Save button
+  const saveBtn = this.add.text(cx + 100, top + 234, 'Save', {
+    fontFamily: 'Arial Black, Arial, sans-serif', fontSize: '20px', fill: '#ffffff',
+    backgroundColor: '#1a4488', padding: { x: 30, y: 10 },
+  })
+    .setOrigin(0.5).setDepth(D + 12)
+    .setInteractive({ useHandCursor: true })
+    .on('pointerdown', async () => {
+      const newName = inputEl.value.trim();
+      if (!newName) { statusText.setText('Name cannot be empty.'); return; }
+      if (newName === user.displayName) { removeInput(); destroy(); return; }
+
+      saveBtn.setText('Saving…').disableInteractive();
+      try {
+        await window.FirebaseAuth?.updateDisplayName?.(newName);
+        removeInput();
+        destroy();
+        this._refresh();  // re-render profile with new name
+      } catch (e) {
+        statusText.setText('Failed to save. Try again.');
+        saveBtn.setText('Save').setInteractive({ useHandCursor: true });
+      }
+    });
+  track(saveBtn);
+}
 }

@@ -40,9 +40,17 @@ window.LevelManager = {
     // Get the equipped skin from GameData
     const equippedSkin = window.GameData?.getEquippedSkin?.() || 'skin_1';
 
+    // Use happy variant as starting skin for skin_1 and skin_3
+    const startSkin = equippedSkin === 'skin_1' ? 'skin_1_happy'
+                    : equippedSkin === 'skin_3' ? 'skin_3_happy'
+                    : equippedSkin;
+
     const player = window.ObjectFactory.createInternal(
-      scene, 'player', spawn.x, spawn.y, arena, { skinKey: equippedSkin }
+      scene, 'player', spawn.x, spawn.y, arena, { skinKey: startSkin }
     );
+
+    // Store equipped skin on player for reference
+    player._equippedSkin = equippedSkin;
 
     window.GameLogic.init(scene, player, arena);
 
@@ -340,13 +348,17 @@ window.LevelManager = {
     }
 
     const playerHp = window.GameLogic.player?.health ?? 0;
-    const playerMax = window.ObjectConfig.internalTypes?.player?.health ?? 100;
-    const bonus = (playerHp >= playerMax ? 1000 : 0) + this.airSuperiorityBonus;
+    const baseMax = window.ObjectConfig.internalTypes?.player?.health ?? 100;
+    
+    // Score based on remaining HP percentage + survival bonus
+    const survivalBonus = playerHp > 0 ? 1000 : 0;
+    const hpBonus       = playerHp > 0 ? Math.round((playerHp / baseMax) * 500) : 0;
+    const bonus         = survivalBonus + hpBonus + this.airSuperiorityBonus;
 
     return {
       objectScore: Math.round(objectScore),
       playerBonus: bonus,
-      total: Math.round(objectScore) + bonus,
+      total:       Math.round(objectScore) + bonus,
     };
   },
 
