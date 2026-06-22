@@ -29,18 +29,10 @@ window.UIFactory.createButton = function (scene, x, y, label, onClick) {
   return btn;
 };
 
-// Adds a "Back" link in the top-left corner of the current scene.
+// Adds a "Back" button in the top-left corner of the current scene (managed via HTML overlay now).
 window.UIFactory.addBackButton = function (scene, onClick) {
-  return scene.add
-    .text(38, 22, 'Back', {
-      fontFamily: 'Arial, sans-serif',
-      fontSize: '43px',
-      color: '#ffffff',
-    })
-    .setInteractive()
-    .setOrigin(0, 0)
-    .setDepth(1000)
-    .on('pointerdown', onClick);
+  // Return a dummy hidden text object to maintain backward compatibility with existing scenes
+  return scene.add.text(0, 0, '', {}).setVisible(false);
 };
 
 

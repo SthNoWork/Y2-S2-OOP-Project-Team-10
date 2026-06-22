@@ -10,7 +10,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <link rel="icon" href="data:," />
   <title>Home Screen</title>
   <style>
@@ -23,6 +23,13 @@
       overflow: hidden;
       background: #000000;
       font-family: Arial, sans-serif;
+      /* Prevent mobile browser bouncing, gestures, and history navigation */
+      overscroll-behavior: none;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
     }
 
     /* ── 16:9 shell ──────────────────────────────────────────────────── */
@@ -33,6 +40,8 @@
       align-items: center;
       justify-content: center;
       background: #000000;
+      overscroll-behavior: none;
+      touch-action: none;
     }
 
     #screen-box {
@@ -41,6 +50,7 @@
       height: min(100vh, calc(100vw * 9 / 16));
       overflow: hidden;
       background: #000000;
+      container-type: size;
     }
 
     /* ── Home screen ─────────────────────────────────────────────────── */
@@ -53,6 +63,15 @@
       justify-content: center;
       gap: 3%;
       background: url('asset/background/menu-theme.png') center / cover no-repeat;
+      visibility: visible;
+      opacity: 1;
+      transition: opacity 0.15s ease-in-out;
+    }
+    
+    #home-screen.hidden {
+      visibility: hidden;
+      opacity: 0;
+      pointer-events: none;
     }
 
     /* Keep HEAD: absolute positioning for menu layout */
@@ -63,13 +82,13 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 1.4vmin;
+      gap: 1.4cqh;
     }
 
     .home-btn {
-      width: 18vmin;
-      height: 5vmin;
-      font-size: 2.2vmin;
+      width: 18cqh;
+      height: 5cqh;
+      font-size: 2.2cqh;
       cursor: pointer;
       border: 2px solid #555;
       border-radius: 6px;
@@ -77,8 +96,10 @@
       font-family: Arial, sans-serif;
     }
 
-    .home-btn:hover {
-      background: rgba(255, 255, 255, 1);
+    @media (hover: hover) {
+      .home-btn:hover {
+        background: rgba(255, 255, 255, 1);
+      }
     }
 
     /* ── Profile pill ────────────────────────────────────────────────── */
@@ -93,8 +114,8 @@
     }
 
     .profile-panel .profile-btn {
-      width: 5vmin;
-      height: 5vmin;
+      width: 5cqh;
+      height: 5cqh;
       min-width: 0;
       min-height: 0;
       border-radius: 50%;
@@ -106,36 +127,45 @@
     }
 
     .profile-panel .profile-name {
-      font-size: 1.8vmin;
+      font-size: 1.8cqh;
       color: #ffffff;
-    }
-
-    .profile-panel .profile-name span {
-      font-weight: 700;
     }
 
     /* ── Game container ──────────────────────────────────────────────── */
     #game-container {
       position: absolute;
       inset: 0;
-      display: none;
+      visibility: hidden;
+      opacity: 0;
+      display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
+      transition: opacity 0.15s ease-in-out;
+    }
+
+    #game-container.active {
+      visibility: visible;
+      opacity: 1;
     }
 
     #game-container canvas {
       display: block;
+      width: 100% !important;
+      height: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      touch-action: none;
     }
 
     /* ── Fullscreen button ───────────────────────────────────────────── */
     #fullscreen-btn {
       position: absolute;
-      bottom: 2%;
-      left: 2%;
+      top: 20cqh;
+      left: 3cqh;
       z-index: 999;
       padding: 1% 2%;
-      font-size: 1.8vmin;
+      font-size: 1.8cqh;
       background: rgba(0, 0, 0, 0.6);
       color: white;
       border: 1px solid white;
@@ -148,8 +178,38 @@
       height: auto;
     }
 
-    #fullscreen-btn:hover {
+    @media (hover: hover) {
+      #fullscreen-btn:hover {
+        background: rgba(0, 0, 0, 0.85);
+      }
+      #html-back-btn:hover {
+        background: rgba(255, 255, 255, 1);
+        color: #000000;
+      }
+    }
+
+    /* ── HTML Back Button ───────────────────────────────────────────── */
+    #html-back-btn {
+      position: absolute;
+      top: 3cqh;
+      left: 3cqh;
+      z-index: 1900;
+      padding: 1.2cqh 3cqh;
+      font-size: 2cqh;
+      cursor: pointer;
+      border: 2px solid #ffffff;
+      border-radius: 6px;
       background: rgba(0, 0, 0, 0.85);
+      color: #ffffff;
+      font-family: Arial, sans-serif;
+      transition: background 0.15s ease-in-out, opacity 0.15s ease-in-out;
+      visibility: hidden;
+      opacity: 0;
+    }
+
+    #html-back-btn.active {
+      visibility: visible;
+      opacity: 1;
     }
 
     /* ── Loading overlay ─────────────────────────────────────────────── */
@@ -182,7 +242,7 @@
     }
 
     #startup-overlay .loading-text {
-      font-size: 3vmin;
+      font-size: 3cqh;
       color: white;
       background: transparent;
       border: 0;
@@ -191,7 +251,7 @@
 
     #startup-progress {
       width: 40%;
-      height: 2.5vmin;
+      height: 2.5cqh;
       border: 2px solid #000;
       background: #fff;
       overflow: hidden;
@@ -203,6 +263,54 @@
       height: 100%;
       background: #2ecc71;
       border-radius: 10px;
+    }
+
+    /* ── Orientation Warning ─────────────────────────────────────────── */
+    #orientation-warning {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #0d1117;
+      z-index: 99999;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      text-align: center;
+      padding: 20px;
+    }
+
+    #orientation-warning .icon {
+      font-size: 80px;
+      margin-bottom: 20px;
+      animation: rotateDevice 2.5s ease-in-out infinite;
+    }
+
+    #orientation-warning h2 {
+      font-size: 28px;
+      margin: 10px 0;
+      font-weight: 700;
+      color: #58a6ff;
+    }
+
+    #orientation-warning p {
+      font-size: 18px;
+      color: #8b949e;
+      max-width: 340px;
+      line-height: 1.5;
+    }
+
+    @keyframes rotateDevice {
+      0% { transform: rotate(0deg); }
+      50% { transform: rotate(-90deg); }
+      100% { transform: rotate(0deg); }
+    }
+
+    /* Show only on touch devices in portrait mode */
+    @media (pointer: coarse) and (orientation: portrait) {
+      #orientation-warning {
+        display: flex;
+      }
     }
   </style>
 </head>
@@ -224,7 +332,7 @@
       </div>
 
       <!-- Home screen -->
-      <div id="home-screen" style="display:none;">
+      <div id="home-screen" class="hidden">
         <div class="button-container">
           <button class="home-btn" id="play-btn">Play</button>
           <button class="home-btn" id="saves-btn">Shops</button>
@@ -246,6 +354,9 @@
 
       <!-- Fullscreen button -->
       <button id="fullscreen-btn">Fullscreen</button>
+
+      <!-- HTML Back Button -->
+      <button id="html-back-btn">Back</button>
 
     </div><!-- /screen-box -->
   </div><!-- /screen-shell -->
@@ -301,6 +412,7 @@
     const gameContainer = document.getElementById('game-container');
     const loadingOverlay = document.getElementById('loading-overlay');
     const fullscreenBtn = document.getElementById('fullscreen-btn');
+    const htmlBackBtn = document.getElementById('html-back-btn');
     const startupOverlay = document.getElementById('startup-overlay');
     const startupBar = document.getElementById('startup-progress-bar');
     const profileBtn = document.getElementById('profile-btn');
@@ -423,6 +535,7 @@
 
     // Scenes listed here hide the profile panel while active.
     const HIDE_PROFILE_IN = new Set(['GameScene']);
+    window.currentActiveScene = 'HomeScreen';
 
     let game = null;
 
@@ -430,22 +543,38 @@
       if (game) { game.destroy(true); game = null; }
     }
 
+    const fullscreenSupported = !!(
+      document.documentElement.requestFullscreen ||
+      document.documentElement.mozRequestFullScreen ||
+      document.documentElement.webkitRequestFullscreen ||
+      document.documentElement.msRequestFullscreen
+    );
+
+    // Initial fullscreen button display check
+    if (fullscreenSupported) {
+      fullscreenBtn.style.display = 'block';
+    } else {
+      fullscreenBtn.style.display = 'none';
+    }
+
     // ── showHomeScreen ───────────────────────────────────────────────────
     window.showHomeScreen = function () {
       destroyGame();
-      gameContainer.style.display = 'none';
-      homeScreen.style.display = 'flex';
-      fullscreenBtn.style.display = 'none';
+      gameContainer.classList.remove('active');
+      homeScreen.classList.remove('hidden');
+      if (htmlBackBtn) htmlBackBtn.classList.remove('active');
       try { window.SfxManager?.unmuteAll?.(); } catch (e) { }
       profilePanelHiddenByScene = false;
       updateProfilePanel();
       window.MusicManager.playShared({ restart: window.MusicManager.mode === 'level' });
+      window.currentActiveScene = 'HomeScreen';
     };
 
     // ── Startup progress bar ─────────────────────────────────────────────
     function finishStartup() {
       if (startupOverlay) startupOverlay.style.display = 'none';
       window.showHomeScreen();
+      window.currentActiveScene = 'HomeScreen';
     }
 
     function runStartupProgress() {
@@ -471,12 +600,14 @@
       destroyGame();
       try { window.SfxManager?.unmuteAll?.(); } catch (e) { }
 
-      homeScreen.style.display = 'none';
-      gameContainer.style.display = 'flex';
+      homeScreen.classList.add('hidden');
+      gameContainer.classList.add('active');
+      if (htmlBackBtn) htmlBackBtn.classList.add('active');
       loadingOverlay.style.display = 'block';
       profilePanelHiddenByScene = HIDE_PROFILE_IN.has(sceneKey);
 
       window._bootTarget = sceneKey;
+      window.currentActiveScene = sceneKey;
 
       if (sceneKey === 'GameScene') {
         window.MusicManager.playLevel(window._currentLevel ?? 1);
@@ -489,8 +620,7 @@
       game = new Phaser.Game(config);
       game.events.once('ready', () => { loadingOverlay.style.display = 'none'; });
 
-      if (isMobile) {
-        fullscreenBtn.style.display = 'block';
+      if (isMobile && fullscreenSupported) {
         if (!localStorage.getItem('mobileFullscreenPrompted')) {
           requestFullscreenAndLandscape();
           localStorage.setItem('mobileFullscreenPrompted', 'true');
@@ -504,6 +634,14 @@
     document.getElementById('leaderboard-btn').addEventListener('click', () => window.startScene('LeaderboardScene'));
     document.getElementById('settings-btn').addEventListener('click', () => window.startScene('SettingsScene'));
     if (profileBtn) profileBtn.addEventListener('click', () => window.startScene('ProfileScene'));
+
+    if (htmlBackBtn) {
+      htmlBackBtn.addEventListener('click', () => {
+        triggerBackGesture();
+      });
+    }
+
+
 
     window.addEventListener('authStateChanged', () => updateProfilePanel());
 
@@ -538,13 +676,18 @@
       document.addEventListener(evt, () => {
         const inFS = document.fullscreenElement || document.mozFullScreenElement
           || document.webkitFullscreenElement || document.msFullscreenElement;
-        if (!inFS && isMobile && gameContainer.style.display !== 'none') {
+        
+        // Dynamically update fullscreen button labels
+        const label = inFS ? 'Exit Fullscreen' : 'Fullscreen';
+        if (fullscreenBtn) fullscreenBtn.textContent = label;
+
+        if (!inFS && isMobile && gameContainer.classList.contains('active')) {
           localStorage.setItem('mobileFullscreenPrompted', 'false');
         }
       });
     });
 
-    if (isMobile) {
+    if (isMobile && fullscreenSupported) {
       document.addEventListener('DOMContentLoaded', () => {
         if (!localStorage.getItem('mobileFullscreenPrompted')) {
           requestFullscreenAndLandscape();
@@ -552,7 +695,69 @@
         }
       });
     }
+
+    // Prevent double-tap zooming, edge swipe navigation, and bounce scrolling on touch devices
+    document.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+    }, { passive: false });
+
+    // Swipe-to-back gesture detection for mobile devices (using capture phase to bypass Phaser's propagation block)
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchStartTime = 0;
+
+    document.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        touchStartTime = Date.now();
+      }
+    }, true);
+
+    document.addEventListener('touchend', (e) => {
+      if (e.changedTouches.length === 1) {
+        const touchEndX = e.changedTouches[0].clientX;
+        const touchEndY = e.changedTouches[0].clientY;
+        const touchEndTime = Date.now();
+
+        const diffX = touchEndX - touchStartX;
+        const diffY = touchEndY - touchStartY;
+        const duration = touchEndTime - touchStartTime;
+
+        // Swipe criteria:
+        // 1. Swiped from left to right (diffX > 80px)
+        // 2. Mostly horizontal (absolute diffY < 60px)
+        // 3. Fast enough (duration < 350ms)
+        // 4. Started near the left edge (touchStartX < window.innerWidth * 0.35)
+        if (diffX > 80 && Math.abs(diffY) < 60 && duration < 350 && touchStartX < window.innerWidth * 0.35) {
+          triggerBackGesture();
+        }
+      }
+    }, true);
+
+    function triggerBackGesture() {
+      if (!window.currentActiveScene) return;
+
+      if (window.currentActiveScene === 'GameScene') {
+        window.startScene('LevelSelectScene');
+      } else if (
+        window.currentActiveScene === 'LevelSelectScene' ||
+        window.currentActiveScene === 'ShopScene' ||
+        window.currentActiveScene === 'LeaderboardScene' ||
+        window.currentActiveScene === 'SettingsScene' ||
+        window.currentActiveScene === 'ProfileScene'
+      ) {
+        window.showHomeScreen();
+      }
+    }
   </script>
+
+  <!-- Orientation warning overlay (visible only on mobile in portrait) -->
+  <div id="orientation-warning">
+    <div class="icon">📱</div>
+    <h2>Rotate Your Device</h2>
+    <p>Please rotate your device to landscape mode to play the game.</p>
+  </div>
 </body>
 
 </html>

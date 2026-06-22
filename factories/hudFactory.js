@@ -117,10 +117,13 @@ window.HUDFactory._overlayBtn = function (scene, x, y, label, bgColor, hoverColo
   })
     .setOrigin(0.5)
     .setDepth(depth)
-    .setInteractive({ useHandCursor: true })
-    .on('pointerover', () => btn.setStyle({ backgroundColor: hoverCss }))
-    .on('pointerout', () => btn.setStyle({ backgroundColor: normalCss }))
-    .on('pointerdown', onClick);
+    .setInteractive({ useHandCursor: true });
+
+  if (!scene.sys.game.device.input.touch) {
+    btn.on('pointerover', () => btn.setStyle({ backgroundColor: hoverCss }))
+       .on('pointerout', () => btn.setStyle({ backgroundColor: normalCss }));
+  }
+  btn.on('pointerdown', onClick);
     
   return btn;
 };

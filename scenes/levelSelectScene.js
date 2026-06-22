@@ -67,8 +67,10 @@ class LevelSelectScene extends Phaser.Scene {
         window._currentLevel = level;
         window.startScene('GameScene');
       });
-      box.on('pointerover',  () => box.setFillStyle(0xe8e8e8));
-      box.on('pointerout',   () => box.setFillStyle(0xffffff));
+      if (!this.sys.game.device.input.touch) {
+        box.on('pointerover',  () => box.setFillStyle(0xe8e8e8));
+        box.on('pointerout',   () => box.setFillStyle(0xffffff));
+      }
     }
   }
 }

@@ -101,7 +101,10 @@ window.BuildingManager = {
     const hit = this._getPointerHits(pointer)
       .find((obj) => !obj.isLevelObject && (obj.isBuilding || obj.buildingConfig));
 
-    if (hit) this._startDragging(hit, pointer);
+    if (hit) {
+      this._startDragging(hit, pointer);
+      this._moveObjectToPointer(hit, pointer); // Snap immediately with offset
+    }
   },
 
   onPointerMove(pointer) {
@@ -152,14 +155,16 @@ window.BuildingManager = {
   },
 
   _moveObjectToPointer(obj, pointer) {
+    const isTouch = this.scene.sys.game.device.input.touch;
+    const offsetY = isTouch ? -120 : 0; // Floating offset above finger on touch screens
     if (obj.body) {
       Phaser.Physics.Matter.Matter.Body.setPosition(obj.body, {
         x: pointer.x,
-        y: pointer.y,
+        y: pointer.y + offsetY,
       });
     } else {
       obj.x = pointer.x;
-      obj.y = pointer.y;
+      obj.y = pointer.y + offsetY;
     }
   },
 
@@ -259,7 +264,7 @@ window.BuildingManager = {
   _createInventoryButtons() {
     const { ARENA_X, ARENA_Y, ARENA_H } = this.arena;
 
-    const buttonY   = ARENA_Y + ARENA_H - 65;
+    const buttonY   = ARENA_Y + ARENA_H - 173; // Shifted 10% higher (108px) to avoid mobile swipe triggers
     const buttonW   = 220;
     const buttonH   = 44;
     const gap       = 18;
@@ -289,15 +294,17 @@ window.BuildingManager = {
     label.setDepth(2000);
     label.setOrigin(0.5);
 
-    const onSelect = () => {
+    const onSelect = (pointer) => {
       if (this._getRemainingCount(type) <= 0) return;
-      const b = this._createBuilding(type, x, y, { fromInventory: true });
+      // Spawn at the pointer's current coordinate and move immediately with vertical offset
+      const b = this._createBuilding(type, pointer.x, pointer.y, { fromInventory: true });
 
       if (b) {
         this.draggingBuilding = b;
         b.isDragging = true;
         this._setPhysicsGhost(b, true);
         b.setDepth(1000);
+        this._moveObjectToPointer(b, pointer);
       }
     };
 
