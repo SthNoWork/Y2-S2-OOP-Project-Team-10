@@ -78,18 +78,37 @@ Node: it is phaser.js v4 not v3
 can read in the lib/
 
 Job:
-Final optimization
+Dear my students, for the OOP project final presentation next week, please prepare your report content as following:
 
-Make it effient. 
-Codes that are not used should be removed.
-functions that are not used should be removed.
+POWERPOINT PRESENTATION SLIDE REPORT
+Cover Page:
+  - Title of the project
+  - Names  and photos of the team member(s) (putting photo is recommended)
+  - Plz decorate a beautiful slide cover 
+Introduction
+  - Overview of the project
+  - Purpose and objectives
+Object-Oriented Design:
+  - Explanation of OOP concepts you applied in your project code
+  - Code screenshot or discussion on how OOP concepts were applied (e.g., encapsulation, inheritance, polymorphism)
+Code Implementation:
+  - Screenshot of the challenging code/logic with explanation (how you solve it)
+  - Ex. File storage, object collision code, etc..
+ Conclusion
+  - Technology/Framework/Library used
+  - Summary of the project
+  - Future Work
+References
+  - Show the existing project/tutorial you learn/follow from 
 
-logic that is constantly written again and again should be refactored into a function.
+DEMO
+  - Record your demo video and upload to Youtube
+  - Instruct how to use your program or play game
 
-make sure the code follow OOP and gang of four.
+Note:
+  - During the presentation in class, plz take turn among the members to do the presentation (Report + Demo)
+  - 15 mins for each team
+  - Non-active/absent member has no score given
+  - After the presentation, I will afterward create a submission on Moodle
 
-move functions if it doesnt seem to belong n the file.
-
-Organize functions by order of their use for easy understand also remove comments that are not needed.
-
-
+read the code base and extract the data to fit this cirteria inside a .md file
