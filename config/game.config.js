@@ -25,13 +25,14 @@ const config = {
     default: 'matter',
     matter: {
       gravity: { y: 1 },
-      debug: false,
+      debug: !!window.DEBUG,
     },
   },
 
   scene: [
     BootScene,
     GameScene,
+    Game1v1Scene,
     LevelSelectScene,
     SettingsScene,
     ShopScene,

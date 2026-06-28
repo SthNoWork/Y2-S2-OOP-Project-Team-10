@@ -70,9 +70,7 @@ window.GameLogic = {
 
   // Called each frame by the scene.
   update(delta) {
-    const dt = delta / 1000;
     this._processChainExplosions();
-    this._updatePlane(dt);
     this._updateBombs();
   },
 
@@ -110,11 +108,15 @@ window.GameLogic = {
     this._destroyActivePlane();
 
     const spawn = this._resolveSpawnPoint(planeCfg, spawnLocation);
-    const plane = this._createPlane(spawn);
+    const plane = window.ObjectFactory.createInternal(
+      this.scene, 'plane', 0, 0, this.arena, { spawnLocation: spawn }
+    );
     if (!plane) return;
 
-    this._createBlade(planeCfg, plane, direction);
-    this._initRunState(planeCfg, plane, velocityPxPerSec, direction, waveBombType);
+    this._targets.push(plane);
+    this._run = { plane };
+
+    plane.startFlight(velocityPxPerSec, direction, waveBombType);
   },
 
   _validatePlaneCfg(planeCfg) {
@@ -130,9 +132,9 @@ window.GameLogic = {
 
   _destroyActivePlane() {
     if (this._run?.plane?.active) {
-      if (this._run.plane._blade?.active) this._run.plane._blade.destroy();
       this._targets = this._targets.filter((t) => t !== this._run.plane);
-      this._run.plane.destroy();
+      window.ObjectFactory.destroy(this._run.plane);
+      this._run = null;
     }
   },
 
@@ -140,125 +142,6 @@ window.GameLogic = {
     return spawnLocation
       ? { x: spawnLocation.x, y: spawnLocation.y + planeCfg.spawnYOffsetY }
       : { x: 0, y: planeCfg.spawnYOffsetY };
-  },
-
-  _createPlane(spawn) {
-    const plane = window.ObjectFactory.createInternal(
-      this.scene, 'plane', 0, 0, this.arena, { spawnLocation: spawn }
-    );
-    if (plane) this._targets.push(plane);
-    return plane;
-  },
-
-  // Creates the rotor-blade sprite and attaches it to the plane.
-  _createBlade(planeCfg, plane, direction) {
-    const blade = this.scene.add.sprite(plane.x, plane.y, 'plane_atlas', 'plane_blade_1');
-    if (planeCfg.bladeScale !== undefined) blade.setScale(planeCfg.bladeScale);
-    blade.setDepth((plane.depth || 0) + 1);
-    blade.setFlipX(direction > 0);
-    plane.setFlipX(direction > 0);
-    if (this.scene.anims.exists('plane_blades')) blade.play('plane_blades');
-    plane._blade = blade;
-  },
-
-  // Stores all state needed to advance the run each frame.
-  _initRunState(planeCfg, plane, velocityPxPerSec, direction, waveBombType) {
-    const { min, max } = planeCfg.bombDropDelayRangeSec;
-    const bladeOffsetY = planeCfg.bladeOffsetY * plane.displayHeight;
-
-    this._run = {
-      plane,
-      bladeOffset: { x: planeCfg.bladeOffsetX * direction, y: bladeOffsetY },
-      speed: velocityPxPerSec,
-      direction,
-      bombTimer: 0,
-      bombInterval: min + Math.random() * Math.max(0, max - min),
-      bombType: waveBombType,
-      // World bounds are at -1920 and 3840. We must exit before hitting the walls!
-      exitX: direction > 0 ? 2200 : -300,
-    };
-  },
-
-
-  // ── Plane update ──────────────────────────────────────────────────────────
-
-  _updatePlane(dt) {
-    if (this._run && (!this._run.plane || !this._run.plane.active)) {
-      this._run = null;
-      return;
-    }
-    if (!this._run) return;
-
-    this._movePlane(dt);
-    this._syncBlade();
-    this._updateBombSpawn(dt);
-    this._checkPlaneExit();
-  },
-
-  _movePlane(dt) {
-    const run = this._run;
-    run.plane.x += run.speed * run.direction * dt;
-  },
-
-  // Keeps the blade sprite glued to the plane.
-  _syncBlade() {
-    const { plane, bladeOffset } = this._run;
-    if (plane._blade?.active) {
-      plane._blade.x = plane.x + bladeOffset.x;
-      plane._blade.y = plane.y + bladeOffset.y;
-    }
-  },
-
-  // Accumulates time and spawns a bomb when the interval elapses.
-  _updateBombSpawn(dt) {
-    const run = this._run;
-    const { min, max } = window.ObjectConfig.internalTypes.plane.bombDropDelayRangeSec;
-
-    run.bombTimer += dt;
-    while (run.bombTimer >= run.bombInterval) {
-      this._spawnBomb();
-      run.bombTimer -= run.bombInterval;
-      run.bombInterval = min + Math.random() * Math.max(0, max - min);
-    }
-  },
-
-  // Destroys the plane once it flies off-screen.
-  _checkPlaneExit() {
-    const run = this._run;
-    const exited = run.direction > 0
-      ? run.plane.x >= run.exitX
-      : run.plane.x <= run.exitX;
-
-    if (exited) {
-      if (run.plane._blade?.active) run.plane._blade.destroy();
-      run.plane.destroy();
-      try { window.SfxManager?.stopAll?.(); } catch (e) { }
-      this._run = null;
-    }
-  },
-
-
-  // ── Bomb spawning & update ────────────────────────────────────────────────
-
-  _spawnBomb() {
-    if (!this._run?.plane?.active) return;
-
-    const { plane, speed, direction, bombType } = this._run;
-    const planeCfg = window.ObjectConfig.internalTypes.plane;
-    const offsetRange = planeCfg.bombDropOffsetRatioRange;
-
-    const planeHalfW = plane.displayWidth * 0.5;
-    const planeHalfH = plane.displayHeight * 0.5;
-    const offsetX = (offsetRange.min + Math.random() * Math.max(0, offsetRange.max - offsetRange.min)) * planeHalfW;
-
-    const bombTypeKey = bombType || planeCfg.bomb || 'bomb';
-    const spawnX = plane.x + offsetX;
-    const spawnY = plane.y + planeHalfH;
-
-    const bomb = window.spawnBomb(this.scene, bombTypeKey, spawnX, spawnY, 90, null, plane);
-    if (bomb) {
-      bomb.setPosition(bomb.x, plane.y + planeHalfH + bomb.displayHeight * 0.5);
-    }
   },
 
   _updateBombs() {
@@ -308,7 +191,9 @@ window.GameLogic = {
       const otherBody = trampolineBody === bodyA ? bodyB : bodyA;
       // ONLY bounces bombs
       if (otherBody.label === 'bomb') {
-        this._applyTrampolineBounce(trampolineBody, otherBody);
+        if (trampolineBody.gameObject && typeof trampolineBody.gameObject.bounce === 'function') {
+          trampolineBody.gameObject.bounce(otherBody);
+        }
         return; // Early return prevents the bomb from exploding
       }
     }
@@ -328,394 +213,27 @@ window.GameLogic = {
     const explodeOnImpact = bombCfg.explodeOnImpact !== undefined ? bombCfg.explodeOnImpact : true;
 
     if (explodeOnImpact) {
-      try { this.scene.events.emit('bomb:explode', bombGO); } catch (e) { }
-      try { this._explodeAt(bombCfg, bombGO.x, bombGO.y, bombGO); } catch (e) { }
-      try { this.scene.events.emit('bomb:destroy', bombGO); } catch (e) { }
-      try { bombGO.destroy(); } catch (e) { }
+      try { this.scene.events.emit('bomb:explode', bombGO); } catch (e) { console.error('Error emitting bomb:explode:', e); }
+      try { this._explodeAt(bombCfg, bombGO.x, bombGO.y, bombGO); } catch (e) { console.error('Error in _explodeAt:', e); }
+      try { this.scene.events.emit('bomb:destroy', bombGO); } catch (e) { console.error('Error emitting bomb:destroy:', e); }
+      try { bombGO.destroy(); } catch (e) { console.error('Error destroying bomb:', e); }
     }
   },
-
-  // Applies bounce velocity to bombs hitting the trampoline, mirroring the incoming velocity
-  // across the normal and applying a bounce force boost.
-  _applyTrampolineBounce(trampolineBody, bombBody) {
-    const trampolineGO = trampolineBody.gameObject;
-    const trampolineCfg = trampolineGO?.buildingConfig
-      ?? window.ObjectConfig.placeableTypes?.trampoline
-      ?? window.ObjectConfig.levelTypes?.trampoline;
-    if (!trampolineCfg) return;
-
-    const bounceForce = trampolineCfg.bounceForce ?? 28;
-    const velocityCap = trampolineCfg.bounceVelocityCap ?? 30;
-
-    // Get the angle of the trampoline surface
-    const angle = trampolineBody.angle ?? 0; // in radians
-
-    // Normal vector pointing "upward" from the surface
-    const nx = Math.sin(angle);
-    const ny = -Math.cos(angle);
-
-    const cv = bombBody.velocity;
-
-    // Decompose current velocity into normal component (dot product with normal)
-    const vn = cv.x * nx + cv.y * ny;
-
-    // We only bounce if the bomb is moving towards the trampoline surface (vn < 0)
-    if (vn >= 0) return;
-
-    // Mirror incoming velocity across the normal vector
-    // R = V - 2 * (V . N) * N
-    const rx_mirror = cv.x - 2 * vn * nx;
-    const ry_mirror = cv.y - 2 * vn * ny;
-
-    const mirrorSpeed = Math.sqrt(rx_mirror * rx_mirror + ry_mirror * ry_mirror);
-
-    let rx, ry;
-    if (mirrorSpeed > 0.0001) {
-      // Scale mirrored velocity to add the bounce force boost, and cap the total speed.
-      let outgoingSpeed = mirrorSpeed + bounceForce;
-      outgoingSpeed = Math.min(outgoingSpeed, velocityCap);
-
-      rx = (rx_mirror / mirrorSpeed) * outgoingSpeed;
-      ry = (ry_mirror / mirrorSpeed) * outgoingSpeed;
-    } else {
-      // Fallback if the bomb was static or had near-zero velocity: launch along the normal direction.
-      let outgoingSpeed = Math.min(bounceForce, velocityCap);
-      rx = nx * outgoingSpeed;
-      ry = ny * outgoingSpeed;
-    }
-
-    // Trampoline reflection: take ownership!
-    if (this.player && bombBody.gameObject) {
-      bombBody.gameObject.owner = this.player;
-    }
-
-    Phaser.Physics.Matter.Matter.Body.setVelocity(bombBody, {
-      x: rx,
-      y: ry,
-    });
-
-    try { window.SfxManager?.playBounce?.(); } catch (e) { }
-
-// Play spring bounce animation
-  const springGO = trampolineBody.gameObject;
-  if (springGO?.active) {
-    try {
-      // Stop any currently playing animation first
-      springGO.stop();
-      springGO.setFrame('spring1');
-
-      // Manually step through frames using tweens since Matter sprites
-      // can lose animation context after physics attachment
-      const frames = ['spring1', 'spring2', 'spring3', 'spring4', 'spring1'];
-      let frameIndex = 0;
-      const playNextFrame = () => {
-        if (!springGO?.active) return;
-        springGO.setFrame(frames[frameIndex]);
-        frameIndex++;
-        if (frameIndex < frames.length) {
-          this.scene.time.delayedCall(80, playNextFrame);
-        }
-      };
-      playNextFrame();
-    } catch (e) {
-      console.warn('[GameLogic] Spring animation error:', e);
-    }
-  }
-
-
-    // Increment bounce counter and handle trampoline lifecycle / destruction
-    if (trampolineGO) {
-      trampolineGO.bouncesCount = (trampolineGO.bouncesCount || 0) + 1;
-
-      const maxBounces = trampolineCfg.maxBounces;
-      if (maxBounces !== undefined && maxBounces !== null && maxBounces > 0) {
-        if (trampolineGO.bouncesCount >= maxBounces) {
-          // Cleanly destroy/remove the trampoline building
-          this._handleBuildingDeath(trampolineGO);
-        }
-      }
-    }
-  },
-
 
   // ── Detonation ────────────────────────────────────────────────────────────
 
   // Shows VFX, collects nearby bodies, and applies knockback + damage.
   _explodeAt(explosiveCfg, x, y, sourceBomb) {
-    const explosionCfg = explosiveCfg.explosion;
-    const radius = this._blastRadiusPx(explosionCfg);
-    if (!radius) return;
-
-    if (sourceBomb?.body?.id) {
-      console.log(`[Bomb Explode] ID: ${sourceBomb.body.id} | Explode Pos: (${x.toFixed(1)}, ${y.toFixed(1)}) | Current Player Pos: (${this.player?.x?.toFixed(1)}, ${this.player?.y?.toFixed(1)})`);
-    }
-
-    if (window.DEBUG) {
-      if (explosiveCfg.blastForce == null) console.error('[GameLogic._explodeAt] blastForce is not defined');
-      if (explosiveCfg.blastMaxDamage == null) console.error('[GameLogic._explodeAt] blastMaxDamage is not defined');
-    }
-
-    this._spawnExplosionVFX(explosionCfg, x, y);
-    this._drawDebugBlastRadius(x, y, radius);
-
-    const bodies = this._collectBlastBodies(x, y, radius, sourceBomb);
-    for (const body of bodies) {
-      this._applyBlastEffects(body, x, y, radius, explosiveCfg.blastForce, explosiveCfg.blastMaxDamage, sourceBomb);
-    }
-
-    // ── Cluster sub-munitions ──────────────────────────────────────────────
-    this._spawnClusterBombs(explosiveCfg, x, y, sourceBomb);
-  },
-
-  // Spawns sub-bombs when a cluster bomb explodes.
-  _spawnClusterBombs(explosiveCfg, x, y, sourceBomb) {
-    const cluster = explosiveCfg.cluster;
-    if (!cluster) return;
-
-    const subType   = cluster.subBomb   || 'smallBomb';
-    const count     = cluster.count     || 5;
-    const spreadDeg = cluster.spreadDeg || 60;
-    const speed     = cluster.speed     || 180;
-
-    // Sub-bombs launch upward in a fan pattern
-    const centerAngle = -90; // straight up in screen coords
-    const halfSpread  = spreadDeg / 2;
-
-    for (let i = 0; i < count; i++) {
-      // Evenly space within the spread cone, with some randomness
-      const t = count === 1 ? 0 : (i / (count - 1)) * 2 - 1; // -1 to +1
-      const angleDeg = centerAngle + t * halfSpread + (Math.random() - 0.5) * 10;
-
-      const bomb = window.spawnBomb(
-        this.scene, subType, x, y, angleDeg, null, sourceBomb?.owner || {}
-      );
-
-      if (bomb && bomb.body) {
-        const angleRad = Phaser.Math.DegToRad(angleDeg);
-        const vx = (speed / 60) * Math.cos(angleRad);
-        const vy = (speed / 60) * Math.sin(angleRad);
-        Phaser.Physics.Matter.Matter.Body.setVelocity(bomb.body, { x: vx, y: vy });
-      }
-    }
-  },
-
-  // Plays the explosion animation sprite at the blast origin.
-  // Throttles visually overlapping explosions to prevent sprite flooding and audio clipping.
-  _spawnExplosionVFX(explosionCfg, x, y) {
-    const now = this.scene.time.now;
-    if (!this._recentExplosions) this._recentExplosions = [];
-
-    // Filter out historical records older than 200ms
-    this._recentExplosions = this._recentExplosions.filter(e => now - e.time < 200);
-
-    // Skip spawning if there is already an explosion within 40px in the last 200ms
-    const isOverlapping = this._recentExplosions.some(e => {
-      const dx = e.x - x;
-      const dy = e.y - y;
-      return dx * dx + dy * dy < 1600;
-    });
-
-    if (isOverlapping && this._recentExplosions.length >= 4) {
-      return; // Skip rendering/sfx to optimize overhead
-    }
-
-    this._recentExplosions.push({ x, y, time: now });
-
-    const { animKey, scale } = explosionCfg;
-    const anim = this.scene.anims.get(animKey);
-    if (!anim) return;
-    const firstFrame = anim.frames[0].frame;
-
-    const explosion = this.scene.add.sprite(x, y, firstFrame.texture.key, firstFrame.name);
-    explosion.setScale(scale);
-    try { window.SfxManager?.playExplosion?.(); } catch (e) { }
-    window.SpriteFactory.playAnimation(explosion, animKey);
-  },
-
-  // In debug mode, draws a red circle showing the blast radius.
-  _drawDebugBlastRadius(x, y, radius) {
-    if (!window.DEBUG) return;
-    const g = this.scene.add.graphics();
-    g.lineStyle(2, 0xff0000, 1);
-    g.strokeCircle(x, y, radius);
-    g.setDepth(500);
-    this.scene.time.delayedCall(600, () => { if (g.active) g.destroy(); });
-  },
-
-  // Returns all physics bodies within the blast area.
-  // Optimized to search directly in tracked game lists (O(N)), avoiding heavy Matter.js broadphase queries.
-  _collectBlastBodies(x, y, radius, sourceBomb) {
-    const affectedBodies = [];
-    const radiusSq = radius * radius;
-
-    // 1. Check player
-    if (this.player && this.player.active && this.player.body) {
-      const closest = this._closestPointOnAABB(x, y, this.player.body);
-      const dx = closest.x - x;
-      const dy = closest.y - y;
-      if (dx * dx + dy * dy <= radiusSq) {
-        affectedBodies.push(this.player.body);
-      }
-    }
-
-    // 2. Check buildings (placed blocks, crates, turrets)
-    for (let i = 0; i < this.buildings.length; i++) {
-      const b = this.buildings[i];
-      if (b && b.active && !b._dying && b.body) {
-        const closest = this._closestPointOnAABB(x, y, b.body);
-        const dx = closest.x - x;
-        const dy = closest.y - y;
-        if (dx * dx + dy * dy <= radiusSq) {
-          affectedBodies.push(b.body);
-        }
-      }
-    }
-
-    // 3. Check active bombs (only if explosion is from a bomb_crate)
-    const isBombCrateExplosion = sourceBomb && sourceBomb.objectType === 'bomb_crate';
-    if (isBombCrateExplosion) {
-      for (let i = 0; i < this._activeBombs.length; i++) {
-        const bomb = this._activeBombs[i];
-        if (bomb && bomb.active && !bomb._dying && bomb.body) {
-          if (bomb === sourceBomb) continue;
-
-          const closest = this._closestPointOnAABB(x, y, bomb.body);
-          const dx = closest.x - x;
-          const dy = closest.y - y;
-          if (dx * dx + dy * dy <= radiusSq) {
-            affectedBodies.push(bomb.body);
-          }
-        }
-      }
-    }
-
-    // 4. Check targets (like the plane)
-    if (this._targets) {
-      for (let i = 0; i < this._targets.length; i++) {
-        const t = this._targets[i];
-        if (t && t.active && !t._dying && t.body) {
-          const closest = this._closestPointOnAABB(x, y, t.body);
-          const dx = closest.x - x;
-          const dy = closest.y - y;
-          if (dx * dx + dy * dy <= radiusSq) {
-            affectedBodies.push(t.body);
-          }
-        }
-      }
-    }
-
-    return affectedBodies;
-  },
-
-  // Calculates falloff for one body, then applies knockback and damage.
-  _applyBlastEffects(body, x, y, radius, blastForce, blastMaxDmg, sourceBomb) {
-    const falloff = this._calcFalloff(x, y, body, radius);
-    if (falloff <= 0) return;
-
-    this._applyKnockback(body, falloff, x, y, blastForce);
-    this._applyDamage(body.gameObject, falloff, blastMaxDmg, sourceBomb);
-  },
-
-
-  // ── Blast maths ───────────────────────────────────────────────────────────
-
-  // Returns the blast radius in pixels derived from the largest animation frame.
-  _blastRadiusPx(explosionCfg) {
-    if (!explosionCfg?.animKey) return null;
-
-    const { animKey, scale, blastScale } = explosionCfg;
-    if (!this.scene.anims.exists(animKey)) return null;
-    if (scale == null) { console.error('[GameLogic._blastRadiusPx] explosionCfg.scale is not defined'); return null; }
-    if (blastScale == null) { console.error('[GameLogic._blastRadiusPx] explosionCfg.blastScale is not defined'); return null; }
-
-    const anim = this.scene.anims.get(animKey);
-    let maxRawDim = 0;
-    for (const f of anim.frames) {
-      maxRawDim = Math.max(maxRawDim,
-        f.frame.realWidth || f.frame.width || 0,
-        f.frame.realHeight || f.frame.height || 0
-      );
-    }
-    if (maxRawDim === 0) return null;
-
-    return ((maxRawDim * scale) / 2) * blastScale;
-  },
-
-  // Returns falloff in [0, 1] based on the nearest point on the body's AABB.
-  // Large objects partially inside the blast radius take appropriate damage.
-  _calcFalloff(x, y, body, radius) {
-    const closest = this._closestPointOnAABB(x, y, body);
-    const dx = closest.x - x;
-    const dy = closest.y - y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist >= radius) return 0;
-    return 1 - (dist / radius);
-  },
-
-  // Returns the nearest point on a body's axis-aligned bounding box to (px, py).
-  _closestPointOnAABB(px, py, body) {
-    const { min, max } = body.bounds;
-    return {
-      x: Math.max(min.x, Math.min(px, max.x)),
-      y: Math.max(min.y, Math.min(py, max.y)),
-    };
-  },
-
-
-  // ── Damage & knockback ────────────────────────────────────────────────────
-
-  // Pushes a dynamic physics body away from the blast origin.
-  _applyKnockback(body, falloff, x, y, blastForce) {
-    if (body.isStatic) return;
-
-    const mass = body.mass;
-    if (!mass) { console.error('[GameLogic._applyKnockback] body.mass is missing or zero'); return; }
-
-    const dx = body.position.x - x;
-    const dy = body.position.y - y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    const nx = dist > 0 ? dx / dist : 0;
-    const ny = dist > 0 ? dy / dist : -1;
-
-    const deltaV = (blastForce * falloff) / mass;
-    const cv = body.velocity;
-
-    Phaser.Physics.Matter.Matter.Body.setVelocity(body, {
-      x: cv.x + nx * deltaV,
-      y: cv.y + ny * deltaV,
-    });
-  },
-
-  // Reduces HP on the player or a building; triggers death if HP hits 0.
-  _applyDamage(obj, falloff, blastMaxDmg, sourceBomb) {
-    const damage = Math.round(blastMaxDmg * falloff);
-    if (damage <= 0) return;
-
-    if (obj.isBomb) {
-      if (obj.active && !obj._dying) {
-        obj._dying = true;
-        const bombCfg = window.ObjectConfig.internalTypes[obj.objectType] || window.ObjectConfig.internalTypes.bomb;
-        try { this.scene.events.emit('bomb:explode', obj); } catch (e) { }
-        try { this.scene.events.emit('bomb:destroy', obj); } catch (e) { }
-        this._chainExplosionQueue.push({ cfg: bombCfg, x: obj.x, y: obj.y, sourceBomb: obj });
-        try { obj.destroy(); } catch (e) { }
-      }
-      return;
-    }
-
-    if (obj === this.player) {
-      this._damagePlayer(damage);
-    } else if (typeof obj.takeDamage === 'function') {
-      // Generic damage: any entity with the health mixin receives damage.
-      const died = obj.takeDamage(damage);
-      if (died) {
-        // Track Air Superiority kills
-        if (obj.objectType === 'plane' && sourceBomb && sourceBomb.owner === this.player) {
-          try { window.LevelManager?.addAirSuperiorityBonus?.(500); } catch (e) { }
-          try { window.UIFactory?.showFloatingText?.(this.scene, obj.x, obj.y, 'Air Superiority!\n+500', '#ffff00'); } catch (e) { }
-        }
-        this._handleBuildingDeath(obj);
-      }
+    try {
+      const cmd = new window.ExplosionCommand(this.scene, {
+        x,
+        y,
+        explosiveCfg,
+        sourceBomb
+      });
+      cmd.execute();
+    } catch (e) {
+      console.error('Error executing ExplosionCommand in _explodeAt:', e);
     }
   },
 
@@ -812,7 +330,7 @@ window.GameLogic = {
 };
 
 window.spawnBomb = function (scene, bombTypeKey, spawnX, spawnY, directionDeg, target, owner) {
-  const bombCfg = window.ObjectConfig.internalTypes[bombTypeKey];
+  const bombCfg = window.ObjectConfig.internalTypes[bombTypeKey] || window.ObjectConfig.placeableTypes[bombTypeKey] || window.ObjectConfig.levelTypes[bombTypeKey];
   if (!bombCfg) {
     console.error(`spawnBomb: unknown bomb type key "${bombTypeKey}"`);
     return null;
@@ -823,7 +341,12 @@ window.spawnBomb = function (scene, bombTypeKey, spawnX, spawnY, directionDeg, t
 
   if (!bomb) {
     const arena = window.GameLogic?.arena;
-    bomb = window.ObjectFactory.createInternal(scene, bombTypeKey, spawnX, spawnY, arena);
+    const isPlaceable = !!window.ObjectConfig.placeableTypes[bombTypeKey];
+    if (isPlaceable) {
+      bomb = window.ObjectFactory.createPlaceable(scene, bombTypeKey, spawnX, spawnY, arena);
+    } else {
+      bomb = window.ObjectFactory.createInternal(scene, bombTypeKey, spawnX, spawnY, arena);
+    }
     if (!bomb) return null;
   } else {
     // Reset properties for recycled bomb

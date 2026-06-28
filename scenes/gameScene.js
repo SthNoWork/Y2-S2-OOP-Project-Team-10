@@ -59,8 +59,7 @@ class GameScene extends Phaser.Scene {
     window.LevelManager.update(delta);
     window.PowerUpManager.updateShieldBubble(); 
     this._updatePlayerSkin(); 
-    try { window.PillboxManager?.update?.(delta); } catch (e) { }
-    try { window.MortarManager?.update?.(delta); } catch (e) { }
+
 
     const placed = window.BuildingManager.getPlacedBuildings();
     const prePlaced = window.LevelManager._prePlaced;

@@ -179,7 +179,9 @@ window.LevelManager = {
   _tickWaiting() {
     const planeActive = !!window.GameLogic._run;
     const mortarActive = !!window.MortarManager?._barrageActive;
-    if (!planeActive && !mortarActive) this._state = 'won';
+    const bombsExist = window.GameLogicHelper?.hasActiveBombs?.(this.scene);
+    const weaponsActive = window.GameLogicHelper?.anyWeaponHasAmmo?.(this.scene);
+    if (!planeActive && !mortarActive && !bombsExist && !weaponsActive) this._state = 'won';
   },
 
   _tickWon() {

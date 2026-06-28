@@ -161,7 +161,7 @@
     /* ── Fullscreen button ───────────────────────────────────────────── */
     #fullscreen-btn {
       position: absolute;
-      top: 20cqh;
+      bottom: 3cqh;
       left: 3cqh;
       z-index: 999;
       padding: 1% 2%;
@@ -335,6 +335,7 @@
       <div id="home-screen" class="hidden">
         <div class="button-container">
           <button class="home-btn" id="play-btn">Play</button>
+          <button class="home-btn" id="play-1v1-btn">1v1 Local</button>
           <button class="home-btn" id="saves-btn">Shops</button>
           <button class="home-btn" id="leaderboard-btn">Leaderboard</button>
           <button class="home-btn" id="settings-btn">Settings</button>
@@ -371,7 +372,7 @@
         6. Scenes (depend on core systems)
         7. Game config (must be LAST — references all scene classes)
     -->
-  <script src="lib/phaser.js"></script>
+  <script src="lib/phaser.min.js"></script>
 
   <script src="debug.js"></script>
 
@@ -390,6 +391,7 @@
 
   <script src="core/powerUpManager.js"></script>
   <script src="core/gameLogic.helper.js"></script>
+  <script src="core/explosionCommand.js"></script>
   <script src="core/gameLogic.js"></script>
   <script src="core/pillboxManager.js"></script>
   <script src="core/mortarManager.js"></script>
@@ -399,6 +401,8 @@
 
   <script src="scenes/bootScene.js"></script>
   <script src="scenes/gameScene.js"></script>
+  <script src="core/game1v1States.js"></script>
+  <script src="scenes/game1v1Scene.js"></script>
   <script src="scenes/levelSelectScene.js"></script>
   <script src="scenes/settingsScene.js"></script>
   <script src="scenes/shopsScene.js"></script>
@@ -529,7 +533,11 @@
     })();
 
     // Start audio on first user gesture (satisfies browser autoplay policy).
-    const startAudioOnGesture = () => window.MusicManager.playShared({ restart: false });
+    const startAudioOnGesture = () => {
+      if (window.currentActiveScene === 'HomeScreen') {
+        window.MusicManager.playShared({ restart: false });
+      }
+    };
     document.addEventListener('pointerdown', startAudioOnGesture, { once: true });
     document.addEventListener('keydown', startAudioOnGesture, { once: true });
 
@@ -559,7 +567,14 @@
 
     // ── showHomeScreen ───────────────────────────────────────────────────
     window.showHomeScreen = function () {
-      destroyGame();
+      if (game) {
+        game.scene.scenes.forEach(s => {
+          if (s.scene.isActive()) {
+            s.scene.stop();
+          }
+        });
+        game.loop.pause();
+      }
       gameContainer.classList.remove('active');
       homeScreen.classList.remove('hidden');
       if (htmlBackBtn) htmlBackBtn.classList.remove('active');
@@ -570,55 +585,48 @@
       window.currentActiveScene = 'HomeScreen';
     };
 
-    // ── Startup progress bar ─────────────────────────────────────────────
-    function finishStartup() {
+    // ── Startup preloader ─────────────────────────────────────────────────
+    window.finishStartup = function () {
       if (startupOverlay) startupOverlay.style.display = 'none';
       window.showHomeScreen();
-      window.currentActiveScene = 'HomeScreen';
-    }
+    };
 
-    function runStartupProgress() {
-      if (!startupBar) { finishStartup(); return; }
-      const DURATION = 2500;
-      const t0 = performance.now();
-      const tick = (now) => {
-        const pct = Math.min((now - t0) / DURATION, 1);
-        startupBar.style.width = `${Math.round(pct * 100)}%`;
-        pct < 1 ? requestAnimationFrame(tick) : finishStartup();
-      };
-      requestAnimationFrame(tick);
-    }
-
-    if (document.readyState === 'complete') {
-      runStartupProgress();
-    } else {
-      window.addEventListener('load', runStartupProgress, { once: true });
-    }
+    window.addEventListener('load', () => {
+      // Initialize the game immediately to begin asset preloading in the background
+      game = new Phaser.Game(config);
+    }, { once: true });
 
     // ── startScene ───────────────────────────────────────────────────────
     window.startScene = function (sceneKey) {
-      destroyGame();
       try { window.SfxManager?.unmuteAll?.(); } catch (e) { }
 
       homeScreen.classList.add('hidden');
       gameContainer.classList.add('active');
       if (htmlBackBtn) htmlBackBtn.classList.add('active');
-      loadingOverlay.style.display = 'block';
       profilePanelHiddenByScene = HIDE_PROFILE_IN.has(sceneKey);
 
-      window._bootTarget = sceneKey;
       window.currentActiveScene = sceneKey;
 
-      if (sceneKey === 'GameScene') {
-        window.MusicManager.playLevel(window._currentLevel ?? 1);
+      if (sceneKey === 'GameScene' || sceneKey === 'Game1v1Scene') {
+        window.MusicManager.playLevel(sceneKey === 'Game1v1Scene' ? '1v1' : (window._currentLevel ?? 1));
       } else {
         window.MusicManager.playShared({ restart: window.MusicManager.mode === 'level' });
       }
 
       updateProfilePanel();
 
-      game = new Phaser.Game(config);
-      game.events.once('ready', () => { loadingOverlay.style.display = 'none'; });
+      if (game) {
+        game.loop.resume();
+        // Stop any active scenes first
+        game.scene.scenes.forEach(s => {
+          if (s.scene.isActive()) {
+            s.scene.stop();
+          }
+        });
+        // Start target scene directly
+        game.scene.start(sceneKey);
+        loadingOverlay.style.display = 'none';
+      }
 
       if (isMobile && fullscreenSupported) {
         if (!localStorage.getItem('mobileFullscreenPrompted')) {
@@ -630,6 +638,7 @@
 
     // ── Button wiring ────────────────────────────────────────────────────
     document.getElementById('play-btn').addEventListener('click', () => window.startScene('LevelSelectScene'));
+    document.getElementById('play-1v1-btn').addEventListener('click', () => window.startScene('Game1v1Scene'));
     document.getElementById('saves-btn').addEventListener('click', () => window.startScene('ShopScene'));
     document.getElementById('leaderboard-btn').addEventListener('click', () => window.startScene('LeaderboardScene'));
     document.getElementById('settings-btn').addEventListener('click', () => window.startScene('SettingsScene'));
@@ -740,6 +749,8 @@
 
       if (window.currentActiveScene === 'GameScene') {
         window.startScene('LevelSelectScene');
+      } else if (window.currentActiveScene === 'Game1v1Scene') {
+        window.showHomeScreen();
       } else if (
         window.currentActiveScene === 'LevelSelectScene' ||
         window.currentActiveScene === 'ShopScene' ||

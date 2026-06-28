@@ -30,6 +30,10 @@ window.MortarManager = {
   },
 
   unregisterMortar(mortarObj) {
+    if (mortarObj && mortarObj._weaponTimer) {
+      try { mortarObj._weaponTimer.destroy(); } catch (e) {}
+      mortarObj._weaponTimer = null;
+    }
     this._mortars = this._mortars.filter(m => m !== mortarObj);
   },
 
@@ -39,60 +43,10 @@ window.MortarManager = {
   startShooting() {
     for (const mortar of this._mortars) {
       if (!mortar.active || mortar._dying) continue;
-      this._shootBarrage(mortar);
+      if (typeof mortar.activate === 'function') {
+        mortar.activate(window.GameLogic.player);
+      }
     }
-  },
-
-  _shootBarrage(mortar) {
-    const cfg = window.ObjectConfig.internalTypes.mortar;
-    const count = cfg.barrageCount || 30;
-    const spread = cfg.accuracySpread || 15;
-    const bombType = cfg.bomb || 'bomb';
-
-    const target = window.GameLogic.player;
-    if (!target || !target.active) return;
-
-    let fired = 0;
-    const fireInterval = this.scene.time.addEvent({
-      delay: 50,
-      callback: () => {
-        if (!mortar.active || mortar._dying) {
-          fireInterval.remove();
-          return;
-        }
-
-        // Re-target each shot at the player's CURRENT position
-        const curTarget = window.GameLogic.player;
-        if (!curTarget || !curTarget.active) {
-          fired++;
-          if (fired >= count) fireInterval.remove();
-          return;
-        }
-
-        const { x: spawnX, y: spawnY } = window.GameLogicHelper.getSafeSpawnPosition(mortar, curTarget, 0.8);
-        const dx = curTarget.x - spawnX;
-        const dy = curTarget.y - spawnY;
-
-        window.GameLogicHelper.fireHighArcBomb(this.scene, {
-          bombType,
-          spawnX,
-          spawnY,
-          dx,
-          dy,
-          target: curTarget,
-          owner: mortar,
-          spreadAngleDeg: spread,
-          speedSpreadRatio: 0.15,
-          minAngleDeg: 75
-        });
-
-        fired++;
-        if (fired >= count) {
-          fireInterval.remove();
-        }
-      },
-      loop: true
-    });
   },
 
 

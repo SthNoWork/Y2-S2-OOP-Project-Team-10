@@ -1,120 +1,204 @@
 // factories/objectFactory.js
 // Creates all game objects (placeables, level objects, internal engine objects).
-// Pure creation logic only — helper functions live in objectFactory.helpers.js.
+// Restructured using the Gang of Four (GoF) Factory Method & Template Method patterns.
 
-window.ObjectFactory = {};
+class BaseObjectCreator {
+  create(scene, type, x, y, arena, options = {}) {
+    const cfg = this.getConfig(type, options);
+    if (!cfg) {
+      console.error(`ObjectCreator: unknown type "${type}"`);
+      return null;
+    }
 
+    const { spawnX, spawnY } = this.resolveSpawnLocation(x, y, options);
 
-// ── Placeable buildings (player-placed) ───────────────────────────────────────
+    // Save configuration states that might be modified during visual building
+    this.preVisualBuild(cfg, type, options);
 
-// Creates a building the player can drag and drop, registers it with GameLogic.
-window.ObjectFactory.createPlaceable = function (scene, type, x, y, arena, options = {}) {
-  const cfg = window.ObjectConfig.placeableTypes[type];
-  if (!cfg) { console.error(`ObjectFactory.createPlaceable: unknown type "${type}"`); return null; }
+    const dims = _computeSize(scene, cfg);
+    if (!dims) return null;
 
-  const dims = _computeSize(scene, cfg);
-  if (!dims) return null;
+    const { bodyW, bodyH, scaleX, scaleY } = dims;
+    const obj = _buildVisual(scene, cfg, spawnX, spawnY, bodyW, bodyH, scaleX, scaleY);
+    obj._bodyW = bodyW;
+    obj._bodyH = bodyH;
 
-  const { bodyW, bodyH, scaleX, scaleY } = dims;
-  const obj = _buildVisual(scene, cfg, x, y, bodyW, bodyH, scaleX, scaleY);
-  obj._bodyW = bodyW;
-  obj._bodyH = bodyH;
+    this.postVisualBuild(cfg, type, options);
 
-  _addPhysics(scene, obj, cfg, bodyW, bodyH, dims);
-  _addHealth(obj, cfg);
-  _attachPlaceableProps(obj, type, cfg, x, y, options);
+    if (this.shouldAttachPhysics(cfg)) {
+      _addPhysics(scene, obj, cfg, bodyW, bodyH, dims);
+    }
 
-  if (window.GameLogic?.addBuilding) window.GameLogic.addBuilding(obj);
-  return obj;
-};
+    if (this.shouldAttachHealth(cfg)) {
+      _addHealth(obj, cfg);
+    }
 
-// Stamps all drag-and-drop metadata onto a placeable object.
-function _attachPlaceableProps(obj, type, cfg, x, y, options) {
-  obj.setInteractive({ useHandCursor: true });
-  obj.objectType = type;
-  obj.buildingType = type;
-  obj.buildingConfig = cfg;
-  obj.isBuilding = true;
-  obj.isDragging = false;
-  obj.spawnedFromInventory = !!options.fromInventory;
-  obj._dragOrigin = { x, y };
-  obj._ghostRemoved = false;
-}
+    this.decorateProperties(obj, type, cfg, options);
 
+    _addWeaponCapabilities(obj, cfg);
+    if (type.includes('trampoline')) _setupTrampolineCapabilities(obj, cfg);
 
-// ── Level-placed objects (pre-placed by the level designer) ───────────────────
+    this.register(obj);
 
-// Creates an object defined in levelTypes (e.g. bomb_crate), registers it with GameLogic.
-window.ObjectFactory.createLevelObject = function (scene, type, x, y, arena) {
-  const cfg = window.ObjectConfig.levelTypes[type] || window.ObjectConfig.internalTypes[type];
-  if (!cfg) { console.error(`ObjectFactory.createLevelObject: unknown type "${type}"`); return null; }
-
-  const dims = _computeSize(scene, cfg);
-  if (!dims) return null;
-
-  const { bodyW, bodyH, scaleX, scaleY } = dims;
-  const obj = _buildVisual(scene, cfg, x, y, bodyW, bodyH, scaleX, scaleY);
-  obj._bodyW = bodyW;
-  obj._bodyH = bodyH;
-
-  if (cfg.physics) _addPhysics(scene, obj, cfg, bodyW, bodyH, dims);
-  if (cfg.health !== undefined) _addHealth(obj, cfg);
-
-  obj.objectType = type;
-  obj.buildingConfig = cfg;
-  obj.isLevelObject = true;
-
-  if (window.GameLogic?.addBuilding) window.GameLogic.addBuilding(obj);
-  return obj;
-};
-
-
-// ── Internal engine objects (plane, bomb, player) ─────────────────────────────
-
-// Creates an object defined in internalTypes.
-// Accepts an optional spawnLocation override via options.
-// For player, accepts skinKey to override the default player image.
-window.ObjectFactory.createInternal = function (scene, type, x, y, arena, options = {}) {
-  const cfg = window.ObjectConfig.internalTypes[type];
-  if (!cfg) { console.error(`ObjectFactory.createInternal: unknown type "${type}"`); return null; }
-
-  const spawnX = options.spawnLocation?.x ?? x;
-  const spawnY = options.spawnLocation?.y ?? y;
-
-  // For player, override the imageKey with the equipped skin if provided
-  const originalImageKey = cfg.imageKey;
-  if (type === 'player' && options.skinKey) {
-    cfg.imageKey = options.skinKey;
-  } else if (cfg.spriteKey && !cfg.imageKey) {
-    cfg.imageKey = cfg.spriteKey;
+    return obj;
   }
 
-  const dims = _computeSize(scene, cfg);
-  if (!dims) return null;
+  getConfig(type, options) {
+    return null;
+  }
 
-  const { bodyW, bodyH, scaleX, scaleY } = dims;
-  const obj = _buildVisual(scene, cfg, spawnX, spawnY, bodyW, bodyH, scaleX, scaleY);
-  obj._bodyW = bodyW;
-  obj._bodyH = bodyH;
+  resolveSpawnLocation(x, y, options) {
+    return { spawnX: x, spawnY: y };
+  }
 
-  // Restore original imageKey
-  cfg.imageKey = originalImageKey;
+  preVisualBuild(cfg, type, options) {}
+  postVisualBuild(cfg, type, options) {}
 
-  if (cfg.physics) _addPhysics(scene, obj, cfg, bodyW, bodyH, dims);
-  if (cfg.health !== undefined) _addHealth(obj, cfg);
+  shouldAttachPhysics(cfg) {
+    return !!cfg.physics;
+  }
 
-  obj.objectType = type;
-  if (type === 'bomb' || type === 'smallBomb' || cfg.physics?.label === 'bomb') obj.isBomb = true;
+  shouldAttachHealth(cfg) {
+    return cfg.health !== undefined;
+  }
 
-  return obj;
-};
+  decorateProperties(obj, type, cfg, options) {
+    obj.objectType = type;
+  }
 
+  register(obj) {
+    if (window.GameLogic?.addBuilding) window.GameLogic.addBuilding(obj);
+  }
+}
 
+class PlaceableCreator extends BaseObjectCreator {
+  getConfig(type, options) {
+    return window.ObjectConfig.placeableTypes[type];
+  }
+
+  decorateProperties(obj, type, cfg, options) {
+    obj.setInteractive({ useHandCursor: true });
+    obj.objectType = type;
+    obj.buildingType = type;
+    obj.buildingConfig = cfg;
+    obj.isBuilding = true;
+    obj.isDragging = false;
+    obj.spawnedFromInventory = !!options.fromInventory;
+    obj._dragOrigin = { x: obj.x, y: obj.y };
+    obj._ghostRemoved = false;
+  }
+}
+
+class LevelObjectCreator extends BaseObjectCreator {
+  getConfig(type, options) {
+    return window.ObjectConfig.levelTypes[type] || window.ObjectConfig.internalTypes[type];
+  }
+
+  decorateProperties(obj, type, cfg, options) {
+    obj.objectType = type;
+    obj.buildingConfig = cfg;
+    obj.isLevelObject = true;
+  }
+}
+
+class InternalObjectCreator extends BaseObjectCreator {
+  getConfig(type, options) {
+    return window.ObjectConfig.internalTypes[type];
+  }
+
+  resolveSpawnLocation(x, y, options) {
+    const spawnX = options.spawnLocation?.x ?? x;
+    const spawnY = options.spawnLocation?.y ?? y;
+    return { spawnX, spawnY };
+  }
+
+  preVisualBuild(cfg, type, options) {
+    this.originalImageKey = cfg.imageKey;
+    if (type === 'player' && options.skinKey) {
+      cfg.imageKey = options.skinKey;
+    } else if (cfg.spriteKey && !cfg.imageKey) {
+      cfg.imageKey = cfg.spriteKey;
+    }
+  }
+
+  postVisualBuild(cfg, type, options) {
+    if (this.originalImageKey !== undefined) {
+      cfg.imageKey = this.originalImageKey;
+    }
+  }
+
+  decorateProperties(obj, type, cfg, options) {
+    obj.objectType = type;
+    if (type === 'bomb' || type === 'smallBomb' || cfg.physics?.label === 'bomb') {
+      obj.isBomb = true;
+    }
+    if (type === 'plane') {
+      _setupPlaneCapabilities(obj, cfg);
+    }
+  }
+
+  register(obj) {
+    // Internal engine objects (bombs, plane, player) are not managed directly under buildings list
+  }
+}
+
+const placeableCreator = new PlaceableCreator();
+const levelObjectCreator = new LevelObjectCreator();
+const internalObjectCreator = new InternalObjectCreator();
+
+window.ObjectFactory = {
+  createPlaceable(scene, type, x, y, arena, options = {}) {
+    return placeableCreator.create(scene, type, x, y, arena, options);
+  },
+
+  createLevelObject(scene, type, x, y, arena, options = {}) {
+    return levelObjectCreator.create(scene, type, x, y, arena, options);
+  },
+
+  createInternal(scene, type, x, y, arena, options = {}) {
+    return internalObjectCreator.create(scene, type, x, y, arena, options);
+  },
+}
 // ── Destruction ───────────────────────────────────────────────────────────────
 
 window.ObjectFactory.destroy = function (obj) {
   if (!obj?.active) return;
+  if (obj._weaponTimer) {
+    try { obj._weaponTimer.destroy(); } catch (e) {}
+    obj._weaponTimer = null;
+  }
+  if (obj.objectType === 'plane') {
+    if (obj._updateHandler && obj.scene) {
+      try { obj.scene.events.off('update', obj._updateHandler); } catch (e) {}
+    }
+    if (obj._bombTimerEvent) {
+      try { obj._bombTimerEvent.destroy(); } catch (e) {}
+      obj._bombTimerEvent = null;
+    }
+    if (obj._blade?.active) {
+      try { obj._blade.destroy(); } catch (e) {}
+      obj._blade = null;
+    }
+  }
   window.ObjectFactory.destroyDebugLabel(obj);
+
+  // Clean up constraints attached to this body
+  if (obj.body && obj.body._constraints) {
+    for (const c of obj.body._constraints) {
+      try {
+        if (obj.scene && obj.scene.matter?.world) {
+          obj.scene.matter.world.removeConstraint(c);
+        }
+      } catch (e) {}
+      // Also clean references from the other body
+      const other = c.bodyA === obj.body ? c.bodyB : c.bodyA;
+      if (other && other._constraints) {
+        other._constraints = other._constraints.filter(x => x !== c);
+      }
+    }
+    obj.body._constraints = [];
+  }
+
   try { obj.destroy(); } catch (e) { }
 };
 

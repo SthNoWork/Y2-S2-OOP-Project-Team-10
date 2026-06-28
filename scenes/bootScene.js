@@ -8,13 +8,24 @@ class BootScene extends Phaser.Scene {
 
   preload() {
     window.SpriteFactory.preloadAll(this);
+
+    this.load.on('progress', (value) => {
+      const bar = document.getElementById('startup-progress-bar');
+      if (bar) {
+        bar.style.width = `${Math.round(value * 100)}%`;
+      }
+    });
   }
 
   create() {
     window.SpriteFactory.buildAll(this);
 
-    const nextScene = window._bootTarget ?? 'GameScene';
-    window._bootTarget = null;
-    this.scene.start(nextScene);
+    if (window._bootTarget) {
+      const target = window._bootTarget;
+      window._bootTarget = null;
+      this.scene.start(target);
+    } else if (window.finishStartup) {
+      window.finishStartup();
+    }
   }
 }

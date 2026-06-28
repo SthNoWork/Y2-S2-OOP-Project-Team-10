@@ -28,6 +28,8 @@ window.PowerUpManager = {
   _shieldBubble:   null,
   _pickerElements: [],
   _pickerHovered:  false,
+  _cycleBg:    null,
+  _cycleText:  null,
 
 
   // ── Public API ────────────────────────────────────────────────────────────
@@ -51,13 +53,15 @@ window.PowerUpManager = {
   },
 
   _destroyButton() {
-    [this._bgRect, this._iconSprite, this._labelText, this._coolText].forEach(o => {
+    [this._bgRect, this._iconSprite, this._labelText, this._coolText, this._cycleBg, this._cycleText].forEach(o => {
       try { if (o?.active) o.destroy(); } catch (_) {}
     });
     this._bgRect     = null;
     this._iconSprite = null;
     this._labelText  = null;
     this._coolText   = null;
+    this._cycleBg    = null;
+    this._cycleText  = null;
 
     this._hideSkillPicker();
 
@@ -87,9 +91,9 @@ window.PowerUpManager = {
 
   // ── Background panel ──
   this._bgRect = this._scene.add
-    .rectangle(cx, cy, BTN_W, BTN_H, 0x0d1f0d, 0.92)
+    .rectangle(cx, cy, BTN_W, BTN_H, this._used ? 0x1a1a1a : 0x0d1f0d, 0.92)
     .setDepth(DEPTH)
-    .setStrokeStyle(2, 0x44ff88, 0.9);
+    .setStrokeStyle(2, this._used ? 0x444444 : 0x44ff88, 0.9);
 
   // ── Icon ──
   let iconFrame = 'Heal';
@@ -102,10 +106,14 @@ window.PowerUpManager = {
     .setScale(3.2)
     .setDepth(DEPTH + 1);
 
+  if (this._used) {
+    this._iconSprite.setTint(0x555555);
+  }
+
   this._labelText = this._scene.add.text(cx, cy + 38, label, {
     fontFamily: 'Arial Black, Arial, sans-serif',
     fontSize: '17px',
-    fill: '#44ff88',
+    fill: this._used ? '#555555' : '#44ff88',
   }).setOrigin(0.5).setDepth(DEPTH + 1);
 
   this._coolText = this._scene.add.text(cx, cy, 'USED', {
@@ -114,33 +122,53 @@ window.PowerUpManager = {
     fill: '#ff4444',
     stroke: '#000000',
     strokeThickness: 3,
-  }).setOrigin(0.5).setDepth(DEPTH + 2).setVisible(false);
+  }).setOrigin(0.5).setDepth(DEPTH + 2).setVisible(this._used);
 
   // ── Hit area ──
   const hit = this._scene.add
     .rectangle(cx, cy, BTN_W, BTN_H, 0x000000, 0)
     .setDepth(DEPTH + 3)
-    .setInteractive({ useHandCursor: true });
+    .setInteractive({ useHandCursor: !this._used });
 
   hit.on('pointerover', () => {
     this._onHover(true);
-    if (!this._used) this._showSkillPicker(cx, cy, DEPTH);
   });
   hit.on('pointerout', () => {
     this._onHover(false);
-    if (!this._used) {
-      this._scene.time.delayedCall(200, () => {
-        if (!this._pickerHovered) this._hideSkillPicker();
-      });
-    }
   });
   hit.on('pointerdown', () => this._onPress());
+
+  // ── Cycle Button ──
+  const cycleW = 100;
+  const cycleH = 44;
+  this._cycleBg = this._scene.add
+    .rectangle(cx, cy - BTN_H / 2 - 28, cycleW, cycleH, this._used ? 0x1a1a1a : 0x0a1f3d, 0.92)
+    .setDepth(DEPTH)
+    .setStrokeStyle(2, this._used ? 0x444444 : 0x4488ff, 0.9);
+
+  this._cycleText = this._scene.add.text(cx, cy - BTN_H / 2 - 28, 'CYCLE 🔄', {
+    fontFamily: 'Arial Black, Arial, sans-serif',
+    fontSize: '14px',
+    fill: this._used ? '#555555' : '#4488ff',
+  }).setOrigin(0.5).setDepth(DEPTH + 1);
+
+  const cycleHit = this._scene.add
+    .rectangle(cx, cy - BTN_H / 2 - 28, cycleW, cycleH, 0x000000, 0)
+    .setDepth(DEPTH + 3)
+    .setInteractive({ useHandCursor: !this._used });
+
+  cycleHit.on('pointerover', () => {
+    if (!this._used) this._cycleBg.setFillStyle(0x1a3a5a, 0.92);
+  });
+  cycleHit.on('pointerout', () => {
+    if (!this._used) this._cycleBg.setFillStyle(0x0a1f3d, 0.92);
+  });
+  cycleHit.on('pointerdown', () => {
+    if (!this._used) this.cyclePowerUp();
+  });
 },
 
 // ── Skill picker popup ────────────────────────────────────────────────────
-
-_pickerElements: [],
-_pickerHovered: false,
 
 _showSkillPicker(btnCx, btnCy, DEPTH) {
   if (this._pickerElements.length > 0) return; // already showing
@@ -427,6 +455,64 @@ _hideSkillPicker() {
     this._iconSprite?.setTint(0x555555);
     this._labelText?.setStyle({ fill: '#555555' });
     this._coolText?.setVisible(true);
+
+    // Dim cycle button as well.
+    this._cycleBg?.setFillStyle(0x1a1a1a, 0.85).setStrokeStyle(2, 0x444444, 0.6);
+    this._cycleText?.setStyle({ fill: '#555555' });
+  },
+
+  cyclePowerUp() {
+    if (this._used) return;
+
+    // Get purchased powers
+    const purchased = window.GameData?.getActiveScores()?.purchased_powers || [];
+    
+    // All possible powers in order
+    const skills = [
+      { id: 'power_heal' },
+      { id: 'power_double_item' },
+      { id: 'power_shield_5s' }
+    ];
+
+    // Filter to only owned powers (heal is always owned)
+    const owned = skills.filter(s => s.id === 'power_heal' || purchased.includes(s.id));
+    if (owned.length <= 1) {
+      const player = window.GameLogic?.player;
+      if (player) {
+        this._showFloatingText(player, 'NO OTHER POWERUPS');
+      }
+      return;
+    }
+
+    // Find index of current power
+    const currentId = this._equippedPower || 'power_heal';
+    let idx = owned.findIndex(s => s.id === currentId);
+    if (idx === -1) idx = 0;
+
+    // Get next power
+    const nextIdx = (idx + 1) % owned.length;
+    const nextPower = owned[nextIdx].id;
+
+    // Equip it
+    window.GameData.setEquippedPower(nextPower);
+    this._equippedPower = nextPower;
+
+    // Sync to Firebase in background
+    if (window.FirebaseAuth?.currentUser) {
+      const scores = window.GameData.getActiveScores();
+      window.FirebaseStore?.recordPurchase?.(
+        window.FirebaseAuth.currentUser.uid,
+        scores.total_score || 0,
+        scores.purchased_skins || [],
+        scores.equipped_skin || 'skin_1',
+        scores.purchased_powers || [],
+        nextPower
+      ).catch(e => console.warn('Failed to sync equipped power', e));
+    }
+
+    // Rebuild button to show new power
+    this._destroyButton();
+    this._createButton();
   },
 
 

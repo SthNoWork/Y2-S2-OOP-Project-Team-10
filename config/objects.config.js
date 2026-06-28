@@ -5,8 +5,8 @@
 window.ObjectConfig = {
 
   // Global friction multipliers (scales kinetic and static friction of objects)
-  globalFrictionMultiplier: 3.0,
-  globalStaticFrictionMultiplier: 3.0,
+  globalFrictionMultiplier: 10.0,
+  globalStaticFrictionMultiplier: 30.0,
 
   // ── Placeable buildings (player places these before a wave) ──────────────
   placeableTypes: {
@@ -18,6 +18,33 @@ window.ObjectConfig = {
       imageKey: 'block_atlas', startFrame: 'brown_wood',
       physics: { friction: 0.8, restitution: 0.2, frictionAir: 0.01, label: 'building', mass: 8 },
       health: 30, onDeath: 'remove', maxCount: 5,
+    },
+
+    longPlank: {
+      name: 'Long Plank',
+      scaleX: 14,
+      scaleY: 3,
+      imageKey: 'block_atlas', startFrame: 'brown_wood',
+      physics: { friction: 0.8, restitution: 0.2, frictionAir: 0.01, label: 'building', mass: 12 },
+      health: 40, onDeath: 'remove', maxCount: 5,
+    },
+
+    pillar: {
+      name: 'Pillar',
+      scaleX: 3,
+      scaleY: 14,
+      imageKey: 'block_atlas', startFrame: 'brown_wood',
+      physics: { friction: 0.8, restitution: 0.2, frictionAir: 0.01, label: 'building', mass: 12 },
+      health: 50, onDeath: 'remove', maxCount: 4,
+    },
+
+    cube: {
+      name: 'Cube',
+      scaleX: 6,
+      scaleY: 6,
+      imageKey: 'block_atlas', startFrame: 'brown_wood',
+      physics: { friction: 0.8, restitution: 0.2, frictionAir: 0.01, label: 'building', mass: 8 },
+      health: 35, onDeath: 'remove', maxCount: 5,
     },
 
     thickPlank: {
@@ -161,34 +188,135 @@ window.ObjectConfig = {
       health: 200, onDeath: 'remove', maxCount: 2,
     },
 
-    // ── Explosive ────────────────────────────────────────────────────────────
 
-    tnt: {
-      scale: 7,
-      imageKey: 'block_atlas', startFrame: 'tnt',
-      physics: { friction: 0.8, restitution: 0.1, frictionAir: 0.01, label: 'building', mass: 12 },
-      health: 20, onDeath: 'explode',
-      explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 2, blastScale: 1.2 },
-      blastForce: 80,
-      blastMaxDamage: 90,
-      maxCount: 2,
-    },
 
     // ── Trampoline / Bounce Board ────────────────────────────────────────────
     // Flat board that bounces bombs upward.
     // Has normal physics so it can be knocked around.  Configurable: bounceForce, bounceVelocityCap.
     trampoline: {
-      scale: 0.3,                          // tune this to fit your arena
+      scaleX: 0.9,
+      scaleY: 0.24,
       imageKey: 'spring_atlas',
       startFrame: 'spring1',               // resting frame           
       physics: {
-        friction: 0.3, restitution: 0.0, frictionAir: 0.01, label: 'trampoline', mass: 10,
+        friction: 0.9, restitution: 0.0, frictionAir: 0.01, label: 'trampoline', mass: 10,
         collisionFilter: { category: 0x0008, mask: 0x0001 | 0x0002 | 0x0004 },
       },
-      bounceForce: 28,
-      bounceVelocityCap: 30,
-      health: -1, onDeath: 'none',
+      bounceForce: 45,
+      bounceVelocityCap: 45,
+      health: 30, onDeath: 'explode',
+      explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 1.2, blastScale: 0.6 },
+      maxBounces: 8,
+    },
+
+    trampoline1v1: {
+      name: 'Trampoline',
+      scaleX: 0.9,
+      scaleY: 0.24,
+      imageKey: 'spring_atlas',
+      startFrame: 'spring1',
+      physics: {
+        friction: 0.9, restitution: 0.0, frictionAir: 0.01, label: 'trampoline', mass: 10,
+        collisionFilter: { category: 0x0008, mask: 0x0001 | 0x0002 | 0x0004 },
+      },
+      bounceForce: 75,                     // Much stronger bounce force for 1v1 action
+      bounceVelocityCap: 65,
+      health: 30, onDeath: 'explode',
+      explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 1.2, blastScale: 0.6 },
+      maxBounces: 8,
       maxCount: 3,
+    },
+
+    pillbox1v1: {
+      name: 'Pillbox',
+      useGraphics: true,
+      graphicsType: 'pillbox',
+      scale: 1.0,
+      collisionSize: { width: 120, height: 80 },
+      physics: {
+        isStatic: true,
+        friction: 1.0, restitution: 0.0, frictionAir: 0.01,
+        label: 'building', mass: 100,
+        collisionFilter: { category: 0x0008, mask: 0x0001 | 0x0002 | 0x0004 | 0x0008 | 0x0010 | 0x0020 },
+      },
+      health: 80, onDeath: 'explode',
+      explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 2, blastScale: 1.0 },
+      blastForce: 100,
+      blastMaxDamage: 40,
+      maxCount: 2,
+      weapon: {
+        bomb: 'smallBomb',
+        fireRateMs: 2500,
+        spreadAngleDeg: 4,
+        speedSpreadRatio: 0.1,
+        minAngleDeg: 55,
+        initialDelayMs: 1000,
+        randomDelayMs: 500,
+        ammo: 4,
+      },
+    },
+
+    mortar1v1: {
+      name: 'Mortar',
+      useGraphics: true,
+      graphicsType: 'mortar',
+      scale: 1.0,
+      collisionSize: { width: 50, height: 100 },
+      physics: {
+        isStatic: true,
+        friction: 1.0, restitution: 0.0, frictionAir: 0.01,
+        label: 'building', mass: 100,
+        collisionFilter: { category: 0x0008, mask: 0x0001 | 0x0002 | 0x0004 | 0x0008 | 0x0010 | 0x0020 },
+      },
+      health: 120, onDeath: 'explode',
+      explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 3, blastScale: 1.5 },
+      blastForce: 100,
+      blastMaxDamage: 60,
+      maxCount: 2,
+      weapon: {
+        bomb: 'bomb1v1',
+        fireRateMs: 6000,
+        barrageCount: 30,
+        barrageDelayMs: 250,
+        spreadAngleDeg: 0.05,
+        speedSpreadRatio: 0.05,
+        minAngleDeg: 78,
+        initialDelayMs: 2000,
+        randomDelayMs: 1000,
+        ammo: 1,
+      },
+    },
+
+    bomb1v1: {
+      scale: 2,
+      name: 'Bomb',
+      imageKey: 'plane_atlas',
+      startFrame: 'bomb_1',
+      physics: { friction: 0.8, restitution: 0.1, frictionAir: 0.01, label: 'bomb', mass: 12 },
+      health: 15, onDeath: 'explode',
+      explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 1.5, blastScale: 0.8 },
+      blastForce: 100,
+      blastMaxDamage: 50,
+      maxCount: 3,
+    },
+
+    clusterBomb1v1: {
+      scale: 2,
+      name: 'Cluster',
+      imageKey: 'plane_atlas',
+      startFrame: 'bomb_1',
+      physics: { friction: 0.8, restitution: 0.1, frictionAir: 0.01, label: 'bomb', mass: 12 },
+      health: 15, onDeath: 'explode',
+      explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 1.5, blastScale: 0.8 },
+      blastForce: 80,
+      blastMaxDamage: 30,
+      cluster: {
+        subBomb: 'clusterBomblet',
+        count: 5,
+        spreadDeg: 60,
+        speed: 180,
+      },
+      maxCount: 2,
     },
   },
 
@@ -308,6 +436,16 @@ window.ObjectConfig = {
       explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 2, blastScale: 1.0 },
       blastForce: 100,
       blastMaxDamage: 40,
+      weapon: {
+        bomb: 'smallBomb',
+        fireRateMs: 2500,
+        spreadAngleDeg: 5,
+        speedSpreadRatio: 0.15,
+        minAngleDeg: 75,
+        initialDelayMs: 400,
+        randomDelayMs: 400,
+        ammo: 4,
+      },
     },
 
     // ── Mortar enemy ─────────────────────────────────────────────────────────
@@ -331,6 +469,18 @@ window.ObjectConfig = {
       explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 3, blastScale: 1.5 },
       blastForce: 100,
       blastMaxDamage: 60,
+      weapon: {
+        bomb: 'bomb',
+        fireRateMs: 6000,
+        barrageCount: 30,
+        barrageDelayMs: 250,
+        spreadAngleDeg: 15,
+        speedSpreadRatio: 0.15,
+        minAngleDeg: 75,
+        initialDelayMs: 500,
+        randomDelayMs: 500,
+        ammo: 1,
+      },
     },
 
     plane: {

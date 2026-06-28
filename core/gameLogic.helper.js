@@ -147,7 +147,7 @@ window.GameLogicHelper = {
     minAngleDeg = 75,
     logPrefix = null
   }) {
-    const bombCfg = window.ObjectConfig.internalTypes[bombType] || window.ObjectConfig.internalTypes.bomb || window.ObjectConfig.internalTypes.smallBomb;
+    const bombCfg = window.ObjectConfig.internalTypes[bombType] || window.ObjectConfig.placeableTypes[bombType] || window.ObjectConfig.levelTypes[bombType] || window.ObjectConfig.internalTypes.bomb || window.ObjectConfig.internalTypes.smallBomb;
     
     // Resolve gravity
     const gravityObj = scene.matter?.world?.localWorld?.gravity || scene.matter?.world?.engine?.gravity;
@@ -206,6 +206,140 @@ window.GameLogicHelper = {
       x: shooter.x + Math.cos(roughAngleRad) * spawnDist,
       y: shooter.y + Math.sin(roughAngleRad) * spawnDist
     };
+  },
+
+  // Checks the physics world, visual children, and arrays to detect if any active bomb exists in the scene.
+  hasActiveBombs(scene) {
+    if (!scene) return false;
+
+    // 1. Check Matter.js physics bodies
+    if (scene.matter?.world?.localWorld?.bodies) {
+      const hasPhysicsBomb = scene.matter.world.localWorld.bodies.some(b => b && b.label === 'bomb');
+      if (hasPhysicsBomb) return true;
+    }
+
+    // 2. Check scene visual children list
+    if (scene.children?.list) {
+      const hasVisualBomb = scene.children.list.some(child => {
+        return child && child.active && (
+          child.isBomb || 
+          child.objectType === 'bomb' || 
+          child.objectType === 'smallBomb' ||
+          child.objectType === 'bomb1v1' ||
+          child.objectType === 'clusterBomb1v1'
+        );
+      });
+      if (hasVisualBomb) return true;
+    }
+
+    // 3. Check active arrays
+    if (scene.activeBombs && scene.activeBombs.some(b => b && b.active)) return true;
+    if (window.GameLogic?._activeBombs && window.GameLogic._activeBombs.some(b => b && b.active)) return true;
+
+    return false;
+  },
+
+  // Checks both placed (1v1) and level (campaign) objects to detect if any active shooting weapon still has remaining ammo.
+  anyWeaponHasAmmo(scene) {
+    if (!scene) return false;
+
+    const candidates = [];
+    if (scene.placedObjects) {
+      candidates.push(...scene.placedObjects);
+    }
+    if (window.GameLogic?.buildings) {
+      candidates.push(...window.GameLogic.buildings);
+    }
+
+    const anyHasAmmo = candidates.some(obj => {
+      if (obj && obj.active && typeof obj.activate === 'function') {
+        // If weapon is active, check if it still has ammo left
+        return !obj.isOutOfAmmo;
+      }
+      return false;
+    });
+
+    return anyHasAmmo;
+  },
+
+  // Checks if a building's physics placement is valid (no collisions with other solid objects)
+  isPlacementValid(scene, building) {
+    if (!building?.body) return true;
+
+    const Matter = Phaser.Physics.Matter.Matter;
+    const allBodies = scene.matter.world.getAllBodies() || [];
+    
+    // Filter to targets that are solid/obstacles
+    const targets = allBodies.filter(b => {
+      // Skip the building's own body and compound parts
+      if (b === building.body || b.parent === building.body) return false;
+      
+      const label = b.label || '';
+      return label === 'building' || label === 'trampoline' || label === 'platform' || label === 'player';
+    });
+
+    // Matter.js geometry overlap check (supports rotated polygons/circles accurately)
+    const collisions = Matter.Query.collides(building.body, targets);
+    return collisions.length === 0;
+  },
+
+  // Searches for the closest valid placement position if overlapping
+  findNearestValidPosition(scene, building, startX, startY) {
+    const originalX = building.x;
+    const originalY = building.y;
+    
+    const step = 8;
+    const maxSearchDist = 160;
+    const rings = Math.ceil(maxSearchDist / step);
+    const baseAngle = building.rotation; // Current angle in radians
+    
+    // Prioritized direction offsets relative to the building's current angle
+    const relAngles = [
+      -Math.PI / 2, // 1st priority: perpendicular up (out of collision)
+      Math.PI / 2,  // 2nd priority: perpendicular down
+      0,            // 3rd priority: right along face
+      Math.PI,      // 4th priority: left along face
+    ];
+    
+    // Add other diagonal/intermediate angles to cover a full circle
+    for (let j = 1; j < 8; j++) {
+      const ang = (j / 8) * Math.PI * 2;
+      // Filter out duplicate cardinal directions
+      if (Math.abs(ang - Math.PI / 2) > 0.01 && 
+          Math.abs(ang - Math.PI * 1.5) > 0.01 && 
+          Math.abs(ang - Math.PI) > 0.01 && 
+          Math.abs(ang) > 0.01) {
+        relAngles.push(ang);
+      }
+    }
+    
+    for (let r = 1; r <= rings; r++) {
+      const distance = r * step;
+      
+      for (const relAng of relAngles) {
+        const testAngle = baseAngle + relAng;
+        const testX = startX + Math.cos(testAngle) * distance;
+        const testY = startY + Math.sin(testAngle) * distance;
+        
+        if (building.body) {
+          Phaser.Physics.Matter.Matter.Body.setPosition(building.body, { x: testX, y: testY });
+        }
+        building.x = testX;
+        building.y = testY;
+        
+        if (this.isPlacementValid(scene, building)) {
+          return { x: testX, y: testY };
+        }
+      }
+    }
+    
+    // Revert position if none found
+    if (building.body) {
+      Phaser.Physics.Matter.Matter.Body.setPosition(building.body, { x: originalX, y: originalY });
+    }
+    building.x = originalX;
+    building.y = originalY;
+    return null;
   }
 
 };

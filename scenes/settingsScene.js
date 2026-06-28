@@ -144,6 +144,61 @@ class SettingsScene extends Phaser.Scene {
       }
     });
 
+    // ── Hitbox Debug Toggle ──
+    const debugRowY = 780;
+    const debugLabelX = 800;
+    const debugToggleX = 1250;
+
+    this.add.text(debugLabelX, debugRowY, 'Hitbox Debug', {
+      fontFamily: 'Arial, sans-serif',
+      fontSize:   '44px',
+      color:      '#000000',
+    }).setOrigin(1, 0.5);
+
+    const dToggleW   = 160;
+    const dToggleH   = 44;
+    const dToggleX   = debugToggleX;
+    const dToggleY   = debugRowY;
+    const dToggleL   = dToggleX - dToggleW / 2;
+    const dToggleR   = dToggleX + dToggleW / 2;
+    const dToggleRad = dToggleH / 2;
+    const dToggleG   = this.add.graphics();
+    const dToggleKnob = this.add.circle(dToggleL + dToggleRad, dToggleY, dToggleRad - 4, 0xffffff)
+      .setStrokeStyle(2, 0x1b1f26);
+
+    const renderDebugToggle = (on) => {
+      dToggleG.clear();
+      dToggleG.fillStyle(on ? 0x2ecc71 : 0x8f98a1, 1);
+      dToggleG.fillRoundedRect(dToggleL, dToggleY - dToggleH / 2, dToggleW, dToggleH, dToggleRad);
+      dToggleG.lineStyle(2, 0x000000, 0.2);
+      dToggleG.strokeRoundedRect(dToggleL, dToggleY - dToggleH / 2, dToggleW, dToggleH, dToggleRad);
+      dToggleKnob.x = on ? (dToggleR - dToggleRad) : (dToggleL + dToggleRad);
+    };
+
+    let debugOn = !!window.DEBUG;
+    renderDebugToggle(debugOn);
+
+    const dToggleHit = this.add.rectangle(dToggleX, dToggleY, dToggleW + 24, dToggleH + 18, 0x000000, 0);
+    dToggleHit.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
+      debugOn = !debugOn;
+      renderDebugToggle(debugOn);
+      window.DEBUG = debugOn;
+      try {
+        localStorage.setItem('bts_debug_mode', debugOn ? 'true' : 'false');
+      } catch (e) { }
+
+      if (this.game) {
+        this.game.scene.scenes.forEach(s => {
+          if (s.matter?.world) {
+            s.matter.world.drawDebug = debugOn;
+            if (s.matter.world.debugGraphic) {
+              s.matter.world.debugGraphic.setVisible(debugOn);
+            }
+          }
+        });
+      }
+    });
+
     const fsEvents = ['fullscreenchange','mozfullscreenchange','webkitfullscreenchange','msfullscreenchange'];
     const onFsChange = () => {
       toggleOn = isFullscreen();

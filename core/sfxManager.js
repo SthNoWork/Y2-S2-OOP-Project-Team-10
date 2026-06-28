@@ -23,15 +23,24 @@ window.SfxManager = (() => {
   const _active = window.__BTS_SFX_ACTIVE || new Set();
   window.__BTS_SFX_ACTIVE = _active;
 
+  // Cache template Audio instances to avoid network fetches and constructor overhead.
+  const _audioCache = {};
+
 
   // ── Internal helpers ──────────────────────────────────────────────────────
 
   function _makeAudio(filename) {
     try {
-      const a   = new Audio(BASE_PATH + filename);
-      a.preload = 'auto';
-      a.loop    = false;
-      a.volume  = volume;
+      const path = BASE_PATH + filename;
+      let template = _audioCache[path];
+      if (!template) {
+        template = new Audio(path);
+        template.preload = 'auto';
+        _audioCache[path] = template;
+      }
+      const a = template.cloneNode(true);
+      a.loop = false;
+      a.volume = volume;
       return a;
     } catch (e) { return null; }
   }

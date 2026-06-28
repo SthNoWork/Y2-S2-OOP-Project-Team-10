@@ -24,6 +24,19 @@ window.BuildingManager = {
     this.resetState();
     this._createInventoryButtons();
     this.setupInputHandlers();
+
+    // Rotate dragging building: 'E' for clockwise, 'Q' for counter-clockwise
+    this._onKeyDown = (e) => {
+      if (!this.draggingBuilding) return;
+      if (e.key === 'e' || e.key === 'E') {
+        this.draggingBuilding.angle += 15;
+        this.draggingBuilding._cachedBounds = this.draggingBuilding.getBounds?.() ?? null;
+      } else if (e.key === 'q' || e.key === 'Q') {
+        this.draggingBuilding.angle -= 15;
+        this.draggingBuilding._cachedBounds = this.draggingBuilding.getBounds?.() ?? null;
+      }
+    };
+    window.addEventListener('keydown', this._onKeyDown);
   },
 
   resetState() {
@@ -56,6 +69,10 @@ window.BuildingManager = {
   },
 
   _removeExistingHandlers() {
+    if (this._onKeyDown) {
+      window.removeEventListener('keydown', this._onKeyDown);
+      this._onKeyDown = null;
+    }
     if (!this._handlers || !this.scene?.input) return;
 
     try {
@@ -98,6 +115,11 @@ window.BuildingManager = {
   },
 
   onPointerDown(pointer) {
+    // Prevent dragging placed objects if we clicked on the inventory UI
+    const hits = this.scene.input.hitTestPointer(pointer) || [];
+    const hitUI = hits.some(h => this._inventoryButtons.includes(h));
+    if (hitUI) return;
+
     const hit = this._getPointerHits(pointer)
       .find((obj) => !obj.isLevelObject && (obj.isBuilding || obj.buildingConfig));
 
@@ -121,7 +143,21 @@ window.BuildingManager = {
     if (!this.draggingBuilding) return;
 
     const building = this.draggingBuilding;
-    const valid    = this.isPlacementValid(building);
+    let valid    = this.isPlacementValid(building);
+
+    if (!valid) {
+      // Try to find the closest valid non-overlapping position
+      const snapPos = this.findNearestValidPosition(building, building.x, building.y);
+      if (snapPos) {
+        valid = true;
+        if (building.body) {
+          Phaser.Physics.Matter.Matter.Body.setPosition(building.body, snapPos);
+        } else {
+          building.x = snapPos.x;
+          building.y = snapPos.y;
+        }
+      }
+    }
 
     this._setPhysicsGhost(building, false);
 
@@ -132,14 +168,35 @@ window.BuildingManager = {
     }
   },
 
+  findNearestValidPosition(building, startX, startY) {
+    return window.GameLogicHelper.findNearestValidPosition(this.scene, building, startX, startY);
+  },
+
 
   // ── Drag helpers ──────────────────────────────────────────────────────────
 
   _startDragging(obj, pointer) {
     this.draggingBuilding = obj;
     obj.isDragging        = true;
+    obj._dragOrigin       = { x: obj.x, y: obj.y }; // Store drag origin for returning if invalid
     obj._lastDragPos      = { x: pointer.x, y: pointer.y };
     obj._cachedBounds     = obj.getBounds?.() ?? null;
+
+    // Detach all constraints connected to this object when picked up
+    if (obj.body && obj.body._constraints) {
+      for (const c of obj.body._constraints) {
+        try {
+          if (this.scene.matter?.world) {
+            this.scene.matter.world.removeConstraint(c);
+          }
+        } catch (e) {}
+        const other = c.bodyA === obj.body ? c.bodyB : c.bodyA;
+        if (other && other._constraints) {
+          other._constraints = other._constraints.filter(x => x !== c);
+        }
+      }
+      obj.body._constraints = [];
+    }
 
     this._setPhysicsGhost(obj, true);
     obj.setDepth(1000);
@@ -156,14 +213,15 @@ window.BuildingManager = {
 
   _moveObjectToPointer(obj, pointer) {
     const isTouch = this.scene.sys.game.device.input.touch;
-    const offsetY = isTouch ? -120 : 0; // Floating offset above finger on touch screens
+    const offsetX = isTouch ? -90 : 0; // Floating offset to the left on touch screens
+    const offsetY = isTouch ? -100 : 0; // Floating offset above finger on touch screens
     if (obj.body) {
       Phaser.Physics.Matter.Matter.Body.setPosition(obj.body, {
-        x: pointer.x,
+        x: pointer.x + offsetX,
         y: pointer.y + offsetY,
       });
     } else {
-      obj.x = pointer.x;
+      obj.x = pointer.x + offsetX;
       obj.y = pointer.y + offsetY;
     }
   },
@@ -236,21 +294,8 @@ window.BuildingManager = {
     }
   },
 
-  // Returns true when the building's footprint doesn't overlap any other body.
   isPlacementValid(building) {
-    if (!building?.body) return true;
-
-    const bounds = building._cachedBounds ?? building.getBounds?.() ?? null;
-    if (!bounds) return false;
-
-    const bodies = this.scene.matter.intersectRect(
-      bounds.x, bounds.y, bounds.width, bounds.height
-    ) || [];
-
-    return bodies.every((body) => {
-      const obj = body?.gameObject;
-      return !obj || obj === building;
-    });
+    return window.GameLogicHelper.isPlacementValid(this.scene, building);
   },
 
   _getPointerHits(pointer) {
@@ -262,18 +307,20 @@ window.BuildingManager = {
   // ── Inventory UI ──────────────────────────────────────────────────────────
 
   _createInventoryButtons() {
-    const { ARENA_X, ARENA_Y, ARENA_H } = this.arena;
+    const { ARENA_X, ARENA_Y } = this.arena;
 
-    const buttonY   = ARENA_Y + ARENA_H - 173; // Shifted 10% higher (108px) to avoid mobile swipe triggers
-    const buttonW   = 220;
-    const buttonH   = 44;
+    const buttonW   = 110;
+    const buttonH   = 110;
     const gap       = 18;
-    const spacing   = buttonW + gap;
-    let x           = ARENA_X + 38 + buttonW / 2;
+    const spacing   = buttonH + gap;
+    
+    // Position on the left edge of the arena
+    const x         = ARENA_X + 24 + buttonW / 2;
+    let y           = ARENA_Y + 120 + buttonH / 2;
 
     this._getAllowedBuildingTypes().forEach((type) => {
-      this._createInventoryButton(x, buttonY, type, buttonW, buttonH);
-      x += spacing;
+      this._createInventoryButton(x, y, type, buttonW, buttonH);
+      y += spacing;
     });
   },
 
@@ -281,24 +328,52 @@ window.BuildingManager = {
     const cfg = window.ObjectConfig.placeableTypes[type];
     if (!cfg) return null;
 
-    const color = cfg.color ?? 0x4a4a4a;
-    const bg    = this.scene.add.rectangle(x, y, buttonW, buttonH, color, 1);
-    const label = this.scene.add.text(x, y, this._formatInventoryLabel(type), {
-      fontSize: '27px',
-      fill: '#fff',
-    });
+    const count = this._getRemainingCount(type);
+    const initialAlpha = count <= 0 ? 0.35 : 1.0;
 
+    // Card background
+    const bg = this.scene.add.rectangle(x, y, buttonW, buttonH, 0x0a1825, 0.95)
+      .setDepth(1999)
+      .setStrokeStyle(2, 0x00aaff, 0.8)
+      .setAlpha(initialAlpha);
+
+    // Preview Sprite
+    const previewSprite = this.scene.add.sprite(x, y - 12, cfg.imageKey, cfg.startFrame)
+      .setDepth(2000)
+      .setAlpha(initialAlpha);
+
+    const maxDim = 50;
+    const scaleFactor = Math.min(maxDim / previewSprite.width, maxDim / previewSprite.height);
+    previewSprite.setScale(scaleFactor);
+
+    // Name label
+    const nameLabel = this.scene.add.text(x, y + 32, type, {
+      fontSize: '13px',
+      fontFamily: 'Arial Black, Arial, sans-serif',
+      fill: '#88aabb',
+    }).setOrigin(0.5).setDepth(2000).setAlpha(initialAlpha);
+
+    // Count badge/text
+    const countText = this.scene.add.text(x + buttonW / 2 - 8, y - buttonH / 2 + 8, `${count}`, {
+      fontSize: '16px',
+      fontFamily: 'Arial Black, Arial, sans-serif',
+      fill: '#44ff88',
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(1, 0).setDepth(2001).setAlpha(initialAlpha);
+
+    // Make interactive
     bg.setInteractive({ useHandCursor: true });
-    label.setInteractive({ useHandCursor: true });
-    bg.setDepth(1999);
-    label.setDepth(2000);
-    label.setOrigin(0.5);
+    previewSprite.setInteractive({ useHandCursor: true });
+    nameLabel.setInteractive({ useHandCursor: true });
+    countText.setInteractive({ useHandCursor: true });
+
+    // Store references on countText so we can dim everything easily
+    countText._buttonComponents = [bg, previewSprite, nameLabel, countText];
 
     const onSelect = (pointer) => {
       if (this._getRemainingCount(type) <= 0) return;
-      // Spawn at the pointer's current coordinate and move immediately with vertical offset
       const b = this._createBuilding(type, pointer.x, pointer.y, { fromInventory: true });
-
       if (b) {
         this.draggingBuilding = b;
         b.isDragging = true;
@@ -309,11 +384,28 @@ window.BuildingManager = {
     };
 
     bg.on('pointerdown', onSelect);
-    label.on('pointerdown', onSelect);
+    previewSprite.on('pointerdown', onSelect);
+    nameLabel.on('pointerdown', onSelect);
+    countText.on('pointerdown', onSelect);
 
-    this._inventoryButtons.push(bg, label);
-    this._inventoryButtonsByType[type] = label;
-    return label;
+    // Hover effects
+    const onHover = (over) => {
+      if (this._getRemainingCount(type) <= 0) return;
+      bg.setStrokeStyle(2, over ? 0x44ff88 : 0x00aaff, 1);
+      bg.setFillStyle(over ? 0x14283c : 0x0a1825, 0.95);
+    };
+    bg.on('pointerover', () => onHover(true));
+    bg.on('pointerout', () => onHover(false));
+    previewSprite.on('pointerover', () => onHover(true));
+    previewSprite.on('pointerout', () => onHover(false));
+    nameLabel.on('pointerover', () => onHover(true));
+    nameLabel.on('pointerout', () => onHover(false));
+    countText.on('pointerover', () => onHover(true));
+    countText.on('pointerout', () => onHover(false));
+
+    this._inventoryButtons.push(bg, previewSprite, nameLabel, countText);
+    this._inventoryButtonsByType[type] = countText;
+    return countText;
   },
 
   _getAllowedBuildingTypes() {
@@ -331,13 +423,20 @@ window.BuildingManager = {
   },
 
   _formatInventoryLabel(type) {
-    return `${type} x${this._getRemainingCount(type)}`;
+    return `${this._getRemainingCount(type)}`;
   },
 
   _refreshInventoryLabel(type) {
     const label = this._inventoryButtonsByType[type];
     if (!label) return;
-    label.setText(this._formatInventoryLabel(type));
+    const count = this._getRemainingCount(type);
+    label.setText(`${count}`);
+
+    const components = label._buttonComponents || [];
+    const alpha = count <= 0 ? 0.35 : 1.0;
+    components.forEach(c => {
+      if (c?.active) c.setAlpha(alpha);
+    });
   },
 
 
