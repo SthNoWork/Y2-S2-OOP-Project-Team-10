@@ -462,6 +462,13 @@ function _setupPlaneCapabilities(obj, cfg) {
       const bomb = window.spawnBomb(scene, bombTypeKey, spawnX, spawnY, 90, null, this);
       if (bomb) {
         bomb.setPosition(bomb.x, this.y + planeHalfH + bomb.displayHeight * 0.5);
+        if (bomb.body) {
+          const planeVx = (speed * direction) / 60;
+          Phaser.Physics.Matter.Matter.Body.setVelocity(bomb.body, {
+            x: bomb.body.velocity.x + planeVx,
+            y: bomb.body.velocity.y
+          });
+        }
       }
 
       const nextDelay = (min + Math.random() * Math.max(0, max - min)) * 1000;
@@ -574,11 +581,17 @@ function _setupTrampolineCapabilities(obj, cfg) {
       } else {
         // Trigger onDeath: explode command if config calls for it in 1v1 or otherwise
         if (cfg.onDeath === 'explode' && cfg.explosion && this.scene) {
-          const cmd = new window.ExplosionCommand(this.scene);
-          cmd.execute(this.x, this.y, cfg.explosion, {
-            blastForce: cfg.blastForce || 100,
-            maxDamage: cfg.blastMaxDamage || 50
+          const cmd = new window.ExplosionCommand(this.scene, {
+            x: this.x,
+            y: this.y,
+            explosiveCfg: {
+              explosion: cfg.explosion,
+              blastForce: cfg.blastForce || 100,
+              blastMaxDamage: cfg.blastMaxDamage || 50
+            },
+            sourceBomb: this
           });
+          cmd.execute();
         }
         
         // Remove from placedObjects list in 1v1Scene if present

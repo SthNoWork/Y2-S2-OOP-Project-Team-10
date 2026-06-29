@@ -252,7 +252,7 @@ class ExplosionCommand {
       } else if (typeof go.takeDamage === 'function') {
         const died = go.takeDamage(damage);
         if (died) {
-          if (window.GameLogic) {
+          if (window.GameLogic && window.GameLogic.scene === this.scene) {
             if (go.objectType === 'plane' && sourceBomb && sourceBomb.owner === window.GameLogic.player) {
               try { window.LevelManager?.addAirSuperiorityBonus?.(500); } catch (e) { }
               try { window.UIFactory?.showFloatingText?.(this.scene, go.x, go.y, 'Air Superiority!\n+500', '#ffff00'); } catch (e) { }

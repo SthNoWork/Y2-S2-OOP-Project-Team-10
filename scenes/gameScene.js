@@ -1,12 +1,21 @@
 // scenes/gameScene.js
 // Main gameplay scene: sets up the arena, loads the level, and runs the game loop.
 
-class GameScene extends Phaser.Scene {
+class GameScene extends BaseScene {
 
   constructor() {
     super('GameScene');
     this.arena = null;
     this.player = null;
+  }
+
+  clear() {
+    try { window.PowerUpManager?.destroy?.(); } catch (e) { }
+    try { window.PillboxManager?.destroy?.(); } catch (e) { }
+    try { window.MortarManager?.destroy?.(); } catch (e) { }
+    try { window.BuildingManager?._removeExistingHandlers?.(); } catch (e) { }
+    try { window.GameLogic?._detachCollisionListener?.(); } catch (e) { }
+    try { window.LevelManager?._resetLevelState?.(); } catch (e) { }
   }
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -31,6 +40,13 @@ class GameScene extends Phaser.Scene {
     // Extend physics bounds beyond the visible area so objects don't teleport or hit an invisible roof.
     // The top bound is raised significantly (-3000) to allow high 75-degree mortar arcs.
     this.matter.world.setBounds(-1920, -3000, 5760, 4080, 32);
+
+    if (this.matter?.world) {
+      this.matter.world.drawDebug = !!window.SHOW_HITBOXES;
+      if (this.matter.world.debugGraphic) {
+        this.matter.world.debugGraphic.setVisible(!!window.SHOW_HITBOXES);
+      }
+    }
 
     // Combat managers MUST init before LevelManager.load() because load()
     // creates pre-placed objects (pillboxes, mortars) that register with their managers.
@@ -75,11 +91,8 @@ class GameScene extends Phaser.Scene {
     const btnGap = 86;
 
     window.UIFactory.createButton(this, btnX, btnY, 'Start', () => window.LevelManager.startWave());
-    window.UIFactory.createButton(this, btnX, btnY + btnGap, 'Reset', () => window.startScene('GameScene'));
+    window.UIFactory.createButton(this, btnX, btnY + btnGap, 'Reset', () => this.reload());
 
-    if (window.DEBUG) {
-      window.UIFactory.createButton(this, btnX, btnY + btnGap * 2, 'Debug', () => this._logDebugInfo());
-    }
   }
 
   _logDebugInfo() {

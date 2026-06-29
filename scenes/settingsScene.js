@@ -1,6 +1,19 @@
 // scenes/settingsScene.js
-class SettingsScene extends Phaser.Scene {
-  constructor() { super('SettingsScene'); }
+class SettingsScene extends BaseScene {
+  constructor() {
+    super({
+      key: 'SettingsScene',
+      physics: {
+        default: 'none'
+      }
+    });
+  }
+
+  clear() {
+    if (this._fsEvents && this._onFsChange) {
+      this._fsEvents.forEach((evt) => document.removeEventListener(evt, this._onFsChange));
+    }
+  }
 
   create() {
     this.cameras.main.setBackgroundColor('#000000');
@@ -175,41 +188,35 @@ class SettingsScene extends Phaser.Scene {
       dToggleKnob.x = on ? (dToggleR - dToggleRad) : (dToggleL + dToggleRad);
     };
 
-    let debugOn = !!window.DEBUG;
-    renderDebugToggle(debugOn);
+    let hitboxesOn = !!window.SHOW_HITBOXES;
+    renderDebugToggle(hitboxesOn);
 
     const dToggleHit = this.add.rectangle(dToggleX, dToggleY, dToggleW + 24, dToggleH + 18, 0x000000, 0);
     dToggleHit.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
-      debugOn = !debugOn;
-      renderDebugToggle(debugOn);
-      window.DEBUG = debugOn;
+      hitboxesOn = !hitboxesOn;
+      renderDebugToggle(hitboxesOn);
+      window.SHOW_HITBOXES = hitboxesOn;
       try {
-        localStorage.setItem('bts_debug_mode', debugOn ? 'true' : 'false');
+        localStorage.setItem('bts_show_hitboxes', hitboxesOn ? 'true' : 'false');
       } catch (e) { }
 
       if (this.game) {
         this.game.scene.scenes.forEach(s => {
-          if (s.matter?.world) {
-            s.matter.world.drawDebug = debugOn;
+          if (s.scene.isActive() && s.matter?.world) {
+            s.matter.world.drawDebug = hitboxesOn;
             if (s.matter.world.debugGraphic) {
-              s.matter.world.debugGraphic.setVisible(debugOn);
+              s.matter.world.debugGraphic.setVisible(hitboxesOn);
             }
           }
         });
       }
     });
 
-    const fsEvents = ['fullscreenchange','mozfullscreenchange','webkitfullscreenchange','msfullscreenchange'];
-    const onFsChange = () => {
+    this._fsEvents = ['fullscreenchange','mozfullscreenchange','webkitfullscreenchange','msfullscreenchange'];
+    this._onFsChange = () => {
       toggleOn = isFullscreen();
       renderToggle(toggleOn);
     };
-    fsEvents.forEach((evt) => document.addEventListener(evt, onFsChange));
-    this.events.once('shutdown', () => {
-      fsEvents.forEach((evt) => document.removeEventListener(evt, onFsChange));
-    });
-    this.events.once('destroy', () => {
-      fsEvents.forEach((evt) => document.removeEventListener(evt, onFsChange));
-    });
+    this._fsEvents.forEach((evt) => document.addEventListener(evt, this._onFsChange));
   }
 }

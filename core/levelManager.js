@@ -299,8 +299,8 @@ window.LevelManager = {
 
     const hp = Math.max(0, Math.round(window.GameLogic.player?.health ?? 0));
     const maxHp = window.ObjectConfig.internalTypes?.player?.health ?? 100;
-    const currentLevel = this.levelNum;
-    const hasNext = !!(window.Levels?.[(currentLevel + 1)]?.waves?.length);
+    const currentLevel = parseInt(this.levelNum, 10) || 1;
+    const hasNext = !!(window.Levels?.[currentLevel + 1]?.waves?.length);
 
     window.HUDFactory.showWinScreen(this.scene, this.arena, {
       levelNum: currentLevel,

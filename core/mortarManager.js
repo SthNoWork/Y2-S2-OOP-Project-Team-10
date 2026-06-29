@@ -151,6 +151,20 @@ window.MortarManager = {
     this._barrageTimers = [];
   },
 
+  destroy() {
+    this._stopBarrageTimers();
+    for (const m of this._mortars) {
+      if (m && m._weaponTimer) {
+        try { m._weaponTimer.destroy(); } catch (e) {}
+        m._weaponTimer = null;
+      }
+    }
+    this._mortars = [];
+    this._barrageActive = false;
+    this.scene = null;
+    this.arena = null;
+  },
+
   update(delta) {
     // Intentionally empty — uses Phaser timers
   },

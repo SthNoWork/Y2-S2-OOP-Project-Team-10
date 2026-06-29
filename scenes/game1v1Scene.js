@@ -2,9 +2,17 @@
 // Dedicated local 2-player 1v1 mode scene.
 // Left Player (P1) vs Right Player (P2) in a split arena.
 
-class Game1v1Scene extends Phaser.Scene {
+class Game1v1Scene extends BaseScene {
   constructor() {
     super('Game1v1Scene');
+  }
+
+  clear() {
+    try { this.shutdown(); } catch (e) { }
+    try { this.events.off('bomb:spawn'); } catch (e) { }
+    if (this.matter?.world) {
+      try { this.matter.world.off('collisionstart'); } catch (e) { }
+    }
   }
 
   init() {
@@ -89,6 +97,13 @@ class Game1v1Scene extends Phaser.Scene {
 
     // Set up bounds
     this.matter.world.setBounds(-100, -1000, 2120, 2080, 32);
+
+    if (this.matter?.world) {
+      this.matter.world.drawDebug = !!window.SHOW_HITBOXES;
+      if (this.matter.world.debugGraphic) {
+        this.matter.world.debugGraphic.setVisible(!!window.SHOW_HITBOXES);
+      }
+    }
 
     // Create central visual divider
     const divider = this.add.graphics();

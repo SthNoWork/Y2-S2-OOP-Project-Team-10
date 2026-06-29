@@ -1,6 +1,21 @@
 // scenes/profileScene.js
-class ProfileScene extends Phaser.Scene {
-  constructor() { super('ProfileScene'); }
+class ProfileScene extends BaseScene {
+  constructor() {
+    super({
+      key: 'ProfileScene',
+      physics: {
+        default: 'none'
+      }
+    });
+  }
+
+  clear() {
+    window.removeEventListener('authStateChanged', this._onAuth);
+    const existingEl = document.getElementById('profile-avatar-overlay');
+    if (existingEl) existingEl.remove();
+    this._renderables.forEach(o => { try { if (o?.active) o.destroy(); } catch (e) {} });
+    this._renderables = [];
+  }
 
   create() {
     this.cameras.main.setBackgroundColor('#0d0d1a');
@@ -13,10 +28,6 @@ class ProfileScene extends Phaser.Scene {
     // Re-render immediately whenever auth state resolves (login popup, logout, etc.)
     this._onAuth = () => this._refresh();
     window.addEventListener('authStateChanged', this._onAuth);
-
-    // Clean up the listener when the scene stops
-    this.events.once('shutdown', () => window.removeEventListener('authStateChanged', this._onAuth));
-    this.events.once('destroy',  () => window.removeEventListener('authStateChanged', this._onAuth));
   }
 
   // ── Render lifecycle ──────────────────────────────────────────────────────
@@ -299,11 +310,7 @@ class ProfileScene extends Phaser.Scene {
       el.appendChild(img);
       document.body.appendChild(el);
 
-      // Remove when scene shuts down
-      this.events.once('shutdown', () => el.remove());
-      this.events.once('destroy',  () => el.remove());
-
-      // Draw the ring in Phaser
+      // ring drawing in Phaser
       const ring = this.add.graphics().setDepth(depth + 1);
       ring.lineStyle(4, 0x4488ff, 1.0);
       ring.strokeCircle(cx, cy, r + 3);

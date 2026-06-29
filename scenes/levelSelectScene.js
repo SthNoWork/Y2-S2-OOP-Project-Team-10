@@ -1,9 +1,14 @@
 // scenes/levelSelectScene.js
 // Displays a grid of level buttons. Locked levels are greyed out.
 
-class LevelSelectScene extends Phaser.Scene {
+class LevelSelectScene extends BaseScene {
   constructor() {
-    super('LevelSelectScene');
+    super({
+      key: 'LevelSelectScene',
+      physics: {
+        default: 'none'
+      }
+    });
   }
 
   create() {
