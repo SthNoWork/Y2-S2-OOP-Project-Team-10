@@ -239,8 +239,8 @@ class ExplosionCommand {
         // Adjust category and mask for 1v1 specific collision separation
         if (this.scene.player1 || this.scene.player2) {
           bomb.isBomb = true;
-          bomb.body.collisionFilter.category = 0x0040; // Neutral projectile
-          bomb.body.collisionFilter.mask = 0x0001 | 0x0002 | 0x0004 | 0x0008;
+          bomb.body.collisionFilter.category = window.CollisionLayers.NEUTRAL_PROJECTILE;
+          bomb.body.collisionFilter.mask = window.CollisionLayers.DEFAULT | window.CollisionLayers.PLAYER_1 | window.CollisionLayers.PLAYER_2 | window.CollisionLayers.STRUCTURE;
           if (this.scene.activeBombs) {
             this.scene.activeBombs.push(bomb);
           }

@@ -1,41 +1,54 @@
 // core/levelManager.js
 // Controls level loading, wave sequencing, HUD updates, and win/lose screens.
-// End-of-round overlay drawing is delegated to HUDFactory.
+// End-of-round overlay drawing is delegated to HUDFactory. Implements the Singleton pattern.
 
-window.LevelManager = {
+class LevelManager {
+  #scene = null;
+  #arena = null;
+  #levelNum = 1;
+  #levelCfg = null;
 
-  scene: null,
-  arena: null,
-  levelNum: 1,
-  levelCfg: null,
+  #state = 'idle';
+  #waveIndex = 0;
+  #countdownMs = 0;
+  #screenShown = false;
 
-  _state: 'idle',
-  _waveIndex: 0,
-  _countdownMs: 0,
-  _screenShown: false,
+  #waveText = null;
+  #healthText = null;
 
-  _waveText: null,
-  _healthText: null,
+  #platforms = [];
+  #prePlaced = [];
 
-  _platforms: [],
-  _prePlaced: [],
+  #progressKey = 'bts_unlocked_level';
+  #airSuperiorityBonus = 0;
 
-  _progressKey: 'bts_unlocked_level',
+  static #instance = null;
+  static getInstance() {
+    if (!LevelManager.#instance) {
+      LevelManager.#instance = new LevelManager();
+    }
+    return LevelManager.#instance;
+  }
 
-
-  // ── Level loading ─────────────────────────────────────────────────────────
+  get scene() { return this.#scene; }
+  get arena() { return this.#arena; }
+  get levelNum() { return this.#levelNum; }
+  get levelCfg() { return this.#levelCfg; }
+  get _prePlaced() { return [...this.#prePlaced]; }
+  get airSuperiorityBonus() { return this.#airSuperiorityBonus; }
+  set airSuperiorityBonus(val) { this.#airSuperiorityBonus = val; }
 
   load(scene, arena, levelNum) {
-    this.scene = scene;
-    this.arena = arena;
-    this.levelNum = levelNum;
-    this.levelCfg = window.Levels?.[levelNum] ?? this._fallbackConfig();
+    this.#scene = scene;
+    this.#arena = arena;
+    this.#levelNum = levelNum;
+    this.#levelCfg = window.Levels?.[levelNum] ?? this._fallbackConfig();
 
     this._resetLevelState();
     this._applyAllowedBuildings();
     this._createPlatforms();
 
-    const spawn = this.levelCfg.playerSpawn ?? { x: 960, y: 810 };
+    const spawn = this.#levelCfg.playerSpawn ?? { x: 960, y: 810 };
 
     // Get the equipped skin from GameData
     const equippedSkin = window.GameData?.getEquippedSkin?.() || 'skin_1';
@@ -57,74 +70,73 @@ window.LevelManager = {
     // Call preplaced creation AFTER GameLogic.init so that preplaced objects are not cleared from GameLogic.buildings!
     this._createPrePlacedObjects();
 
-    this._healthText = window.UIFactory.addHealthText(scene, arena);
-    this._waveText = this._createWaveText();
+    this.#healthText = window.UIFactory.addHealthText(scene, arena);
+    this.#waveText = this._createWaveText();
 
     return player;
-  },
+  }
 
   _resetLevelState() {
-    this._state = 'idle';
-    this._waveIndex = 0;
-    this._countdownMs = 0;
-    this._screenShown = false;
-    this._platforms = [];
-    this._prePlaced = [];
-    this._waveText = null;
-    this._healthText = null;
-    this.airSuperiorityBonus = 0;
-  },
+    this.#state = 'idle';
+    this.#waveIndex = 0;
+    this.#countdownMs = 0;
+    this.#screenShown = false;
+    this.#platforms = [];
+    this.#prePlaced = [];
+    this.#waveText = null;
+    this.#healthText = null;
+    this.#airSuperiorityBonus = 0;
+  }
 
   _applyAllowedBuildings() {
-    const allowed = this.levelCfg.allowedBuildings || {};
+    const allowed = this.#levelCfg.allowedBuildings || {};
 
     Object.entries(allowed).forEach(([type, cap]) => {
       const cfg = window.ObjectConfig.placeableTypes[type];
       if (cfg) cfg.maxCount = cap;
     });
-  },
+  }
 
   _createPlatforms() {
-    const platforms = this.levelCfg.platforms || [];
+    const platforms = this.#levelCfg.platforms || [];
 
     if (platforms.length === 0) {
-      // Add a default safe platform for levels that have no platforms.
       platforms.push({
-        x: this.arena.ARENA_X + this.arena.ARENA_W * 0.5,
+        x: this.#arena.ARENA_X + this.#arena.ARENA_W * 0.5,
         y: 936,
         w: 1382,
         h: 24,
       });
-      this.levelCfg.platforms = platforms;
+      this.#levelCfg.platforms = platforms;
     }
 
     platforms.forEach((p) => {
-      const platform = this.scene.add.rectangle(p.x, p.y, p.w, p.h, 0x888888);
+      const platform = this.#scene.add.rectangle(p.x, p.y, p.w, p.h, 0x888888);
 
       const frictionMult = window.ObjectConfig.globalFrictionMultiplier ?? 3.0;
       const staticFrictionMult = window.ObjectConfig.globalStaticFrictionMultiplier ?? 3.0;
 
-      this.scene.matter.add.gameObject(platform, {
+      this.#scene.matter.add.gameObject(platform, {
         label: 'platform',
         isStatic: true,
         friction: 1.0 * frictionMult,
         frictionStatic: 10 * staticFrictionMult,
       });
 
-      this._platforms.push(platform);
+      this.#platforms.push(platform);
     });
-  },
+  }
 
   _createPrePlacedObjects() {
-    (this.levelCfg.prePlaced || []).forEach((e) => {
+    (this.#levelCfg.prePlaced || []).forEach((e) => {
       const obj = window.ObjectFactory.createLevelObject(
-        this.scene, e.type, e.x, e.y, this.arena
+        this.#scene, e.type, e.x, e.y, this.#arena
       );
       if (obj) {
-        this._prePlaced.push(obj);
+        this.#prePlaced.push(obj);
       }
     });
-  },
+  }
 
   _fallbackConfig() {
     return {
@@ -134,100 +146,80 @@ window.LevelManager = {
       allowedBuildings: {},
       waves: [{ speed: 300, direction: 1, x: -100, y: 100 }],
     };
-  },
-
-
-  // ── Per-frame update ──────────────────────────────────────────────────────
+  }
 
   update(delta) {
     this._refreshHUD();
 
     if (window.GameLogic.gameOver &&
-      this._state !== 'won' &&
-      this._state !== 'lost') {
-      this._state = 'lost';
+      this.#state !== 'won' &&
+      this.#state !== 'lost') {
+      this.#state = 'lost';
     }
 
-    switch (this._state) {
+    switch (this.#state) {
       case 'running': this._tickRunning(delta); break;
       case 'waiting': this._tickWaiting(); break;
       case 'won': this._tickWon(); break;
       case 'lost': this._tickLost(); break;
     }
-  },
+  }
 
   _tickRunning(delta) {
-    this._countdownMs -= delta;
-    if (this._countdownMs > 0) return;
+    this.#countdownMs -= delta;
+    if (this.#countdownMs > 0) return;
 
-    const wavesRemaining = this._waveIndex < this.levelCfg.waves.length;
+    const wavesRemaining = this.#waveIndex < this.#levelCfg.waves.length;
 
     if (wavesRemaining) {
       this._fireNextWave();
-      this._countdownMs = this.levelCfg.waveDelayMs ?? 3000;
+      this.#countdownMs = this.#levelCfg.waveDelayMs ?? 3000;
     } else {
-      this._state = 'waiting';
+      this.#state = 'waiting';
     }
-  },
+  }
 
   _tickWaiting() {
     const planeActive = !!(window.EntityManager?.attackers?.some(a => a instanceof window.Plane && a.active));
-    const mortarActive = !!window.EntityManager?._barrageActive;
-    const bombsExist = window.GameLogicHelper?.hasActiveBombs?.(this.scene);
-    const weaponsActive = window.GameLogicHelper?.anyWeaponHasAmmo?.(this.scene);
-    if (!planeActive && !mortarActive && !bombsExist && !weaponsActive) this._state = 'won';
-  },
+    const mortarActive = !!window.BarrageController?._barrageActive;
+    const bombsExist = window.GameLogicHelper?.hasActiveBombs?.(this.#scene);
+    const weaponsActive = window.GameLogicHelper?.anyWeaponHasAmmo?.(this.#scene);
+    if (!planeActive && !mortarActive && !bombsExist && !weaponsActive) this.#state = 'won';
+  }
 
   _tickWon() {
-    if (!this._screenShown) {
-      this._screenShown = true;
+    if (!this.#screenShown) {
+      this.#screenShown = true;
       this._showWinScreen();
     }
-  },
+  }
 
   _tickLost() {
-    if (!this._screenShown) {
-      this._screenShown = true;
+    if (!this.#screenShown) {
+      this.#screenShown = true;
       this._showLoseScreen();
     }
-  },
+  }
 
-
-  // ── Wave management ───────────────────────────────────────────────────────
-
-  startWave() {
-    if (this._state !== 'idle') return;
-
-    window.BuildingManager.lockPlacement();
-
-    this._fireNextWave();
-    this._state = this._waveIndex < this.levelCfg.waves.length ? 'running' : 'waiting';
-    this._countdownMs = this.levelCfg.waveDelayMs ?? 3000;
-  },
+  startLevelWave() {
+    if (this.#state === 'idle') {
+      this.#state = 'running';
+      this.#countdownMs = 0; // Trigger wave immediately
+      window.BuildingManager.lockPlacement();
+    }
+  }
 
   _fireNextWave() {
-    const waves = this.levelCfg.waves;
-    if (!waves?.length || this._waveIndex >= waves.length) return;
+    const wave = this.#levelCfg.waves[this.#waveIndex];
+    if (!wave) return;
 
-    const wave = waves[this._waveIndex];
-    const levelType = this.levelCfg.levelType || 'airplane';
-
-    // Trigger all active registered attackers to shoot
-    if (window.EntityManager) {
-      for (const a of window.EntityManager.attackers) {
-        if (a && a.active && !(a instanceof window.Plane)) {
-          const target = window.EntityManager.getNearestTarget(a.x, a.y);
-          if (target) a.shoot(target);
-        }
-      }
-    }
+    const levelType = this.#levelCfg.levelType;
 
     if (levelType === 'mortar_barrage') {
-      // ── Mortar-only level: skip the airplane, fire a configurable barrage ──
-      const mb = this.levelCfg.mortarBarrage || {};
+      const mb = this.#levelCfg.mortarBarrage || {};
       try {
-        if (window.EntityManager) {
-          window.EntityManager.startBarrage({
+        if (window.BarrageController) {
+          window.BarrageController.startBarrage(this.#scene, {
             fireRateMs: mb.fireRateMs ?? 40,
             durationMs: mb.durationMs ?? 2000,
             bombType: mb.bombType ?? 'bomb',
@@ -237,7 +229,6 @@ window.LevelManager = {
         }
       } catch (e) { console.error('[LevelManager] mortar_barrage error:', e); }
     } else {
-      // ── Standard airplane bombing run ──
       window.GameLogic.startBombingRun(
         wave.speed,
         { x: wave.x, y: wave.y },
@@ -246,67 +237,61 @@ window.LevelManager = {
       );
     }
 
-    this._waveIndex++;
+    this.#waveIndex++;
     this._refreshHUD();
-  },
-
-
-  // ── HUD ───────────────────────────────────────────────────────────────────
+  }
 
   _createWaveText() {
-    return this.scene.add.text(
-      this.arena.ARENA_X + this.arena.ARENA_W * 0.5,
-      this.arena.ARENA_Y + 11,
+    return this.#scene.add.text(
+      this.#arena.ARENA_X + this.#arena.ARENA_W * 0.5,
+      this.#arena.ARENA_Y + 11,
       'Press Start',
       { fontSize: '32px', fill: '#ffffff' }
     ).setOrigin(0.5).setDepth(100);
-  },
+  }
 
   _refreshHUD() {
-    if (this._healthText) {
+    if (this.#healthText) {
       const hp = Math.max(0, Math.round(window.GameLogic.player?.health ?? 0));
-      this._healthText.setText(`HP: ${hp}`);
+      this.#healthText.setText(`HP: ${hp}`);
     }
 
-    if (this._waveText) {
-      const total = this.levelCfg?.waves?.length ?? 0;
-      const current = Math.min(this._waveIndex, total);
-      this._waveText.setText(this._waveStatusLabel(current, total));
+    if (this.#waveText) {
+      const total = this.#levelCfg?.waves?.length ?? 0;
+      const current = Math.min(this.#waveIndex, total);
+      this.#waveText.setText(this._waveStatusLabel(current, total));
     }
-  },
+  }
 
   _waveStatusLabel(current, total) {
-    switch (this._state) {
+    switch (this.#state) {
       case 'idle': return 'Press Start';
       case 'waiting': return 'Last wave…';
       case 'won': return 'Level clear!';
       case 'lost': return 'Eliminated';
       default: return `Wave ${current} / ${total}`;
     }
-  },
-
-
-  // ── Win / lose screens ────────────────────────────────────────────────────
+  }
 
   addAirSuperiorityBonus(points) {
-    this.airSuperiorityBonus += points;
-  },
+    this.#airSuperiorityBonus += points;
+  }
 
   _showWinScreen() {
-    this._unlockNextLevel(this.levelNum);
+    this._unlockNextLevel(this.#levelNum);
 
     const { objectScore, playerBonus, total } = this._calculateScore();
 
-    window.FirebaseStore?.recordWin(this.levelNum, total);
+    window.FirebaseStore?.recordWin(this.#levelNum, total);
 
     const hp = Math.max(0, Math.round(window.GameLogic.player?.health ?? 0));
     const maxHp = window.ObjectConfig.internalTypes?.player?.health ?? 100;
-    const currentLevel = parseInt(this.levelNum, 10) || 1;
+    const currentLevel = parseInt(this.#levelNum, 10) || 1;
     const hasNext = !!(window.Levels?.[currentLevel + 1]?.waves?.length);
 
-    window.HUDFactory.showWinScreen(this.scene, this.arena, {
+    window.HUDFactory.showWinScreen(this.#scene, this.#arena, {
       levelNum: currentLevel,
-      totalWaves: this.levelCfg.waves.length,
+      totalWaves: this.#levelCfg.waves.length,
       hp,
       maxHp,
       objectScore,
@@ -315,26 +300,22 @@ window.LevelManager = {
       onNext: hasNext ? () => { window._currentLevel = currentLevel + 1; window.startScene('GameScene'); } : null,
       onLevels: () => window.startScene('LevelSelectScene'),
     });
-  },
+  }
 
   _showLoseScreen() {
-    window.HUDFactory.showLoseScreen(this.scene, this.arena, {
-      levelNum: this.levelNum,
-      wavesSurvived: Math.max(0, this._waveIndex - 1),
-      totalWaves: this.levelCfg.waves.length,
+    window.HUDFactory.showLoseScreen(this.#scene, this.#arena, {
+      levelNum: this.#levelNum,
+      wavesSurvived: Math.max(0, this.#waveIndex - 1),
+      totalWaves: this.#levelCfg.waves.length,
       onRetry: () => window.startScene('GameScene'),
       onLevels: () => window.startScene('LevelSelectScene'),
     });
-  },
-
-
-  // ── Scoring ───────────────────────────────────────────────────────────────
+  }
 
   _calculateScore() {
-    const allowed = this.levelCfg.allowedBuildings || {};
+    const allowed = this.#levelCfg.allowedBuildings || {};
     let objectScore = 0;
 
-    // Points for buildings never placed (conservation bonus).
     for (const [type, cap] of Object.entries(allowed)) {
       const cfg = window.ObjectConfig.placeableTypes[type];
       if (!cfg) continue;
@@ -344,7 +325,6 @@ window.LevelManager = {
       objectScore += neverPlaced * cfg.health * 10;
     }
 
-    // Points for surviving building HP.
     for (const b of window.BuildingManager.getPlacedBuildings()) {
       if (b.active && typeof b.health === 'number') {
         objectScore += Math.max(0, b.health) * 10;
@@ -354,26 +334,20 @@ window.LevelManager = {
     const playerHp = window.GameLogic.player?.health ?? 0;
     const baseMax = window.ObjectConfig.internalTypes?.player?.health ?? 100;
     
-    // Score based on remaining HP percentage + survival bonus
     const survivalBonus = playerHp > 0 ? 1000 : 0;
-    const hpBonus       = playerHp > 0 ? Math.round((playerHp / baseMax) * 500) : 0;
-    const bonus         = survivalBonus + hpBonus + this.airSuperiorityBonus;
+    const hpBonus = playerHp > 0 ? Math.round((playerHp / baseMax) * 500) : 0;
+    const bonus = survivalBonus + hpBonus + this.#airSuperiorityBonus;
 
     return {
       objectScore: Math.round(objectScore),
       playerBonus: bonus,
-      total:       Math.round(objectScore) + bonus,
+      total: Math.round(objectScore) + bonus,
     };
-  },
-
-
-  // ── Progress / unlock ─────────────────────────────────────────────────────
+  }
 
   getMaxUnlockedLevel() {
     if (window.DEBUG) return this._getTotalLevels();
 
-    // When logged in, derive unlock status from beaten levels in the server cache
-    // so progress syncs across devices.
     if (window.FirebaseAuth?.currentUser) {
       const total = this._getTotalLevels();
       let max = 1;
@@ -387,36 +361,35 @@ window.LevelManager = {
       return max;
     }
 
-    // Logged out — fall back to localStorage.
     let unlocked = 1;
     try {
-      const stored = parseInt(localStorage.getItem(this._progressKey), 10);
+      const stored = parseInt(localStorage.getItem(this.#progressKey), 10);
       if (Number.isFinite(stored) && stored >= 1) unlocked = stored;
-    } catch (err) { /* private mode / storage disabled */ }
+    } catch (err) { }
     return Math.min(Math.max(1, unlocked), this._getTotalLevels());
-  },
+  }
 
   isLevelUnlocked(levelNum) {
     return levelNum <= this.getMaxUnlockedLevel();
-  },
+  }
 
   _unlockNextLevel(currentLevel) {
     if (window.DEBUG) return;
 
-    // Firebase tracks unlock state for logged-in users via beaten level scores,
-    // so localStorage only needs updating for logged-out players.
     if (window.FirebaseAuth?.currentUser) return;
 
     const total = this._getTotalLevels();
     const target = Math.min(total, (currentLevel || 1) + 1);
     if (target > this.getMaxUnlockedLevel()) {
       try {
-        localStorage.setItem(this._progressKey, String(target));
-      } catch (err) { /* private mode / storage disabled */ }
+        localStorage.setItem(this.#progressKey, String(target));
+      } catch (err) { }
     }
-  },
+  }
 
   _getTotalLevels() {
     return Object.keys(window.Levels ?? {}).length || 1;
-  },
-};
+  }
+}
+
+window.LevelManager = LevelManager.getInstance();

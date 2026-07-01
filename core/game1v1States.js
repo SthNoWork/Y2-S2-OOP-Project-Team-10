@@ -1,13 +1,20 @@
+// core/game1v1States.js
+// Turn-based state subclasses representing different phases of the 1v1 game mode.
+
 class Game1v1State {
   constructor(scene) {
     this.scene = scene;
   }
+  get phase() { return ''; }
   enter() {}
   exit() {}
   update(time, delta) {}
+  detonateBomb(bomb) {}
 }
 
 class P1BuildState extends Game1v1State {
+  get phase() { return 'P1_BUILD'; }
+
   enter() {
     this.scene.turnText.setText("PLAYER 1: BUILD PHASE");
     this.scene.turnText.setFill('#00ffff');
@@ -20,6 +27,8 @@ class P1BuildState extends Game1v1State {
 }
 
 class P2BuildState extends Game1v1State {
+  get phase() { return 'P2_BUILD'; }
+
   enter() {
     this.scene.turnText.setText("PLAYER 2: BUILD PHASE");
     this.scene.turnText.setFill('#ff00ff');
@@ -32,6 +41,8 @@ class P2BuildState extends Game1v1State {
 }
 
 class ActionState extends Game1v1State {
+  get phase() { return 'ACTION'; }
+
   enter() {
     this.scene.turnText.setText("FIGHT!");
     this.scene.turnText.setFill('#ffaa00');
@@ -56,8 +67,8 @@ class ActionState extends Game1v1State {
         const isP1 = obj.x < 960;
         const target = isP1 ? this.scene.player2 : this.scene.player1;
         obj.activate(target, {
-          collisionCategory: isP1 ? 0x0010 : 0x0020,
-          collisionMask: 0x0001 | 0x0002 | 0x0004 | 0x0008
+          collisionCategory: isP1 ? window.CollisionLayers.EXPLOSIVE_P1 : window.CollisionLayers.EXPLOSIVE_P2,
+          collisionMask: window.CollisionLayers.DEFAULT | window.CollisionLayers.PLAYER_1 | window.CollisionLayers.PLAYER_2 | window.CollisionLayers.STRUCTURE
         });
       }
     });
@@ -67,8 +78,8 @@ class ActionState extends Game1v1State {
   }
 
   update(time, delta) {
-    this.scene.handlePlayerMovement();
-    this.scene.checkWinCondition();
+    this.handlePlayerMovement();
+    this.checkWinCondition();
 
     // Check if all placed weapon structures are out of ammo and there are no active projectiles left in the air
     const anyWeaponsPlaced = this.scene.placedObjects.some(obj => obj.active && typeof obj.activate === 'function');
@@ -100,9 +111,83 @@ class ActionState extends Game1v1State {
       this.scene.changeState(new ChooseRewardState(this.scene, 1));
     }
   }
+
+  handlePlayerMovement() {
+    const SPEED = 5;
+    const JUMP_FORCE = -11;
+
+    // Player 1 (Left side) Movement
+    if (this.scene.player1?.active && this.scene.player1.body) {
+      let vx = 0;
+      if (this.scene.keys.a.isDown) vx = -SPEED;
+      else if (this.scene.keys.d.isDown) vx = SPEED;
+      
+      this.scene.matter.body.setVelocity(this.scene.player1.body, { x: vx, y: this.scene.player1.body.velocity.y });
+
+      // Jump when standing on ground/barrier with low vertical velocity
+      const isGrounded = Math.abs(this.scene.player1.body.velocity.y) < 0.05;
+      if ((this.scene.keys.w.isDown || this.scene.keys.space.isDown) && isGrounded) {
+        this.scene.matter.body.setVelocity(this.scene.player1.body, { x: vx, y: JUMP_FORCE });
+      }
+    }
+
+    // Player 2 (Right side) Movement
+    if (this.scene.player2?.active && this.scene.player2.body) {
+      let vx = 0;
+      if (this.scene.keys.left.isDown) vx = -SPEED;
+      else if (this.scene.keys.right.isDown) vx = SPEED;
+
+      this.scene.matter.body.setVelocity(this.scene.player2.body, { x: vx, y: this.scene.player2.body.velocity.y });
+
+      const isGrounded = Math.abs(this.scene.player2.body.velocity.y) < 0.05;
+      if (this.scene.keys.up.isDown && isGrounded) {
+        this.scene.matter.body.setVelocity(this.scene.player2.body, { x: vx, y: JUMP_FORCE });
+      }
+    }
+  }
+
+  checkWinCondition() {
+    const p1Hp = this.scene.player1 ? Math.max(0, this.scene.player1.health) : 0;
+    const p2Hp = this.scene.player2 ? Math.max(0, this.scene.player2.health) : 0;
+
+    this.scene.p1HpText.setText(`P1 HP: ${p1Hp}`);
+    this.scene.p2HpText.setText(`P2 HP: ${p2Hp}`);
+
+    if (p1Hp <= 0 || p2Hp <= 0) {
+      this.scene.changeState(new window.GameOverState(this.scene));
+    }
+  }
+
+  detonateBomb(bomb) {
+    if (!bomb || !bomb.active || bomb._dying) return;
+    bomb._dying = true;
+
+    const type = bomb.buildingType || bomb.objectType;
+    const cfg = window.ObjectConfig.placeableTypes[type] || window.ObjectConfig.internalTypes[type] || window.ObjectConfig.levelTypes[type] || {};
+
+    try {
+      const cmd = new window.ExplosionCommand(this.scene, {
+        x: bomb.x,
+        y: bomb.y,
+        explosiveCfg: cfg,
+        sourceBomb: bomb
+      });
+      cmd.execute();
+    } catch (e) {
+      console.error('Error executing ExplosionCommand in detonateBomb:', e);
+    }
+
+    try {
+      this.scene.activeBombs = this.scene.activeBombs.filter(b => b !== bomb);
+      this.scene.placedObjects = this.scene.placedObjects.filter(b => b !== bomb);
+      window.ObjectFactory.destroy(bomb);
+    } catch(e){}
+  }
 }
 
 class ChooseRewardState extends Game1v1State {
+  get phase() { return 'CHOOSE_REWARD'; }
+
   constructor(scene, playerNum) {
     super(scene);
     this.playerNum = playerNum; // 1 or 2
@@ -141,36 +226,30 @@ class ChooseRewardState extends Game1v1State {
     shuffled.forEach((opt, idx) => {
       const yOffset = (idx - 1) * 110;
 
-      const cardBg = this.scene.add.rectangle(cx, cy + yOffset, 340, 80, 0x0a1825, 0.95)
-        .setDepth(2100)
-        .setStrokeStyle(3, isP1 ? 0x00ffff : 0xff00ff, 0.8)
-        .setInteractive({ useHandCursor: true });
+      const card = window.UIFactory.createCardButton(this.scene, {
+        x: cx,
+        y: cy + yOffset,
+        width: 340,
+        height: 80,
+        label: opt.label,
+        strokeColor: isP1 ? 0x00ffff : 0xff00ff,
+        onClick: () => {
+          // Add item to inventory
+          const pKey = isP1 ? 'p1' : 'p2';
+          this.scene.inventories[pKey][opt.key] = (this.scene.inventories[pKey][opt.key] || 0) + opt.count;
 
-      const cardText = this.scene.add.text(cx, cy + yOffset, opt.label, {
-        fontFamily: 'Arial Black, Arial, sans-serif',
-        fontSize: '22px',
-        fill: '#ffffff'
-      }).setOrigin(0.5).setDepth(2101).setInteractive({ useHandCursor: true });
+          try { window.SfxManager?.playCoin?.(); } catch (e) {}
+          this.exit();
 
-      this.cards.push(cardBg, cardText);
-
-      const selectReward = () => {
-        // Add item to inventory
-        const pKey = isP1 ? 'p1' : 'p2';
-        this.scene.inventories[pKey][opt.key] = (this.scene.inventories[pKey][opt.key] || 0) + opt.count;
-
-        try { window.SfxManager?.playCoin?.(); } catch (e) {}
-        this.exit();
-
-        if (isP1) {
-          this.scene.changeState(new ChooseRewardState(this.scene, 2));
-        } else {
-          this.scene.changeState(new window.P1BuildState(this.scene));
+          if (isP1) {
+            this.scene.changeState(new ChooseRewardState(this.scene, 2));
+          } else {
+            this.scene.changeState(new window.P1BuildState(this.scene));
+          }
         }
-      };
+      });
 
-      cardBg.on('pointerdown', selectReward);
-      cardText.on('pointerdown', selectReward);
+      this.cards.push(card.background, card.text);
     });
   }
 
@@ -183,6 +262,8 @@ class ChooseRewardState extends Game1v1State {
 }
 
 class GameOverState extends Game1v1State {
+  get phase() { return 'GAME_OVER'; }
+
   enter() {
     this.scene.readyBtn.setVisible(false);
     this.scene.resetBtn.setVisible(false);
@@ -201,33 +282,29 @@ class GameOverState extends Game1v1State {
     const cx = 960;
     const cy = 400;
 
-    const retryBtn = this.scene.add.text(cx - 150, cy, "Retry", {
-      fontFamily: 'Arial Black, Arial, sans-serif',
-      fontSize: '32px',
-      fill: '#ffffff',
+    const retryBtn = window.UIFactory.createLabelButton(this.scene, {
+      x: cx - 150,
+      y: cy,
+      label: "Retry",
       backgroundColor: '#00aa00',
-      padding: { x: 30, y: 15 }
-    }).setOrigin(0.5).setDepth(2100).setInteractive({ useHandCursor: true });
-
-    const menuBtn = this.scene.add.text(cx + 150, cy, "Menu", {
-      fontFamily: 'Arial Black, Arial, sans-serif',
-      fontSize: '32px',
-      fill: '#ffffff',
-      backgroundColor: '#555555',
-      padding: { x: 30, y: 15 }
-    }).setOrigin(0.5).setDepth(2100).setInteractive({ useHandCursor: true });
-
-    retryBtn.on('pointerdown', () => {
-      retryBtn.destroy();
-      menuBtn.destroy();
-      this.scene.reload();
+      onClick: () => {
+        retryBtn.destroy();
+        menuBtn.destroy();
+        this.scene.reload();
+      }
     });
 
-    menuBtn.on('pointerdown', () => {
-      retryBtn.destroy();
-      menuBtn.destroy();
-      if (window.htmlBackBtn) window.htmlBackBtn.classList.remove('active');
-      window.showHomeScreen();
+    const menuBtn = window.UIFactory.createLabelButton(this.scene, {
+      x: cx + 150,
+      y: cy,
+      label: "Menu",
+      backgroundColor: '#555555',
+      onClick: () => {
+        retryBtn.destroy();
+        menuBtn.destroy();
+        if (window.htmlBackBtn) window.htmlBackBtn.classList.remove('active');
+        window.showHomeScreen();
+      }
     });
   }
 }

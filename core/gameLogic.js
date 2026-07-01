@@ -1,114 +1,113 @@
 // core/gameLogic.js
 // Owns the bombing-run state transitions and single-player level win/lose logic.
+// Implements the Singleton pattern.
 
-window.GameLogic = {
+class GameLogic {
+  #scene = null;
+  #player = null;
+  #arena = null;
+  #gameOver = false;
+  #onCollision = null;
+  #onBombSpawn = null;
+  #run = null;
 
-  scene: null,
-  player: null,
-  arena: null,
-  gameOver: false,
+  static #instance = null;
+  static getInstance() {
+    if (!GameLogic.#instance) {
+      GameLogic.#instance = new GameLogic();
+    }
+    return GameLogic.#instance;
+  }
 
-  _targets: [],
-  _recentExplosions: [],
-  _onCollision: null,
-  _run: null,   // active bombing run state
-
-  // ── Initialisation ────────────────────────────────────────────────────────
+  get scene() { return this.#scene; }
+  get player() { return this.#player; }
+  get arena() { return this.#arena; }
+  get gameOver() { return this.#gameOver; }
+  set gameOver(val) { this.#gameOver = val; }
+  get _run() { return this.#run; }
 
   init(scene, player, arena) {
     this._detachCollisionListener();
-    if (this.scene) {
-      if (this._onBombSpawn) {
-        try { this.scene.events.off('bomb:spawn', this._onBombSpawn, this); } catch (e) { }
-      }
+    if (this.#scene && this.#onBombSpawn) {
+      try { this.#scene.events.off('bomb:spawn', this.#onBombSpawn, this); } catch (e) { }
     }
 
-    this.scene = scene;
-    this.player = player;
-    this.arena = arena;
-    this._run = null;
-    this.gameOver = false;
+    this.#scene = scene;
+    this.#player = player;
+    this.#arena = arena;
+    this.#run = null;
+    this.#gameOver = false;
 
     // Initialize the EntityManager
     if (window.EntityManager) {
       window.EntityManager.init(scene);
-      if (this.player) {
-        window.EntityManager.registerEntity(this.player);
+      if (this.#player) {
+        window.EntityManager.registerEntity(this.#player);
       }
     }
 
     const maxHp = window.ObjectConfig.internalTypes?.player?.health ?? 100;
-    if (this.player) this.player.health = maxHp;
+    if (this.#player) this.#player.health = maxHp;
 
     this._attachCollisionListener();
 
     // Attach decoupled event listeners
-    this._onBombSpawn = (bomb) => {
+    this.#onBombSpawn = (bomb) => {
       try { window.SfxManager?.playDrop?.(); } catch (e) { }
     };
-    this.scene.events.on('bomb:spawn', this._onBombSpawn, this);
-  },
+    this.#scene.events.on('bomb:spawn', this.#onBombSpawn, this);
+  }
 
   _attachCollisionListener() {
-    this._onCollision = (event) => {
+    this.#onCollision = (event) => {
       event.pairs.forEach((pair) => this._handleCollision(pair.bodyA, pair.bodyB));
     };
-    this.scene.matter.world.on('collisionstart', this._onCollision);
-  },
+    this.#scene.matter.world.on('collisionstart', this.#onCollision);
+  }
 
   _detachCollisionListener() {
-    if (this.scene && this._onCollision && this.scene.matter?.world) {
-      try { this.scene.matter.world.off('collisionstart', this._onCollision); } catch (e) { }
+    if (this.#scene && this.#onCollision && this.#scene.matter?.world) {
+      try { this.#scene.matter.world.off('collisionstart', this.#onCollision); } catch (e) { }
     }
-    if (this.scene && this._onBombSpawn) {
-      try { this.scene.events.off('bomb:spawn', this._onBombSpawn, this); } catch (e) { }
+    if (this.#scene && this.#onBombSpawn) {
+      try { this.#scene.events.off('bomb:spawn', this.#onBombSpawn, this); } catch (e) { }
     }
-  },
+  }
 
-
-  // ── Public API ────────────────────────────────────────────────────────────
-
-  // Called each frame by the scene.
   update(delta) {
     if (window.EntityManager) {
       window.EntityManager.update(delta);
     }
-  },
+  }
 
-  // Registers a placed building so it can receive blast damage.
   addBuilding(building) {
     building.isBuilding = true;
     if (window.EntityManager) {
       window.EntityManager.registerEntity(building);
     }
-  },
+  }
 
-  // Resets run state between attempts (keeps the scene alive).
   resetRun() {
     this._destroyActivePlane();
-    this._run = null;
+    this.#run = null;
 
     if (window.EntityManager) {
       for (const bomb of [...window.EntityManager.bombs]) {
         if (bomb?.active) { try { bomb.destroy(); } catch (e) { } }
       }
-      window.EntityManager.init(this.scene);
-      if (this.player) {
-        window.EntityManager.registerEntity(this.player);
+      window.EntityManager.init(this.#scene);
+      if (this.#player) {
+        window.EntityManager.registerEntity(this.#player);
       }
     }
-    this.gameOver = false;
+    this.#gameOver = false;
 
     const maxHp = window.ObjectConfig.internalTypes?.player?.health ?? 100;
-    if (this.player) this.player.health = maxHp;
+    if (this.#player) this.#player.health = maxHp;
 
     try { window.SfxManager?.stopAll?.(); } catch (e) { }
-  },
+  }
 
-
-  // ── Bombing run ───────────────────────────────────────────────────────────
-
-  // Starts a new bombing run. Called by LevelManager for each wave.
   startBombingRun(velocityPxPerSec, spawnLocation, direction, waveBombType) {
     const planeCfg = window.ObjectConfig.internalTypes.plane;
     if (!this._validatePlaneCfg(planeCfg)) return;
@@ -117,14 +116,14 @@ window.GameLogic = {
 
     const spawn = this._resolveSpawnPoint(planeCfg, spawnLocation);
     const plane = window.ObjectFactory.createInternal(
-      this.scene, 'plane', 0, 0, this.arena, { spawnLocation: spawn }
+      this.#scene, 'plane', 0, 0, this.#arena, { spawnLocation: spawn }
     );
     if (!plane) return;
 
-    this._run = { plane };
+    this.#run = { plane, speed: velocityPxPerSec };
 
     plane.startFlight(velocityPxPerSec, direction, waveBombType);
-  },
+  }
 
   _validatePlaneCfg(planeCfg) {
     const required = ['spawnYOffsetY', 'bladeOffsetX', 'bladeOffsetY', 'bombDropYOffsetY'];
@@ -135,42 +134,37 @@ window.GameLogic = {
       }
     }
     return true;
-  },
+  }
 
   _destroyActivePlane() {
-    if (this._run?.plane?.active) {
-      window.ObjectFactory.destroy(this._run.plane);
-      this._run = null;
+    if (this.#run?.plane?.active) {
+      window.ObjectFactory.destroy(this.#run.plane);
+      this.#run = null;
     }
-  },
+  }
 
   _resolveSpawnPoint(planeCfg, spawnLocation) {
     return spawnLocation
       ? { x: spawnLocation.x, y: spawnLocation.y + planeCfg.spawnYOffsetY }
       : { x: 0, y: planeCfg.spawnYOffsetY };
-  },
+  }
 
-
-  // ── Collision handling ────────────────────────────────────────────────────
-
-  // Triggers a detonation when a bomb body touches anything that isn't another bomb.
   _handleCollision(bodyA, bodyB) {
     if (!bodyA || !bodyB) return;
 
-    // ── Trampoline bounce (checked first — overrides bomb detonation) ─────
+    // Trampoline bounce (checked first — overrides bomb detonation)
     const trampolineBody = bodyA.label === 'trampoline' ? bodyA : bodyB.label === 'trampoline' ? bodyB : null;
     if (trampolineBody) {
       const otherBody = trampolineBody === bodyA ? bodyB : bodyA;
-      // ONLY bounces bombs
       if (otherBody.label === 'bomb') {
         if (trampolineBody.gameObject && typeof trampolineBody.gameObject.bounce === 'function') {
           trampolineBody.gameObject.bounce(otherBody);
         }
-        return; // Early return prevents the bomb from exploding
+        return;
       }
     }
 
-    // ── Bomb collision ────────────────────────────────────────────────────
+    // Bomb collision
     const bombBody = bodyA.label === 'bomb' ? bodyA : bodyB.label === 'bomb' ? bodyB : null;
     if (!bombBody) return;
 
@@ -185,9 +179,9 @@ window.GameLogic = {
     const explodeOnImpact = bombCfg.explodeOnImpact !== undefined ? bombCfg.explodeOnImpact : true;
 
     if (explodeOnImpact) {
-      try { this.scene.events.emit('bomb:explode', bombGO); } catch (e) { console.error('Error emitting bomb:explode:', e); }
+      try { this.#scene.events.emit('bomb:explode', bombGO); } catch (e) { console.error('Error emitting bomb:explode:', e); }
       try {
-        const cmd = new window.ExplosionCommand(this.scene, {
+        const cmd = new window.ExplosionCommand(this.#scene, {
           x: bombGO.x,
           y: bombGO.y,
           explosiveCfg: bombCfg,
@@ -195,24 +189,26 @@ window.GameLogic = {
         });
         cmd.execute();
       } catch (e) { console.error('Error in explosion command:', e); }
-      try { this.scene.events.emit('bomb:destroy', bombGO); } catch (e) { console.error('Error emitting bomb:destroy:', e); }
+      try { this.#scene.events.emit('bomb:destroy', bombGO); } catch (e) { console.error('Error emitting bomb:destroy:', e); }
       try { bombGO.destroy(); } catch (e) { console.error('Error destroying bomb:', e); }
     }
-  },
+  }
 
   _triggerGameOver() {
-    if (this.gameOver) return;
-    this.gameOver = true;
+    if (this.#gameOver) return;
+    this.#gameOver = true;
     window.logDebug?.('Game Over!');
-  },
+  }
 
   getTarget(x, y) {
     if (window.EntityManager) {
       return window.EntityManager.getNearestTarget(x, y);
     }
-    return this.player;
-  },
-};
+    return this.#player;
+  }
+}
+
+window.GameLogic = GameLogic.getInstance();
 
 window.spawnBomb = function (scene, bombTypeKey, spawnX, spawnY, directionDeg, target, owner) {
   const bombCfg = window.ObjectConfig.internalTypes[bombTypeKey] || window.ObjectConfig.placeableTypes[bombTypeKey] || window.ObjectConfig.levelTypes[bombTypeKey];

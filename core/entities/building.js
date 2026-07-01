@@ -64,15 +64,15 @@ class Building extends DestructibleEntity {
         // Player 1 side: make it P1's projectile!
         if (bombBody.gameObject) {
           bombBody.gameObject.owner = this.scene.player1;
-          bombBody.collisionFilter.category = 0x0010;
-          bombBody.collisionFilter.mask = 0x0001 | 0x0002 | 0x0004 | 0x0008;
+          bombBody.collisionFilter.category = window.CollisionLayers.EXPLOSIVE_P1;
+          bombBody.collisionFilter.mask = window.CollisionLayers.DEFAULT | window.CollisionLayers.PLAYER_1 | window.CollisionLayers.PLAYER_2 | window.CollisionLayers.STRUCTURE;
         }
       } else {
         // Player 2 side: make it P2's projectile!
         if (bombBody.gameObject) {
           bombBody.gameObject.owner = this.scene.player2;
-          bombBody.collisionFilter.category = 0x0020;
-          bombBody.collisionFilter.mask = 0x0001 | 0x0002 | 0x0004 | 0x0008;
+          bombBody.collisionFilter.category = window.CollisionLayers.EXPLOSIVE_P2;
+          bombBody.collisionFilter.mask = window.CollisionLayers.DEFAULT | window.CollisionLayers.PLAYER_1 | window.CollisionLayers.PLAYER_2 | window.CollisionLayers.STRUCTURE;
         }
       }
     } else {

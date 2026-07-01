@@ -1,143 +1,189 @@
 // core/sfxManager.js
 // Simple sound-effect helper that plays files from asset/soundeffect.
-// Uses HTML5 Audio so no Phaser preload is required.
+// Uses HTML5 Audio so no Phaser preload is required. Implements the Singleton pattern.
 
-window.SfxManager = (() => {
+class SfxManager {
+  #volume = 0.2;
+  #trimMs = 800;
+  #muted = false;
 
-  // ── Constants & persisted state ───────────────────────────────────────────
+  #active = new Set();
+  #audioCache = {};
 
-  const BASE_PATH  = 'asset/soundeffect/';
-  const VOLUME_KEY = 'bts_sfx_volume';
+  #BASE_PATH = 'asset/soundeffect/';
+  #VOLUME_KEY = 'bts_sfx_volume';
 
-  let volume = 0.2;
-  try {
-    const stored = parseFloat(localStorage.getItem(VOLUME_KEY));
-    if (Number.isFinite(stored)) volume = Math.min(1, Math.max(0, stored));
-  } catch (e) { }
+  static #instance = null;
+  static getInstance() {
+    if (!SfxManager.#instance) {
+      SfxManager.#instance = new SfxManager();
+    }
+    return SfxManager.#instance;
+  }
 
-  // Trim one-shot SFX to this maximum duration (ms). 0 = no trim.
-  let trimMs = 800;
-  let muted  = false;
-
-  // Shared set of all currently-playing Audio instances so stopAll() can reach them.
-  const _active = window.__BTS_SFX_ACTIVE || new Set();
-  window.__BTS_SFX_ACTIVE = _active;
-
-  // Cache template Audio instances to avoid network fetches and constructor overhead.
-  const _audioCache = {};
-
-
-  // ── Internal helpers ──────────────────────────────────────────────────────
-
-  function _makeAudio(filename) {
+  constructor() {
     try {
-      const path = BASE_PATH + filename;
-      let template = _audioCache[path];
+      const stored = parseFloat(localStorage.getItem(this.#VOLUME_KEY));
+      if (Number.isFinite(stored)) {
+        this.#volume = Math.min(1, Math.max(0, stored));
+      }
+    } catch (e) { }
+
+    // Share active set across hot-reloads if applicable
+    if (window.__BTS_SFX_ACTIVE) {
+      this.#active = window.__BTS_SFX_ACTIVE;
+    } else {
+      window.__BTS_SFX_ACTIVE = this.#active;
+    }
+  }
+
+  #makeAudio(filename) {
+    try {
+      const path = this.#BASE_PATH + filename;
+      let template = this.#audioCache[path];
       if (!template) {
         template = new Audio(path);
         template.preload = 'auto';
-        _audioCache[path] = template;
+        this.#audioCache[path] = template;
       }
       const a = template.cloneNode(true);
       a.loop = false;
-      a.volume = volume;
+      a.volume = this.#volume;
       return a;
-    } catch (e) { return null; }
+    } catch (e) {
+      return null;
+    }
   }
 
-  function _clampVolume(v) {
+  #clampVolume(v) {
     return Math.min(1, Math.max(0, Number(v)));
   }
 
+  getVolume() {
+    return this.#volume;
+  }
 
-  // ── Public API ────────────────────────────────────────────────────────────
+  setVolume(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return this.#volume;
+    this.#volume = this.#clampVolume(n);
+    try {
+      localStorage.setItem(this.#VOLUME_KEY, String(this.#volume));
+    } catch (e) { }
+    return this.#volume;
+  }
 
-  return {
+  getTrim() {
+    return this.#trimMs;
+  }
 
-    // ── Volume & mute controls ──────────────────────────────────────────────
+  setTrim(ms) {
+    const n = Number(ms);
+    if (!Number.isFinite(n)) return this.#trimMs;
+    this.#trimMs = Math.max(0, Math.floor(n));
+    return this.#trimMs;
+  }
 
-    getVolume() { return volume; },
+  muteAll() {
+    this.stopAll();
+    this.#muted = true;
+  }
 
-    setVolume(v) {
-      const n = Number(v);
-      if (!Number.isFinite(n)) return volume;
-      volume = _clampVolume(n);
-      try { localStorage.setItem(VOLUME_KEY, String(volume)); } catch (e) { }
-      return volume;
-    },
+  unmuteAll() {
+    this.#muted = false;
+  }
 
-    getTrim()    { return trimMs; },
+  stopAll() {
+    for (const a of Array.from(this.#active)) {
+      try {
+        a.pause();
+        a.currentTime = 0;
+      } catch (e) { }
+      try {
+        a.src = '';
+      } catch (e) { }
+      this.#active.delete(a);
+    }
+  }
 
-    setTrim(ms) {
-      const n = Number(ms);
-      if (!Number.isFinite(n)) return trimMs;
-      trimMs = Math.max(0, Math.floor(n));
-      return trimMs;
-    },
+  play(filename, opts) {
+    if (!filename) return;
+    if (this.#muted && !(opts && opts.force)) return;
 
-    muteAll() {
-      this.stopAll();
-      muted = true;
-    },
+    const key = filename.replace(/^.*[\\/]/, '');
+    const a = this.#makeAudio(key);
+    if (!a) return;
 
-    unmuteAll() {
-      muted = false;
-    },
+    const localTrim = (opts && Number.isFinite(opts.trimMs)) ? Math.max(0, Number(opts.trimMs)) : this.#trimMs;
+    const localVolume = (opts && Number.isFinite(opts.volume)) ? this.#clampVolume(opts.volume) : this.#volume;
+    a.volume = localVolume;
 
-    stopAll() {
-      for (const a of Array.from(_active)) {
-        try { a.pause(); a.currentTime = 0; } catch (e) { }
-        try { a.src = ''; }                  catch (e) { }
-        _active.delete(a);
+    let timer = null;
+
+    const cleanup = () => {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
       }
-    },
+      try {
+        a.src = '';
+      } catch (e) { }
+      this.#active.delete(a);
+    };
 
+    a.addEventListener('ended', cleanup, { once: true });
+    this.#active.add(a);
 
-    // ── Core playback ───────────────────────────────────────────────────────
+    if (localTrim > 0) {
+      timer = setTimeout(() => {
+        try {
+          a.pause();
+          a.currentTime = 0;
+        } catch (e) { }
+        cleanup();
+      }, localTrim);
+    }
 
-    // Play a one-shot SFX by filename. Creates a fresh Audio instance so
-    // multiple overlapping plays are possible.
-    play(filename, opts) {
-      if (!filename) return;
-      if (muted && !(opts && opts.force)) return;
-
-      const key = filename.replace(/^.*[\\/]/, '');
-      const a   = _makeAudio(key);
-      if (!a) return;
-
-      const localTrim   = (opts && Number.isFinite(opts.trimMs))  ? Math.max(0, Number(opts.trimMs))  : trimMs;
-      const localVolume = (opts && Number.isFinite(opts.volume))   ? _clampVolume(opts.volume)         : volume;
-      a.volume = localVolume;
-
-      let timer = null;
-
-      const cleanup = () => {
-        if (timer) { clearTimeout(timer); timer = null; }
-        try { a.src = ''; } catch (e) { }
-        _active.delete(a);
-      };
-
-      a.addEventListener('ended', cleanup, { once: true });
-      _active.add(a);
-
-      if (localTrim > 0) {
-        timer = setTimeout(() => {
-          try { a.pause(); a.currentTime = 0; } catch (e) { }
-          cleanup();
-        }, localTrim);
+    a.currentTime = 0;
+    a.play().catch(() => {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
       }
+    });
+  }
 
-      a.currentTime = 0;
-      a.play().catch(() => { if (timer) { clearTimeout(timer); timer = null; } });
-    },
+  playExplosion() {
+    this.play('mixkit-arcade-game-explosion-2759.wav', { trimMs: 200 });
+  }
 
+  playDrop() {
+    this.play('soundreality-game-explosion-321700.mp3', { trimMs: 500 });
+  }
 
-    // ── Named SFX shortcuts ─────────────────────────────────────────────────
+  playComplete() {
+    this.play('mixkit-game-level-completed-2059.wav', { volume: 1, force: true, trimMs: 0 });
+  }
 
-    playExplosion() { this.play('mixkit-arcade-game-explosion-2759.wav',       { trimMs: 200 }); },
-    playDrop()      { this.play('soundreality-game-explosion-321700.mp3',       { trimMs: 500 }); },
-    playComplete()  { this.play('mixkit-game-level-completed-2059.wav',         { volume: 1, force: true, trimMs: 0 }); },
-    playFail()      { this.play('mixkit-player-losing-or-failing-2042.wav',     { volume: 1, force: true, trimMs: 0 }); },
-  };
+  playFail() {
+    this.play('mixkit-player-losing-or-failing-2042.wav', { volume: 1, force: true, trimMs: 0 });
+  }
 
-})();
+  playCoin() {
+    this.play('mixkit-casino-bling-achievement-2067.wav', { trimMs: 400 });
+  }
+
+  playDmgShield() {
+    this.play('mixkit-dense-bomb-impact-2801.wav', { trimMs: 400 });
+  }
+
+  playSpawn() {
+    this.play('mixkit-casino-bling-achievement-2067.wav', { trimMs: 300 });
+  }
+
+  playBounce() {
+    this.play('mixkit-dense-bomb-impact-2801.wav', { trimMs: 150 });
+  }
+}
+
+window.SfxManager = SfxManager.getInstance();

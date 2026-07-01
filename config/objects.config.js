@@ -200,7 +200,7 @@ window.ObjectConfig = {
       startFrame: 'spring1',               // resting frame           
       physics: {
         friction: 0.9, restitution: 0.0, frictionAir: 0.01, label: 'trampoline', mass: 50,
-        collisionFilter: { category: 0x0008, mask: 0x0001 | 0x0002 | 0x0004 },
+        collisionFilter: { category: window.CollisionLayers.STRUCTURE, mask: window.CollisionLayers.DEFAULT | window.CollisionLayers.PLAYER_1 | window.CollisionLayers.PLAYER_2 },
       },
       bounceForce: 45,
       bounceVelocityCap: 45,
@@ -217,7 +217,7 @@ window.ObjectConfig = {
       startFrame: 'spring1',
       physics: {
         friction: 0.9, restitution: 0.0, frictionAir: 0.01, label: 'trampoline', mass: 50,
-        collisionFilter: { category: 0x0008, mask: 0x0001 | 0x0002 | 0x0004 },
+        collisionFilter: { category: window.CollisionLayers.STRUCTURE, mask: window.CollisionLayers.DEFAULT | window.CollisionLayers.PLAYER_1 | window.CollisionLayers.PLAYER_2 },
       },
       bounceForce: 75,                     // Much stronger bounce force for 1v1 action
       bounceVelocityCap: 65,
@@ -237,7 +237,7 @@ window.ObjectConfig = {
         isStatic: true,
         friction: 1.0, restitution: 0.0, frictionAir: 0.01,
         label: 'building', mass: 100,
-        collisionFilter: { category: 0x0008, mask: 0x0001 | 0x0002 | 0x0004 | 0x0008 | 0x0010 | 0x0020 },
+        collisionFilter: { category: window.CollisionLayers.STRUCTURE, mask: window.CollisionLayers.DEFAULT | window.CollisionLayers.PLAYER_1 | window.CollisionLayers.PLAYER_2 | window.CollisionLayers.STRUCTURE | window.CollisionLayers.EXPLOSIVE_P1 | window.CollisionLayers.EXPLOSIVE_P2 },
       },
       health: 80, onDeath: 'explode',
       explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 2, blastScale: 1.0 },
@@ -266,7 +266,7 @@ window.ObjectConfig = {
         isStatic: true,
         friction: 1.0, restitution: 0.0, frictionAir: 0.01,
         label: 'building', mass: 50,
-        collisionFilter: { category: 0x0008, mask: 0x0001 | 0x0002 | 0x0004 | 0x0008 | 0x0010 | 0x0020 },
+        collisionFilter: { category: window.CollisionLayers.STRUCTURE, mask: window.CollisionLayers.DEFAULT | window.CollisionLayers.PLAYER_1 | window.CollisionLayers.PLAYER_2 | window.CollisionLayers.STRUCTURE | window.CollisionLayers.EXPLOSIVE_P1 | window.CollisionLayers.EXPLOSIVE_P2 },
       },
       health: 120, onDeath: 'explode',
       explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 1, blastScale: 0.8 },
@@ -347,7 +347,7 @@ window.ObjectConfig = {
       physics: {
         friction: 0.8, restitution: 0.1, frictionAir: 0.01, label: 'bomb',
         shape: { type: 'circle', radiusRatio: 0.35 },
-        collisionFilter: { category: 0x0004, mask: 0x0001 | 0x0002 | 0x0008 },
+        collisionFilter: { category: window.CollisionLayers.PLAYER_2, mask: window.CollisionLayers.DEFAULT | window.CollisionLayers.PLAYER_1 | window.CollisionLayers.STRUCTURE },
       },
       explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 1.5, blastScale: 0.8 },
       blastForce: 100,
@@ -365,7 +365,7 @@ window.ObjectConfig = {
       physics: {
         friction: 0.8, restitution: 0.1, frictionAir: 0.01, label: 'bomb',
         shape: { type: 'circle', radiusRatio: 0.35 },
-        collisionFilter: { category: 0x0004, mask: 0x0001 | 0x0002 | 0x0008 },
+        collisionFilter: { category: window.CollisionLayers.PLAYER_2, mask: window.CollisionLayers.DEFAULT | window.CollisionLayers.PLAYER_1 | window.CollisionLayers.STRUCTURE },
       },
       explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 1.5, blastScale: 0.8 },
       blastForce: 100,
@@ -383,7 +383,7 @@ window.ObjectConfig = {
       physics: {
         friction: 0.8, restitution: 0.15, frictionAir: 0.01, label: 'bomb',
         shape: { type: 'circle', radiusRatio: 0.35 },
-        collisionFilter: { category: 0x0004, mask: 0x0001 | 0x0002 | 0x0008 },
+        collisionFilter: { category: window.CollisionLayers.PLAYER_2, mask: window.CollisionLayers.DEFAULT | window.CollisionLayers.PLAYER_1 | window.CollisionLayers.STRUCTURE },
       },
       explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 0.8, blastScale: 0.5 },
       blastForce: 40,
@@ -403,7 +403,7 @@ window.ObjectConfig = {
       physics: {
         friction: 0.8, restitution: 0.1, frictionAir: 0.01, label: 'bomb',
         shape: { type: 'circle', radiusRatio: 0.35 },
-        collisionFilter: { category: 0x0004, mask: 0x0001 | 0x0002 | 0x0008 },
+        collisionFilter: { category: window.CollisionLayers.PLAYER_2, mask: window.CollisionLayers.DEFAULT | window.CollisionLayers.PLAYER_1 | window.CollisionLayers.STRUCTURE },
       },
       explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 1.5, blastScale: 0.8 },
       blastForce: 80,
@@ -430,7 +430,7 @@ window.ObjectConfig = {
         isStatic: true,
         friction: 1.0, restitution: 0.0, frictionAir: 0.01,
         label: 'building', mass: 100,
-        collisionFilter: { category: 0x0001, mask: 0x0001 | 0x0002 | 0x0004 },
+        collisionFilter: { category: window.CollisionLayers.DEFAULT, mask: window.CollisionLayers.DEFAULT | window.CollisionLayers.PLAYER_1 | window.CollisionLayers.PLAYER_2 },
       },
       health: 80, onDeath: 'explode',
       explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 2, blastScale: 1.0 },
@@ -463,7 +463,7 @@ window.ObjectConfig = {
         isStatic: true,
         friction: 1.0, restitution: 0.0, frictionAir: 0.01,
         label: 'building', mass: 100,
-        collisionFilter: { category: 0x0001, mask: 0x0001 | 0x0002 | 0x0004 },
+        collisionFilter: { category: window.CollisionLayers.DEFAULT, mask: window.CollisionLayers.DEFAULT | window.CollisionLayers.PLAYER_1 | window.CollisionLayers.PLAYER_2 },
       },
       health: 120, onDeath: 'explode',
       explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 1, blastScale: 0.8 },
@@ -505,7 +505,7 @@ window.ObjectConfig = {
         ignoreGravity: true,
         isSensor: true, // Planes just pass over everything without physical impact
         label: 'plane', mass: 100,
-        collisionFilter: { category: 0x0001, mask: 0x0001 | 0x0002 | 0x0004 },
+        collisionFilter: { category: window.CollisionLayers.DEFAULT, mask: window.CollisionLayers.DEFAULT | window.CollisionLayers.PLAYER_1 | window.CollisionLayers.PLAYER_2 },
       },
     },
 

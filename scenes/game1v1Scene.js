@@ -23,8 +23,6 @@ class Game1v1Scene extends BaseScene {
       ARENA_H: 972,
     };
 
-    // States: 'P1_BUILD', 'P2_BUILD', 'ACTION', 'GAME_OVER'
-    this.gameState = 'P1_BUILD';
     this.player1 = null;
     this.player2 = null;
     
@@ -121,8 +119,8 @@ class Game1v1Scene extends BaseScene {
       isStatic: true,
       label: 'midWall',
       collisionFilter: {
-        category: 0x0080,
-        mask: 0x0002 | 0x0004
+        category: window.CollisionLayers.DIVIDER,
+        mask: window.CollisionLayers.PLAYER_1 | window.CollisionLayers.PLAYER_2
       }
     });
 
@@ -158,7 +156,7 @@ class Game1v1Scene extends BaseScene {
     // Track when the first bomb spawns during ACTION phase
     this.hasFiredOnce = false;
     this.events.on('bomb:spawn', () => {
-      if (this.gameState === 'ACTION') {
+      if (this.currentState?.phase === 'ACTION') {
         this.hasFiredOnce = true;
       }
     });
@@ -182,11 +180,6 @@ class Game1v1Scene extends BaseScene {
       try { this.currentState.exit(); } catch (e) {}
     }
     this.currentState = newState;
-    // Mirror state representation to gameState string for backwards compatibility
-    if (newState instanceof window.P1BuildState) this.gameState = 'P1_BUILD';
-    else if (newState instanceof window.P2BuildState) this.gameState = 'P2_BUILD';
-    else if (newState instanceof window.ActionState) this.gameState = 'ACTION';
-    else if (newState instanceof window.GameOverState) this.gameState = 'GAME_OVER';
 
     try { this.currentState.enter(); } catch (e) {}
   }
@@ -198,8 +191,8 @@ class Game1v1Scene extends BaseScene {
     this.player1.maxHealth = 100;
     // Set collision filter so P1 only collides with ground, walls, and P1 specific items, and central wall
     if (this.player1.body) {
-      this.player1.body.collisionFilter.category = 0x0002;
-      this.player1.body.collisionFilter.mask = 0x0001 | 0x0002 | 0x0008 | 0x0010 | 0x0020 | 0x0080;
+      this.player1.body.collisionFilter.category = window.CollisionLayers.PLAYER_1;
+      this.player1.body.collisionFilter.mask = window.CollisionLayers.DEFAULT | window.CollisionLayers.PLAYER_1 | window.CollisionLayers.STRUCTURE | window.CollisionLayers.EXPLOSIVE_P1 | window.CollisionLayers.EXPLOSIVE_P2 | window.CollisionLayers.DIVIDER;
     }
 
     // Player 2 (Right)
@@ -207,8 +200,8 @@ class Game1v1Scene extends BaseScene {
     this.player2.health = 100;
     this.player2.maxHealth = 100;
     if (this.player2.body) {
-      this.player2.body.collisionFilter.category = 0x0004;
-      this.player2.body.collisionFilter.mask = 0x0001 | 0x0004 | 0x0008 | 0x0010 | 0x0020 | 0x0080;
+      this.player2.body.collisionFilter.category = window.CollisionLayers.PLAYER_2;
+      this.player2.body.collisionFilter.mask = window.CollisionLayers.DEFAULT | window.CollisionLayers.PLAYER_2 | window.CollisionLayers.STRUCTURE | window.CollisionLayers.EXPLOSIVE_P1 | window.CollisionLayers.EXPLOSIVE_P2 | window.CollisionLayers.DIVIDER;
     }
   }
 
@@ -256,15 +249,15 @@ class Game1v1Scene extends BaseScene {
   }
 
   nextTurn() {
-    if (this.gameState === 'P1_BUILD') {
+    if (this.currentState?.phase === 'P1_BUILD') {
       this.changeState(new window.P2BuildState(this));
-    } else if (this.gameState === 'P2_BUILD') {
+    } else if (this.currentState?.phase === 'P2_BUILD') {
       this.changeState(new window.ActionState(this));
     }
   }
 
   resetActivePlayerSide() {
-    const activePlayer = this.gameState === 'P1_BUILD' ? 'p1' : 'p2';
+    const activePlayer = this.currentState?.phase === 'P1_BUILD' ? 'p1' : 'p2';
     const isP1 = activePlayer === 'p1';
 
     // Destroy placed objects belonging to the active player's side
@@ -290,7 +283,7 @@ class Game1v1Scene extends BaseScene {
     this.inventoryButtons.forEach(btn => btn.destroy());
     this.inventoryButtons = [];
 
-    const activePlayer = this.gameState === 'P1_BUILD' ? 'p1' : 'p2';
+    const activePlayer = this.currentState?.phase === 'P1_BUILD' ? 'p1' : 'p2';
     const inv = this.inventories[activePlayer];
     
     // Position inventories on Left/Right edges depending on player
@@ -362,7 +355,7 @@ class Game1v1Scene extends BaseScene {
   startDraggingPlacement(type, pointer) {
     if (this.draggingObject) return;
 
-    const activePlayer = this.gameState === 'P1_BUILD' ? 'p1' : 'p2';
+    const activePlayer = this.currentState?.phase === 'P1_BUILD' ? 'p1' : 'p2';
     const obj = window.ObjectFactory.createPlaceable(this, type, pointer.x, pointer.y, this.arena, { fromInventory: true });
 
     if (obj) {
@@ -379,7 +372,7 @@ class Game1v1Scene extends BaseScene {
       if (!this.draggingObject) return;
       
       // Clamp placement coordinates to active player's screen half
-      const isP1 = this.gameState === 'P1_BUILD';
+      const isP1 = this.currentState?.phase === 'P1_BUILD';
       const minX = isP1 ? this.arena.ARENA_X : 964;
       const maxX = isP1 ? 956 : this.arena.ARENA_X + this.arena.ARENA_W;
       
@@ -424,27 +417,27 @@ class Game1v1Scene extends BaseScene {
         }
         
         // Enable collision mask
-        const activePlayer = this.gameState === 'P1_BUILD' ? 'p1' : 'p2';
+        const activePlayer = this.currentState?.phase === 'P1_BUILD' ? 'p1' : 'p2';
         
         // Setup distinct collision filters for Player 1 / Player 2 TNTs & bombs so they ignore each other
         if (obj.body) {
           if (isExplosive) {
-            obj.body.collisionFilter.category = (activePlayer === 'p1') ? 0x0010 : 0x0020;
-            // Mask excludes 0x0010 and 0x0020 so bombs do not collide with other bombs!
-            obj.body.collisionFilter.mask = 0x0001 | 0x0002 | 0x0004 | 0x0008;
+            obj.body.collisionFilter.category = (activePlayer === 'p1') ? window.CollisionLayers.EXPLOSIVE_P1 : window.CollisionLayers.EXPLOSIVE_P2;
+            // Mask excludes EXPLOSIVE_P1 and EXPLOSIVE_P2 so bombs do not collide with other bombs!
+            obj.body.collisionFilter.mask = window.CollisionLayers.DEFAULT | window.CollisionLayers.PLAYER_1 | window.CollisionLayers.PLAYER_2 | window.CollisionLayers.STRUCTURE;
             obj.isBomb = true; // Mark as bomb for collision triggers!
           } else {
-            obj.body.collisionFilter.category = 0x0008; // Structures category
-            obj.body.collisionFilter.mask = 0x0001 | 0x0002 | 0x0004 | 0x0008 | 0x0010 | 0x0020;
+            obj.body.collisionFilter.category = window.CollisionLayers.STRUCTURE; // Structures category
+            obj.body.collisionFilter.mask = window.CollisionLayers.DEFAULT | window.CollisionLayers.PLAYER_1 | window.CollisionLayers.PLAYER_2 | window.CollisionLayers.STRUCTURE | window.CollisionLayers.EXPLOSIVE_P1 | window.CollisionLayers.EXPLOSIVE_P2;
           }
         }
 
         // Enable re-dragging when clicked during the build phase
         obj.off('pointerdown'); // clean up previous listeners if any
         obj.on('pointerdown', (pointer) => {
-          if (this.gameState === 'ACTION' || this.gameState === 'GAME_OVER') return;
+          if (this.currentState?.phase === 'ACTION' || this.currentState?.phase === 'GAME_OVER') return;
           
-          const isP1 = this.gameState === 'P1_BUILD';
+          const isP1 = this.currentState?.phase === 'P1_BUILD';
           const onP1Side = obj.x < 960;
           if (isP1 !== onP1Side) return; // Can't drag opponent's block on your turn
           
@@ -548,37 +541,13 @@ class Game1v1Scene extends BaseScene {
           const other = bomb === bodyA ? bodyB : bodyA;
           // Ignore other bombs and sensors
           if (other.label !== 'bomb' && !other.isSensor && other.label !== 'midWall') {
-            this.detonateBomb(bomb.gameObject);
+            if (this.currentState && typeof this.currentState.detonateBomb === 'function') {
+              this.currentState.detonateBomb(bomb.gameObject);
+            }
           }
         }
       });
     });
-  }
-
-  detonateBomb(bomb) {
-    if (!bomb || !bomb.active || bomb._dying) return;
-    bomb._dying = true;
-
-    const type = bomb.buildingType || bomb.objectType;
-    const cfg = window.ObjectConfig.placeableTypes[type] || window.ObjectConfig.internalTypes[type] || window.ObjectConfig.levelTypes[type] || {};
-
-    try {
-      const cmd = new window.ExplosionCommand(this, {
-        x: bomb.x,
-        y: bomb.y,
-        explosiveCfg: cfg,
-        sourceBomb: bomb
-      });
-      cmd.execute();
-    } catch (e) {
-      console.error('Error executing ExplosionCommand in detonateBomb:', e);
-    }
-
-    try {
-      this.activeBombs = this.activeBombs.filter(b => b !== bomb);
-      this.placedObjects = this.placedObjects.filter(b => b !== bomb);
-      window.ObjectFactory.destroy(bomb);
-    } catch(e){}
   }
 
   update(time, delta) {
@@ -590,53 +559,7 @@ class Game1v1Scene extends BaseScene {
     }
   }
 
-  handlePlayerMovement() {
-    const SPEED = 5;
-    const JUMP_FORCE = -11;
 
-    // Player 1 (Left side) Movement
-    if (this.player1?.active && this.player1.body) {
-      let vx = 0;
-      if (this.keys.a.isDown) vx = -SPEED;
-      else if (this.keys.d.isDown) vx = SPEED;
-      
-      this.matter.body.setVelocity(this.player1.body, { x: vx, y: this.player1.body.velocity.y });
-
-      // Jump when standing on ground/barrier with low vertical velocity
-      const isGrounded = Math.abs(this.player1.body.velocity.y) < 0.05;
-      if ((this.keys.w.isDown || this.keys.space.isDown) && isGrounded) {
-        this.matter.body.setVelocity(this.player1.body, { x: vx, y: JUMP_FORCE });
-      }
-    }
-
-    // Player 2 (Right side) Movement
-    if (this.player2?.active && this.player2.body) {
-      let vx = 0;
-      if (this.keys.left.isDown) vx = -SPEED;
-      else if (this.keys.right.isDown) vx = SPEED;
-
-      this.matter.body.setVelocity(this.player2.body, { x: vx, y: this.player2.body.velocity.y });
-
-      const isGrounded = Math.abs(this.player2.body.velocity.y) < 0.05;
-      if (this.keys.up.isDown && isGrounded) {
-        this.matter.body.setVelocity(this.player2.body, { x: vx, y: JUMP_FORCE });
-      }
-    }
-  }
-
-  checkWinCondition() {
-    if (this.gameState !== 'ACTION') return;
-
-    const p1Hp = this.player1 ? Math.max(0, this.player1.health) : 0;
-    const p2Hp = this.player2 ? Math.max(0, this.player2.health) : 0;
-
-    this.p1HpText.setText(`P1 HP: ${p1Hp}`);
-    this.p2HpText.setText(`P2 HP: ${p2Hp}`);
-
-    if (p1Hp <= 0 || p2Hp <= 0) {
-      this.changeState(new window.GameOverState(this));
-    }
-  }
 
   shutdown() {
     this.inventoryButtons.forEach(btn => btn.destroy());
