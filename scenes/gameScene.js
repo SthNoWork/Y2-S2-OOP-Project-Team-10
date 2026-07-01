@@ -32,11 +32,7 @@ class GameScene extends Phaser.Scene {
     // The top bound is raised significantly (-3000) to allow high 75-degree mortar arcs.
     this.matter.world.setBounds(-1920, -3000, 5760, 4080, 32);
 
-    // Combat managers MUST init before LevelManager.load() because load()
-    // creates pre-placed objects (pillboxes, mortars) that register with their managers.
-    // window.ClusterManager.init(this); // Disabled to prevent duplicate cluster bomb splits (handled by gameLogic.js)
-    window.PillboxManager.init(this);
-    window.MortarManager.init(this, this.arena);
+    // Combat state and tracking are now handled natively by the OOP entities and window.EntityManager.
 
     const levelNum = window._currentLevel;
     this.player = window.LevelManager.load(this, this.arena, levelNum);
@@ -48,6 +44,13 @@ class GameScene extends Phaser.Scene {
 
     this._createActionButtons();
     window.UIFactory.addBackButton(this, () => window.startScene('LevelSelectScene'));
+
+    if (this.matter?.world) {
+      this.matter.world.drawDebug = !!window.SHOW_HITBOXES;
+      if (this.matter.world.debugGraphic) {
+        this.matter.world.debugGraphic.setVisible(!!window.SHOW_HITBOXES);
+      }
+    }
 
     // Clean up PowerUpManager when the scene shuts down.
     this.events.once('shutdown', () => window.PowerUpManager.destroy());

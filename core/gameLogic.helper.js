@@ -92,8 +92,8 @@ window.GameLogicHelper = {
         }
 
         // Ensure bomb is removed from the active bombs list immediately
-        if (window.GameLogic?._activeBombs) {
-          window.GameLogic._activeBombs = window.GameLogic._activeBombs.filter(b => b !== this);
+        if (window.EntityManager?.bombs) {
+          window.EntityManager.bombs = window.EntityManager.bombs.filter(b => b !== this);
         }
 
         window.ObjectFactory._bombPool.push(this);
@@ -210,7 +210,7 @@ window.GameLogicHelper = {
 
   // Checks the physics world, visual children, and arrays to detect if any active bomb exists in the scene.
   hasActiveBombs(scene) {
-    if (!scene) return false;
+    if (window.EntityManager?.bombs && window.EntityManager.bombs.some(b => b && b.active)) return true;
 
     // 1. Check Matter.js physics bodies
     if (scene.matter?.world?.localWorld?.bodies) {
@@ -232,34 +232,19 @@ window.GameLogicHelper = {
       if (hasVisualBomb) return true;
     }
 
-    // 3. Check active arrays
-    if (scene.activeBombs && scene.activeBombs.some(b => b && b.active)) return true;
-    if (window.GameLogic?._activeBombs && window.GameLogic._activeBombs.some(b => b && b.active)) return true;
-
     return false;
   },
 
   // Checks both placed (1v1) and level (campaign) objects to detect if any active shooting weapon still has remaining ammo.
   anyWeaponHasAmmo(scene) {
-    if (!scene) return false;
+    if (!window.EntityManager) return false;
 
-    const candidates = [];
-    if (scene.placedObjects) {
-      candidates.push(...scene.placedObjects);
-    }
-    if (window.GameLogic?.buildings) {
-      candidates.push(...window.GameLogic.buildings);
-    }
-
-    const anyHasAmmo = candidates.some(obj => {
-      if (obj && obj.active && typeof obj.activate === 'function') {
-        // If weapon is active, check if it still has ammo left
+    return window.EntityManager.attackers.some(obj => {
+      if (obj && obj.active) {
         return !obj.isOutOfAmmo;
       }
       return false;
     });
-
-    return anyHasAmmo;
   },
 
   // Checks if a building's physics placement is valid (no collisions with other solid objects)

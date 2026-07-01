@@ -77,19 +77,8 @@ current directory
 Node: it is phaser.js v4 not v3
 can read in the lib/
 
+No need to open browser. just do code and ill open and check
 Job:
-Final optimization
 
-Make it effient. 
-Codes that are not used should be removed.
-functions that are not used should be removed.
-
-logic that is constantly written again and again should be refactored into a function.
-
-make sure the code follow OOP and gang of four.
-
-move functions if it doesnt seem to belong n the file.
-
-Organize functions by order of their use for easy understand also remove comments that are not needed.
-
+do we need the pillbox and mortar manager? cant they just be stored in an entity manager?
 

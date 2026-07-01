@@ -198,72 +198,13 @@ class ExplosionCommand {
       const damage = Math.round(blastMaxDmg * falloff);
       if (damage <= 0) return;
 
-      // Check if it's TNT or a bomb crate taking damage (triggers chain explosion)
-      const isTNT = go.isBomb || go.objectType === 'tnt' || go.buildingType === 'tnt';
-      if (isTNT) {
-        go._dying = true;
-
-        try { this.scene.events.emit('bomb:explode', go); } catch (e) {}
-        try { this.scene.events.emit('bomb:destroy', go); } catch (e) {}
-
-        const bombCfg = window.ObjectConfig.placeableTypes[go.buildingType || go.objectType] ||
-                        window.ObjectConfig.internalTypes[go.buildingType || go.objectType] ||
-                        window.ObjectConfig.internalTypes.bomb;
-
-        if (this.scene.player1 || this.scene.player2) {
-          // 1v1 Mode: trigger chain immediately
-          this.scene.time.delayedCall(50, () => {
-            if (go.active) {
-              const cmd = new ExplosionCommand(this.scene, {
-                x: go.x,
-                y: go.y,
-                explosiveCfg: bombCfg,
-                sourceBomb: go
-              });
-              cmd.execute();
-              this.scene.activeBombs = this.scene.activeBombs.filter(b => b !== go);
-              this.scene.placedObjects = this.scene.placedObjects.filter(b => b !== go);
-              window.ObjectFactory.destroy(go);
-            }
-          });
-        } else {
-          // Single player: push to chain explosion queue
-          if (window.GameLogic) {
-            window.GameLogic._chainExplosionQueue.push({
-              cfg: bombCfg,
-              x: go.x,
-              y: go.y,
-              sourceBomb: go
-            });
-          }
-          try { go.destroy(); } catch (e) {}
+      if (window.EntityManager) {
+        // Single player air superiority reward check
+        if (go.objectType === 'plane' && sourceBomb && sourceBomb.owner instanceof window.Player) {
+          try { window.LevelManager?.addAirSuperiorityBonus?.(500); } catch (e) { }
+          try { window.UIFactory?.showFloatingText?.(this.scene, go.x, go.y, 'Air Superiority!\n+500', '#ffff00'); } catch (e) { }
         }
-        return;
-      }
-
-      // Handle players
-      const is1v1Player = go === this.scene.player1 || go === this.scene.player2;
-      const isSPPlayer = window.GameLogic && go === window.GameLogic.player;
-
-      if (is1v1Player) {
-        go.health = Math.max(0, go.health - damage);
-      } else if (isSPPlayer) {
-        window.GameLogic._damagePlayer(damage);
-      } else if (typeof go.takeDamage === 'function') {
-        const died = go.takeDamage(damage);
-        if (died) {
-          if (window.GameLogic) {
-            if (go.objectType === 'plane' && sourceBomb && sourceBomb.owner === window.GameLogic.player) {
-              try { window.LevelManager?.addAirSuperiorityBonus?.(500); } catch (e) { }
-              try { window.UIFactory?.showFloatingText?.(this.scene, go.x, go.y, 'Air Superiority!\n+500', '#ffff00'); } catch (e) { }
-            }
-            window.GameLogic._handleBuildingDeath(go);
-          } else {
-            // 1v1 placed objects
-            this.scene.placedObjects = this.scene.placedObjects.filter(o => o !== go);
-            window.ObjectFactory.destroy(go);
-          }
-        }
+        window.EntityManager.damageEntity(go, damage, sourceBomb);
       }
     }
   }

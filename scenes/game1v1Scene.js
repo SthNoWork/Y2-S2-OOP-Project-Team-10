@@ -122,10 +122,9 @@ class Game1v1Scene extends Phaser.Scene {
       frictionStatic: 10 * staticFrictionMult,
     });
 
-    // Add back button support via global UI
-    window.currentActiveScene = 'Game1v1Scene';
-    if (window.htmlBackBtn) {
-      window.htmlBackBtn.classList.add('active');
+    // Initialize the EntityManager
+    if (window.EntityManager) {
+      window.EntityManager.init(this);
     }
 
     // Initialize players
@@ -151,6 +150,13 @@ class Game1v1Scene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       this.events.off('bomb:spawn');
     });
+
+    if (this.matter?.world) {
+      this.matter.world.drawDebug = !!window.SHOW_HITBOXES;
+      if (this.matter.world.debugGraphic) {
+        this.matter.world.debugGraphic.setVisible(!!window.SHOW_HITBOXES);
+      }
+    }
 
     // Set initial state
     this.changeState(new window.P1BuildState(this));
@@ -561,6 +567,9 @@ class Game1v1Scene extends Phaser.Scene {
   }
 
   update(time, delta) {
+    if (window.EntityManager) {
+      window.EntityManager.update(delta);
+    }
     if (this.currentState) {
       this.currentState.update(time, delta);
     }

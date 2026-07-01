@@ -19,7 +19,7 @@ class BaseObjectCreator {
     if (!dims) return null;
 
     const { bodyW, bodyH, scaleX, scaleY } = dims;
-    const obj = _buildVisual(scene, cfg, spawnX, spawnY, bodyW, bodyH, scaleX, scaleY);
+    const obj = _buildVisual(scene, cfg, spawnX, spawnY, bodyW, bodyH, scaleX, scaleY, type);
     obj._bodyW = bodyW;
     obj._bodyH = bodyH;
 
@@ -29,14 +29,11 @@ class BaseObjectCreator {
       _addPhysics(scene, obj, cfg, bodyW, bodyH, dims);
     }
 
-    if (this.shouldAttachHealth(cfg)) {
-      _addHealth(obj, cfg);
+    if (obj instanceof window.DestructibleEntity && cfg.health !== undefined) {
+      obj.setHealth(cfg.health);
     }
 
     this.decorateProperties(obj, type, cfg, options);
-
-    _addWeaponCapabilities(obj, cfg);
-    if (type.includes('trampoline')) _setupTrampolineCapabilities(obj, cfg);
 
     this.register(obj);
 
@@ -67,7 +64,9 @@ class BaseObjectCreator {
   }
 
   register(obj) {
-    if (window.GameLogic?.addBuilding) window.GameLogic.addBuilding(obj);
+    if (window.EntityManager && (obj instanceof window.DestructibleEntity)) {
+      window.EntityManager.registerEntity(obj);
+    }
   }
 }
 
@@ -132,13 +131,10 @@ class InternalObjectCreator extends BaseObjectCreator {
     if (type === 'bomb' || type === 'smallBomb' || cfg.physics?.label === 'bomb') {
       obj.isBomb = true;
     }
-    if (type === 'plane') {
-      _setupPlaneCapabilities(obj, cfg);
-    }
   }
 
   register(obj) {
-    // Internal engine objects (bombs, plane, player) are not managed directly under buildings list
+    super.register(obj);
   }
 }
 
@@ -163,42 +159,6 @@ window.ObjectFactory = {
 
 window.ObjectFactory.destroy = function (obj) {
   if (!obj?.active) return;
-  if (obj._weaponTimer) {
-    try { obj._weaponTimer.destroy(); } catch (e) {}
-    obj._weaponTimer = null;
-  }
-  if (obj.objectType === 'plane') {
-    if (obj._updateHandler && obj.scene) {
-      try { obj.scene.events.off('update', obj._updateHandler); } catch (e) {}
-    }
-    if (obj._bombTimerEvent) {
-      try { obj._bombTimerEvent.destroy(); } catch (e) {}
-      obj._bombTimerEvent = null;
-    }
-    if (obj._blade?.active) {
-      try { obj._blade.destroy(); } catch (e) {}
-      obj._blade = null;
-    }
-  }
-  window.ObjectFactory.destroyDebugLabel(obj);
-
-  // Clean up constraints attached to this body
-  if (obj.body && obj.body._constraints) {
-    for (const c of obj.body._constraints) {
-      try {
-        if (obj.scene && obj.scene.matter?.world) {
-          obj.scene.matter.world.removeConstraint(c);
-        }
-      } catch (e) {}
-      // Also clean references from the other body
-      const other = c.bodyA === obj.body ? c.bodyB : c.bodyA;
-      if (other && other._constraints) {
-        other._constraints = other._constraints.filter(x => x !== c);
-      }
-    }
-    obj.body._constraints = [];
-  }
-
   try { obj.destroy(); } catch (e) { }
 };
 
@@ -206,9 +166,14 @@ window.ObjectFactory.destroy = function (obj) {
 // ── Debug label API ───────────────────────────────────────────────────────────
 
 window.ObjectFactory.updateDebugLabels = function (objects) {
-  for (const obj of objects) _updateHpLabel(obj);
+  // Now handled automatically by EntityManager
 };
 
 window.ObjectFactory.destroyDebugLabel = function (obj) {
-  if (obj?._hpLabel?.active) { obj._hpLabel.destroy(); obj._hpLabel = null; }
+  if (obj && typeof obj.destroyHpLabel === 'function') {
+    obj.destroyHpLabel();
+  } else if (obj?._hpLabel?.active) {
+    obj._hpLabel.destroy();
+    obj._hpLabel = null;
+  }
 };

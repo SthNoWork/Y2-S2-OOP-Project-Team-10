@@ -122,12 +122,6 @@ window.LevelManager = {
       );
       if (obj) {
         this._prePlaced.push(obj);
-        if (e.type === 'pillbox') {
-          try { window.PillboxManager?.registerPillbox?.(obj, e); } catch (err) { }
-        }
-        if (e.type === 'mortar') {
-          try { window.MortarManager?.registerMortar?.(obj); } catch (err) { }
-        }
       }
     });
   },
@@ -177,8 +171,8 @@ window.LevelManager = {
   },
 
   _tickWaiting() {
-    const planeActive = !!window.GameLogic._run;
-    const mortarActive = !!window.MortarManager?._barrageActive;
+    const planeActive = !!(window.EntityManager?.attackers?.some(a => a instanceof window.Plane && a.active));
+    const mortarActive = !!window.EntityManager?._barrageActive;
     const bombsExist = window.GameLogicHelper?.hasActiveBombs?.(this.scene);
     const weaponsActive = window.GameLogicHelper?.anyWeaponHasAmmo?.(this.scene);
     if (!planeActive && !mortarActive && !bombsExist && !weaponsActive) this._state = 'won';
@@ -218,21 +212,29 @@ window.LevelManager = {
     const wave = waves[this._waveIndex];
     const levelType = this.levelCfg.levelType || 'airplane';
 
-    // Trigger mortar barrage and pillbox shooting
-    try { window.MortarManager?.startShooting?.(); } catch (e) { }
-    try { window.PillboxManager?.startShooting?.(); } catch (e) { }
+    // Trigger all active registered attackers to shoot
+    if (window.EntityManager) {
+      for (const a of window.EntityManager.attackers) {
+        if (a && a.active && !(a instanceof window.Plane)) {
+          const target = window.EntityManager.getNearestTarget(a.x, a.y);
+          if (target) a.shoot(target);
+        }
+      }
+    }
 
     if (levelType === 'mortar_barrage') {
       // ── Mortar-only level: skip the airplane, fire a configurable barrage ──
       const mb = this.levelCfg.mortarBarrage || {};
       try {
-        window.MortarManager?.startBarrageLevel?.({
-          fireRateMs: mb.fireRateMs ?? 40,
-          durationMs: mb.durationMs ?? 2000,
-          bombType: mb.bombType ?? 'bomb',
-          spread: mb.spread ?? 15,
-          bombCount: mb.bombCount,           // optional, overrides duration-based calc
-        });
+        if (window.EntityManager) {
+          window.EntityManager.startBarrage({
+            fireRateMs: mb.fireRateMs ?? 40,
+            durationMs: mb.durationMs ?? 2000,
+            bombType: mb.bombType ?? 'bomb',
+            spread: mb.spread ?? 15,
+            bombCount: mb.bombCount,
+          });
+        }
       } catch (e) { console.error('[LevelManager] mortar_barrage error:', e); }
     } else {
       // ── Standard airplane bombing run ──

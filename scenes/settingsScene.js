@@ -175,24 +175,29 @@ class SettingsScene extends Phaser.Scene {
       dToggleKnob.x = on ? (dToggleR - dToggleRad) : (dToggleL + dToggleRad);
     };
 
-    let debugOn = !!window.DEBUG;
-    renderDebugToggle(debugOn);
+    let showHitboxes = !!window.SHOW_HITBOXES;
+    renderDebugToggle(showHitboxes);
 
     const dToggleHit = this.add.rectangle(dToggleX, dToggleY, dToggleW + 24, dToggleH + 18, 0x000000, 0);
     dToggleHit.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
-      debugOn = !debugOn;
-      renderDebugToggle(debugOn);
-      window.DEBUG = debugOn;
+      showHitboxes = !showHitboxes;
+      renderDebugToggle(showHitboxes);
+      window.SHOW_HITBOXES = showHitboxes;
       try {
-        localStorage.setItem('bts_debug_mode', debugOn ? 'true' : 'false');
+        localStorage.setItem('bts_show_hitboxes', showHitboxes ? 'true' : 'false');
       } catch (e) { }
 
       if (this.game) {
         this.game.scene.scenes.forEach(s => {
           if (s.matter?.world) {
-            s.matter.world.drawDebug = debugOn;
+            s.matter.world.drawDebug = showHitboxes;
+            if (showHitboxes && !s.matter.world.debugGraphic) {
+              if (typeof s.matter.world.createDebugGraphic === 'function') {
+                s.matter.world.createDebugGraphic();
+              }
+            }
             if (s.matter.world.debugGraphic) {
-              s.matter.world.debugGraphic.setVisible(debugOn);
+              s.matter.world.debugGraphic.setVisible(showHitboxes);
             }
           }
         });
