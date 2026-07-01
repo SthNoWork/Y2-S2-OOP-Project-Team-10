@@ -199,12 +199,12 @@ window.ObjectConfig = {
       imageKey: 'spring_atlas',
       startFrame: 'spring1',               // resting frame           
       physics: {
-        friction: 0.9, restitution: 0.0, frictionAir: 0.01, label: 'trampoline', mass: 10,
+        friction: 0.9, restitution: 0.0, frictionAir: 0.01, label: 'trampoline', mass: 50,
         collisionFilter: { category: 0x0008, mask: 0x0001 | 0x0002 | 0x0004 },
       },
       bounceForce: 45,
       bounceVelocityCap: 45,
-      health: 30, onDeath: 'explode',
+      health: -1, onDeath: 'explode',
       explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 1.2, blastScale: 0.6 },
       maxBounces: 8,
     },
@@ -216,12 +216,12 @@ window.ObjectConfig = {
       imageKey: 'spring_atlas',
       startFrame: 'spring1',
       physics: {
-        friction: 0.9, restitution: 0.0, frictionAir: 0.01, label: 'trampoline', mass: 10,
+        friction: 0.9, restitution: 0.0, frictionAir: 0.01, label: 'trampoline', mass: 50,
         collisionFilter: { category: 0x0008, mask: 0x0001 | 0x0002 | 0x0004 },
       },
       bounceForce: 75,                     // Much stronger bounce force for 1v1 action
       bounceVelocityCap: 65,
-      health: 30, onDeath: 'explode',
+      health: -1, onDeath: 'explode',
       explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 1.2, blastScale: 0.6 },
       maxBounces: 8,
       maxCount: 3,
@@ -265,11 +265,11 @@ window.ObjectConfig = {
       physics: {
         isStatic: true,
         friction: 1.0, restitution: 0.0, frictionAir: 0.01,
-        label: 'building', mass: 100,
+        label: 'building', mass: 50,
         collisionFilter: { category: 0x0008, mask: 0x0001 | 0x0002 | 0x0004 | 0x0008 | 0x0010 | 0x0020 },
       },
       health: 120, onDeath: 'explode',
-      explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 3, blastScale: 1.5 },
+      explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 1, blastScale: 0.8 },
       blastForce: 100,
       blastMaxDamage: 60,
       maxCount: 2,
@@ -466,7 +466,7 @@ window.ObjectConfig = {
         collisionFilter: { category: 0x0001, mask: 0x0001 | 0x0002 | 0x0004 },
       },
       health: 120, onDeath: 'explode',
-      explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 3, blastScale: 1.5 },
+      explosion: { animKey: 'explosion', imageKey: 'explosion_atlas', scale: 1, blastScale: 0.8 },
       blastForce: 100,
       blastMaxDamage: 60,
       weapon: {

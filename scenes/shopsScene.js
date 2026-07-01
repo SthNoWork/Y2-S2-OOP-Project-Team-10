@@ -1,6 +1,23 @@
 // scenes/shopsScene.js
-class ShopScene extends Phaser.Scene {
-  constructor() { super('ShopScene'); }
+class ShopScene extends BaseScene {
+  constructor() {
+    super({
+      key: 'ShopScene',
+      physics: {
+        default: 'none'
+      }
+    });
+  }
+
+  clear() {
+    window.removeEventListener('authStateChanged', this._onAuth);
+    window.removeEventListener('keydown', this._onKeyDown);
+    if (this.input) {
+      this.input.off('wheel', this._onWheel, this);
+    }
+    this._renderables.forEach(o => { try { if (o?.active) o.destroy(); } catch (e) {} });
+    this._renderables = [];
+  }
 
 create() {
     this.cameras.main.setBackgroundColor('#1a1a2e');
@@ -24,14 +41,6 @@ create() {
     };
     window.addEventListener('authStateChanged', this._onAuth);
     window.addEventListener('keydown', this._onKeyDown);
-    this.events.once('shutdown', () => {
-      window.removeEventListener('authStateChanged', this._onAuth);
-      window.removeEventListener('keydown', this._onKeyDown);
-    });
-    this.events.once('destroy',  () => {
-      window.removeEventListener('authStateChanged', this._onAuth);
-      window.removeEventListener('keydown', this._onKeyDown);
-    });
 
     this._render();
 
@@ -59,8 +68,6 @@ create() {
       this.cameras.main.setScroll(0, nextScroll);
     };
     this.input.on('wheel', this._onWheel, this);
-    this.events.once('shutdown', () => this.input.off('wheel', this._onWheel, this));
-    this.events.once('destroy', () => this.input.off('wheel', this._onWheel, this));
   }
 
 update(time, delta) {

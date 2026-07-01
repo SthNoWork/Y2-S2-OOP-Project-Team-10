@@ -220,7 +220,7 @@ class GameOverState extends Game1v1State {
     retryBtn.on('pointerdown', () => {
       retryBtn.destroy();
       menuBtn.destroy();
-      this.scene.scene.restart();
+      this.scene.reload();
     });
 
     menuBtn.on('pointerdown', () => {

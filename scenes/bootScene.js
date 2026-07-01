@@ -1,9 +1,14 @@
 // scenes/bootScene.js
 // Loads all assets then routes to the target scene (default: GameScene).
 
-class BootScene extends Phaser.Scene {
+class BootScene extends BaseScene {
   constructor() {
-    super('BootScene');
+    super({
+      key: 'BootScene',
+      physics: {
+        default: 'none'
+      }
+    });
   }
 
   preload() {

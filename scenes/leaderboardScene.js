@@ -15,10 +15,14 @@ const LB = {
   HEADER_Y:  156,   // y of column-header text
 };
 
-class LeaderboardScene extends Phaser.Scene {
-
+class LeaderboardScene extends BaseScene {
   constructor() {
-    super({ key: 'LeaderboardScene' });
+    super({
+      key: 'LeaderboardScene',
+      physics: {
+        default: 'none'
+      }
+    });
   }
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────

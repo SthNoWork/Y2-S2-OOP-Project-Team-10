@@ -405,6 +405,7 @@
   <script src="core/buildingManager.js"></script>
   <script src="core/levelManager.js"></script>
 
+  <script src="scenes/baseScene.js"></script>
   <script src="scenes/bootScene.js"></script>
   <script src="scenes/gameScene.js"></script>
   <script src="core/game1v1States.js"></script>
@@ -417,6 +418,17 @@
   <script src="config/game.config.js"></script>
 
   <script>
+    window.SceneClasses = {
+      BootScene,
+      GameScene,
+      Game1v1Scene,
+      LevelSelectScene,
+      SettingsScene,
+      ShopScene,
+      LeaderboardScene,
+      ProfileScene,
+    };
+
     const homeScreen = document.getElementById('home-screen');
     const profilePanel = document.getElementById('profile-panel');
     const gameContainer = document.getElementById('game-container');
@@ -573,22 +585,27 @@
 
     // ── showHomeScreen ───────────────────────────────────────────────────
     window.showHomeScreen = function () {
-      if (game) {
-        game.scene.scenes.forEach(s => {
-          if (s.scene.isActive()) {
-            s.scene.stop();
-          }
-        });
-        game.loop.pause();
-      }
-      gameContainer.classList.remove('active');
-      homeScreen.classList.remove('hidden');
-      if (htmlBackBtn) htmlBackBtn.classList.remove('active');
-      try { window.SfxManager?.unmuteAll?.(); } catch (e) { }
-      profilePanelHiddenByScene = false;
-      updateProfilePanel();
-      window.MusicManager.playShared({ restart: window.MusicManager.mode === 'level' });
-      window.currentActiveScene = 'HomeScreen';
+      setTimeout(() => {
+        if (game) {
+          game.scene.scenes.forEach(s => {
+            if (s.scene.isActive()) {
+              if (typeof s.clear === 'function') {
+                try { s.clear(); } catch (e) { console.error(e); }
+              }
+              s.scene.stop();
+            }
+          });
+          game.loop.pause();
+        }
+        gameContainer.classList.remove('active');
+        homeScreen.classList.remove('hidden');
+        if (htmlBackBtn) htmlBackBtn.classList.remove('active');
+        try { window.SfxManager?.unmuteAll?.(); } catch (e) { }
+        profilePanelHiddenByScene = false;
+        updateProfilePanel();
+        window.MusicManager.playShared({ restart: window.MusicManager.mode === 'level' });
+        window.currentActiveScene = 'HomeScreen';
+      }, 0);
     };
 
     // ── Startup preloader ─────────────────────────────────────────────────
@@ -604,42 +621,63 @@
 
     // ── startScene ───────────────────────────────────────────────────────
     window.startScene = function (sceneKey) {
-      try { window.SfxManager?.unmuteAll?.(); } catch (e) { }
+      setTimeout(() => {
+        try { window.SfxManager?.unmuteAll?.(); } catch (e) { }
 
-      homeScreen.classList.add('hidden');
-      gameContainer.classList.add('active');
-      if (htmlBackBtn) htmlBackBtn.classList.add('active');
-      profilePanelHiddenByScene = HIDE_PROFILE_IN.has(sceneKey);
+        homeScreen.classList.add('hidden');
+        gameContainer.classList.add('active');
+        if (htmlBackBtn) htmlBackBtn.classList.add('active');
+        profilePanelHiddenByScene = HIDE_PROFILE_IN.has(sceneKey);
 
-      window.currentActiveScene = sceneKey;
+        window.currentActiveScene = sceneKey;
 
-      if (sceneKey === 'GameScene' || sceneKey === 'Game1v1Scene') {
-        window.MusicManager.playLevel(sceneKey === 'Game1v1Scene' ? '1v1' : (window._currentLevel ?? 1));
-      } else {
-        window.MusicManager.playShared({ restart: window.MusicManager.mode === 'level' });
-      }
-
-      updateProfilePanel();
-
-      if (game) {
-        game.loop.resume();
-        // Stop any active scenes first
-        game.scene.scenes.forEach(s => {
-          if (s.scene.isActive()) {
-            s.scene.stop();
-          }
-        });
-        // Start target scene directly
-        game.scene.start(sceneKey);
-        loadingOverlay.style.display = 'none';
-      }
-
-      if (isMobile && fullscreenSupported) {
-        if (!localStorage.getItem('mobileFullscreenPrompted')) {
-          requestFullscreenAndLandscape();
-          localStorage.setItem('mobileFullscreenPrompted', 'true');
+        if (sceneKey === 'GameScene' || sceneKey === 'Game1v1Scene') {
+          window.MusicManager.playLevel(sceneKey === 'Game1v1Scene' ? '1v1' : (window._currentLevel ?? 1));
+        } else {
+          window.MusicManager.playShared({ restart: window.MusicManager.mode === 'level' });
         }
-      }
+
+        updateProfilePanel();
+
+        if (game) {
+          game.loop.resume();
+          // Stop and clear other active scenes first
+          game.scene.scenes.forEach(s => {
+            if (s.scene.isActive() && s.sys.settings.key !== sceneKey) {
+              if (typeof s.clear === 'function') {
+                try { s.clear(); } catch (e) { console.error(e); }
+              }
+              s.scene.stop();
+            }
+          });
+          // Recreate the target scene by removing it and re-adding it
+          const sceneClass = window.SceneClasses[sceneKey];
+          if (sceneClass) {
+            try {
+              const existingScene = game.scene.getScene(sceneKey);
+              if (existingScene) {
+                if (typeof existingScene.clear === 'function') {
+                  try { existingScene.clear(); } catch (e) { console.error(e); }
+                }
+              }
+              game.scene.remove(sceneKey);
+              game.scene.add(sceneKey, sceneClass, true);
+            } catch (e) {
+              console.error(e);
+            }
+          } else {
+            game.scene.start(sceneKey);
+          }
+          loadingOverlay.style.display = 'none';
+        }
+
+        if (isMobile && fullscreenSupported) {
+          if (!localStorage.getItem('mobileFullscreenPrompted')) {
+            requestFullscreenAndLandscape();
+            localStorage.setItem('mobileFullscreenPrompted', 'true');
+          }
+        }
+      }, 0);
     };
 
     // ── Button wiring ────────────────────────────────────────────────────

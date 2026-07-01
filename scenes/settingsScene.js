@@ -1,6 +1,19 @@
 // scenes/settingsScene.js
-class SettingsScene extends Phaser.Scene {
-  constructor() { super('SettingsScene'); }
+class SettingsScene extends BaseScene {
+  constructor() {
+    super({
+      key: 'SettingsScene',
+      physics: {
+        default: 'none'
+      }
+    });
+  }
+
+  clear() {
+    if (this._fsEvents && this._onFsChange) {
+      this._fsEvents.forEach((evt) => document.removeEventListener(evt, this._onFsChange));
+    }
+  }
 
   create() {
     this.cameras.main.setBackgroundColor('#000000');
@@ -204,17 +217,11 @@ class SettingsScene extends Phaser.Scene {
       }
     });
 
-    const fsEvents = ['fullscreenchange','mozfullscreenchange','webkitfullscreenchange','msfullscreenchange'];
-    const onFsChange = () => {
+    this._fsEvents = ['fullscreenchange','mozfullscreenchange','webkitfullscreenchange','msfullscreenchange'];
+    this._onFsChange = () => {
       toggleOn = isFullscreen();
       renderToggle(toggleOn);
     };
-    fsEvents.forEach((evt) => document.addEventListener(evt, onFsChange));
-    this.events.once('shutdown', () => {
-      fsEvents.forEach((evt) => document.removeEventListener(evt, onFsChange));
-    });
-    this.events.once('destroy', () => {
-      fsEvents.forEach((evt) => document.removeEventListener(evt, onFsChange));
-    });
+    this._fsEvents.forEach((evt) => document.addEventListener(evt, this._onFsChange));
   }
 }

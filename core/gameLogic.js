@@ -8,6 +8,8 @@ window.GameLogic = {
   arena: null,
   gameOver: false,
 
+  _targets: [],
+  _recentExplosions: [],
   _onCollision: null,
   _run: null,   // active bombing run state
 
