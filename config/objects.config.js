@@ -234,7 +234,7 @@ window.ObjectConfig = {
       scale: 1.0,
       collisionSize: { width: 120, height: 80 },
       physics: {
-        isStatic: true,
+        isStatic: false,
         friction: 1.0, restitution: 0.0, frictionAir: 0.01,
         label: 'building', mass: 100,
         collisionFilter: { category: window.CollisionLayers.STRUCTURE, mask: window.CollisionLayers.DEFAULT | window.CollisionLayers.PLAYER_1 | window.CollisionLayers.PLAYER_2 | window.CollisionLayers.STRUCTURE | window.CollisionLayers.EXPLOSIVE_P1 | window.CollisionLayers.EXPLOSIVE_P2 },
@@ -263,7 +263,7 @@ window.ObjectConfig = {
       scale: 1.0,
       collisionSize: { width: 50, height: 100 },
       physics: {
-        isStatic: true,
+        isStatic: false,
         friction: 1.0, restitution: 0.0, frictionAir: 0.01,
         label: 'building', mass: 50,
         collisionFilter: { category: window.CollisionLayers.STRUCTURE, mask: window.CollisionLayers.DEFAULT | window.CollisionLayers.PLAYER_1 | window.CollisionLayers.PLAYER_2 | window.CollisionLayers.STRUCTURE | window.CollisionLayers.EXPLOSIVE_P1 | window.CollisionLayers.EXPLOSIVE_P2 },
@@ -427,7 +427,7 @@ window.ObjectConfig = {
       bomb: 'smallBomb',
       shootingType: 'player',
       physics: {
-        isStatic: true,
+        isStatic: false,
         friction: 1.0, restitution: 0.0, frictionAir: 0.01,
         label: 'building', mass: 100,
         collisionFilter: { category: window.CollisionLayers.DEFAULT, mask: window.CollisionLayers.DEFAULT | window.CollisionLayers.PLAYER_1 | window.CollisionLayers.PLAYER_2 },
@@ -460,7 +460,7 @@ window.ObjectConfig = {
       barrageCount: 30,
       accuracySpread: 15,
       physics: {
-        isStatic: true,
+        isStatic: false,
         friction: 1.0, restitution: 0.0, frictionAir: 0.01,
         label: 'building', mass: 100,
         collisionFilter: { category: window.CollisionLayers.DEFAULT, mask: window.CollisionLayers.DEFAULT | window.CollisionLayers.PLAYER_1 | window.CollisionLayers.PLAYER_2 },

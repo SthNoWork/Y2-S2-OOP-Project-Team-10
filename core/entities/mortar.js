@@ -24,7 +24,7 @@ class Mortar extends Attacker {
     if (!weapon) return;
 
     const fireCycle = () => {
-      if (!this.active || this._dying || !target || !target.active || target.health <= 0) {
+      if (!this.active || this._dying || this.health <= 0 || !target || !target.active || target.health <= 0) {
         if (this._weaponTimer) {
           try { this._weaponTimer.destroy(); } catch (e) {}
         }
@@ -48,7 +48,7 @@ class Mortar extends Attacker {
         
         for (let i = 0; i < count; i++) {
           this.scene.time.delayedCall(i * delay, () => {
-            if (!this.active || this._dying || !target || !target.active || target.health <= 0) return;
+            if (!this.active || this._dying || this.health <= 0 || !target || !target.active || target.health <= 0) return;
             
             const { x: spawnX, y: spawnY } = window.GameLogicHelper.getSafeSpawnPosition(this, target, 0.85);
             const dx = target.x - spawnX;

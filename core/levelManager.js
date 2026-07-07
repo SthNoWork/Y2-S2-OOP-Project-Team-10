@@ -112,6 +112,9 @@ class LevelManager {
 
     platforms.forEach((p) => {
       const platform = this.#scene.add.rectangle(p.x, p.y, p.w, p.h, 0x888888);
+      if (p.angle !== undefined) {
+        platform.setAngle(p.angle);
+      }
 
       const frictionMult = window.ObjectConfig.globalFrictionMultiplier ?? 3.0;
       const staticFrictionMult = window.ObjectConfig.globalStaticFrictionMultiplier ?? 3.0;
@@ -121,6 +124,7 @@ class LevelManager {
         isStatic: true,
         friction: 1.0 * frictionMult,
         frictionStatic: 10 * staticFrictionMult,
+        angle: p.angle ? Phaser.Math.DegToRad(p.angle) : 0,
       });
 
       this.#platforms.push(platform);
@@ -206,6 +210,15 @@ class LevelManager {
       this.#state = 'running';
       this.#countdownMs = 0; // Trigger wave immediately
       window.BuildingManager.lockPlacement();
+
+      if (this.#levelCfg && this.#levelCfg.levelType !== 'mortar_barrage') {
+        this.#prePlaced.forEach(obj => {
+          if (obj && obj.active && typeof obj.shoot === 'function') {
+            const target = window.GameLogic.getTarget(obj.x, obj.y);
+            obj.shoot(target);
+          }
+        });
+      }
     }
   }
 

@@ -41,6 +41,11 @@ window.BarrageController = {
         }
 
         const pos = launchPositions[Math.floor(Math.random() * launchPositions.length)];
+        if (pos.obj && (!pos.obj.active || pos.obj.health <= 0)) {
+          fired++;
+          return;
+        }
+
         const target = window.EntityManager?.getNearestTarget(pos.x, pos.y);
         if (!target || !target.active) {
           fired++;

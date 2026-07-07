@@ -202,9 +202,11 @@ window.GameLogicHelper = {
     const roughAngleRad = Math.atan2(target.y - shooter.y, target.x - shooter.x);
     const spawnDist = Math.max(shooter.displayWidth || 120, shooter.displayHeight || 80) * scaleMultiplier;
     
+    // Always offset Y upwards (negative Y in Phaser) since mortars/pillboxes shoot high-arc bombs upwards.
+    // This prevents bombs from spawning below/inside elevated platforms.
     return {
       x: shooter.x + Math.cos(roughAngleRad) * spawnDist,
-      y: shooter.y + Math.sin(roughAngleRad) * spawnDist
+      y: shooter.y - Math.abs(Math.sin(roughAngleRad)) * spawnDist
     };
   },
 

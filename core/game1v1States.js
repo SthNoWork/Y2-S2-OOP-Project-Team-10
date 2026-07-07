@@ -54,14 +54,10 @@ class ActionState extends Game1v1State {
     this.scene.inventoryButtons.forEach(btn => btn.destroy());
     this.scene.inventoryButtons = [];
 
-    // Make all placed static structures dynamic, but keep pillboxes and mortars static and activate them
+    // Make all placed static structures dynamic and activate them
     this.scene.placedObjects.forEach(obj => {
       if (obj && obj.body) {
-        if (obj.buildingType === 'pillbox1v1' || obj.buildingType === 'mortar1v1') {
-          obj.setStatic(true);
-        } else {
-          obj.setStatic(false);
-        }
+        obj.setStatic(false);
       }
       if (typeof obj.activate === 'function') {
         const isP1 = obj.x < 960;

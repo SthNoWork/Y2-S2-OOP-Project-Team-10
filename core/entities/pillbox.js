@@ -24,7 +24,7 @@ class Pillbox extends Attacker {
     if (!weapon) return;
 
     const fireCycle = () => {
-      if (!this.active || this._dying || !target || !target.active || target.health <= 0) {
+      if (!this.active || this._dying || this.health <= 0 || !target || !target.active || target.health <= 0) {
         if (this._weaponTimer) {
           try { this._weaponTimer.destroy(); } catch (e) {}
         }

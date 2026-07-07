@@ -92,6 +92,15 @@ class Building extends DestructibleEntity {
         this.play('trampoline_spring');
       }
     } catch (e) {}
+
+    // Reduce the impulse (linear and angular velocity) received by the trampoline by half
+    if (this.body) {
+      Phaser.Physics.Matter.Matter.Body.setVelocity(this.body, {
+        x: this.body.velocity.x * 0.5,
+        y: this.body.velocity.y * 0.5
+      });
+      Phaser.Physics.Matter.Matter.Body.setAngularVelocity(this.body, this.body.angularVelocity * 0.5);
+    }
   }
 
   onDeath() {

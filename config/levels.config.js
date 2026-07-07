@@ -87,14 +87,10 @@ window.Levels = {
     platforms: [
       { x: 960, y: 956, w: 1920, h: 24 },
       { x: 450, y: 650, w: 200, h: 24 },  // Left perch platform
-      { x: 960, y: 600, w: 300, h: 24 },  // Floating central platform
       { x: 1470, y: 650, w: 200, h: 24 }, // Right perch platform
     ],
     prePlaced: [
       { type: 'pillbox', x: 450, y: 610 },
-      { type: 'bomb_crate', x: 900, y: 562 },
-      { type: 'bomb_crate', x: 960, y: 562 },
-      { type: 'bomb_crate', x: 1020, y: 562 },
       { type: 'pillbox', x: 1470, y: 610 },
     ],
     allowedBuildings: { shortPlank: 5, longPlank: 3, pillar: 3, cube: 3, wall: 3, trampoline: 4 },
@@ -110,8 +106,7 @@ window.Levels = {
     playerSpawn: { x: 960, y: 810 },
     waveDelayMs: 4500,
     platforms: [
-      { x: 960, y: 956, w: 1920, h: 24 },
-      { x: 960, y: 550, w: 500, h: 24 }, // High central shield platform
+      { x: 960, y: 956, w: 1920, h: 24 }, // Ground
     ],
     prePlaced: [
       { type: 'mortar', x: 960, y: 500 },
@@ -165,19 +160,19 @@ window.Levels = {
   },
 
   // ── Level 9 ── Volcano Caldera ────────────────────────────────────────────
-  // Elevated flanking platforms form a caldera valley in the center.
-  // Elevators/mortars rain high-arc bombs down on the valley.
+  // Slanted flanking platforms form a caldera valley in the center.
+  // Mortars fire high-arc bombs down on the valley.
   9: {
     playerSpawn: { x: 960, y: 810 },
     waveDelayMs: 3500,
     platforms: [
       { x: 960, y: 956, w: 1920, h: 24 },
-      { x: 250, y: 550, w: 300, h: 24 },  // High left rim
-      { x: 1670, y: 550, w: 300, h: 24 }, // High right rim
+      { x: 250, y: 550, w: 350, h: 24, angle: 15 },  // Left rim slants down-right
+      { x: 1670, y: 550, w: 350, h: 24, angle: -15 }, // Right rim slants down-left
     ],
     prePlaced: [
-      { type: 'mortar', x: 250, y: 500 },
-      { type: 'mortar', x: 1670, y: 500 },
+      { type: 'mortar', x: 250, y: 470 },
+      { type: 'mortar', x: 1670, y: 470 },
     ],
     allowedBuildings: { diamond: 3, obsidian: 3, longPlank: 4, pillar: 4, cube: 4, trampoline: 5 },
     waves: [
@@ -193,12 +188,14 @@ window.Levels = {
     waveDelayMs: 3000,
     platforms: [
       { x: 960, y: 956, w: 1920, h: 24 },
-      { x: 960, y: 500, w: 800, h: 24 }, // Iron Fortress core
+      { x: 960, y: 500, w: 300, h: 24 }, // Flat core
+      { x: 610, y: 540, w: 400, h: 24, angle: 15 }, // Slanted left wing
+      { x: 1310, y: 540, w: 400, h: 24, angle: -15 }, // Slanted right wing
     ],
     prePlaced: [
-      { type: 'mortar', x: 760, y: 450 },
+      { type: 'mortar', x: 610, y: 460 },
       { type: 'pillbox', x: 960, y: 460 },
-      { type: 'mortar', x: 1160, y: 450 },
+      { type: 'mortar', x: 1310, y: 460 },
     ],
     allowedBuildings: { obsidian: 4, diamond: 3, iron: 4, longPlank: 4, pillar: 4, cube: 4, trampoline: 6 },
     waves: [
@@ -245,12 +242,10 @@ window.Levels = {
     platforms: [
       { x: 960, y: 956, w: 1920, h: 24 },
       { x: 400, y: 600, w: 200, h: 24 },
-      { x: 960, y: 550, w: 160, h: 24 }, // Reactor core platform
       { x: 1520, y: 600, w: 200, h: 24 },
     ],
     prePlaced: [
       { type: 'pillbox', x: 400, y: 560 },
-      { type: 'bomb_crate', x: 960, y: 512 },
       { type: 'mortar', x: 1520, y: 550 },
     ],
     allowedBuildings: { wall: 4, stone: 4, iron: 3, gold: 2, trampoline: 4 },
@@ -291,20 +286,18 @@ window.Levels = {
     playerSpawn: { x: 960, y: 810 },
     waveDelayMs: 4500,
     mortarBarrage: {
-      fireRateMs: 140,
-      durationMs: 3000,
+      fireRateMs: 60,
+      bombCount: 50,
       bombType: 'bomb',
-      spread: 12,
+      spread: 15,
     },
     platforms: [
       { x: 960, y: 956, w: 1920, h: 24 },
       { x: 500, y: 500, w: 150, h: 24 },
-      { x: 960, y: 450, w: 150, h: 24 },
       { x: 1420, y: 500, w: 150, h: 24 },
     ],
     prePlaced: [
       { type: 'mortar', x: 500, y: 450 },
-      { type: 'mortar', x: 960, y: 400 },
       { type: 'mortar', x: 1420, y: 450 },
     ],
     allowedBuildings: { obsidian: 6, diamond: 5, iron: 4, trampoline: 6 },
@@ -321,14 +314,14 @@ window.Levels = {
     waveDelayMs: 4000,
     platforms: [
       { x: 960, y: 956, w: 1920, h: 24 },
-      { x: 450, y: 550, w: 300, h: 24 },
-      { x: 1470, y: 550, w: 300, h: 24 },
+      { x: 450, y: 550, w: 350, h: 24, angle: -10 },
+      { x: 1470, y: 550, w: 350, h: 24, angle: 10 },
     ],
     prePlaced: [
-      { type: 'mortar', x: 380, y: 500 },
-      { type: 'pillbox', x: 520, y: 510 },
-      { type: 'mortar', x: 1390, y: 500 },
-      { type: 'pillbox', x: 1530, y: 510 },
+      { type: 'mortar', x: 380, y: 480 },
+      { type: 'pillbox', x: 520, y: 490 },
+      { type: 'mortar', x: 1390, y: 480 },
+      { type: 'pillbox', x: 1530, y: 490 },
     ],
     allowedBuildings: { obsidian: 8, diamond: 6, iron: 8, trampoline: 8, shortPlank: 8, longPlank: 8 },
     waves: [
