@@ -94,7 +94,9 @@ class EntityManager {
 
   damageEntity(entity, damage, sourceBomb) {
     if (!entity || !entity.active || entity._dying) return;
-    entity.takeDamage(damage);
+    if (typeof entity.takeDamage === 'function') {
+      entity.takeDamage(damage);
+    }
   }
 
   queueChainExplosion(explosionData) {

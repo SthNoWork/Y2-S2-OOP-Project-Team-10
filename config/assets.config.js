@@ -29,19 +29,21 @@ window.Assets = {
   ],
 
   animations: [
-  // ... all existing animations ...
-
-  // ── Spring / Trampoline ──────────────────────────────────────────────────
-  {
-    key:       'spring_bounce',
-    atlasKey:  'spring_atlas',
-    frames:    ['spring1', 'spring2', 'spring3', 'spring4'],
-    frameRate: 12,
-    repeat:    0,   // plays once per bounce trigger
-  },
-],
-
-  animations: [
+    // ── Spring / Trampoline ──────────────────────────────────────────────────
+    {
+      key:       'trampoline_spring',
+      atlasKey:  'spring_atlas',
+      frames:    ['spring1', 'spring2', 'spring3', 'spring4'],
+      frameRate: 12,
+      repeat:    0,   // plays once per bounce trigger
+    },
+    {
+      key:       'spring_bounce',
+      atlasKey:  'spring_atlas',
+      frames:    ['spring1', 'spring2', 'spring3', 'spring4'],
+      frameRate: 12,
+      repeat:    0,
+    },
     {
       key:       'plane_fly',
       atlasKey:  'plane_atlas',

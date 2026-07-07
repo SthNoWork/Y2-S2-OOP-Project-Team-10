@@ -209,6 +209,10 @@ class LevelManager {
     }
   }
 
+  startWave() {
+    this.startLevelWave();
+  }
+
   _fireNextWave() {
     const wave = this.#levelCfg.waves[this.#waveIndex];
     if (!wave) return;

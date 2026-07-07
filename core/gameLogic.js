@@ -156,7 +156,7 @@ class GameLogic {
     const trampolineBody = bodyA.label === 'trampoline' ? bodyA : bodyB.label === 'trampoline' ? bodyB : null;
     if (trampolineBody) {
       const otherBody = trampolineBody === bodyA ? bodyB : bodyA;
-      if (otherBody.label === 'bomb') {
+      if (otherBody.label === 'bomb' || otherBody.gameObject?.isBomb) {
         if (trampolineBody.gameObject && typeof trampolineBody.gameObject.bounce === 'function') {
           trampolineBody.gameObject.bounce(otherBody);
         }
@@ -165,11 +165,11 @@ class GameLogic {
     }
 
     // Bomb collision
-    const bombBody = bodyA.label === 'bomb' ? bodyA : bodyB.label === 'bomb' ? bodyB : null;
+    const bombBody = (bodyA.label === 'bomb' || bodyA.gameObject?.isBomb) ? bodyA : (bodyB.label === 'bomb' || bodyB.gameObject?.isBomb) ? bodyB : null;
     if (!bombBody) return;
 
     const otherBody = bombBody === bodyA ? bodyB : bodyA;
-    if (otherBody.label === 'bomb') return;
+    if (otherBody.label === 'bomb' || otherBody.gameObject?.isBomb) return;
 
     const bombGO = bombBody.gameObject;
     if (!bombGO?.active) return;

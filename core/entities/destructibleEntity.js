@@ -65,7 +65,7 @@ class DestructibleEntity extends Phaser.GameObjects.Sprite {
   }
 
   onDeath() {
-    const cfg = this.buildingConfig || window.ObjectConfig?.internalTypes?.[this.objectType] || window.ObjectConfig?.placeableTypes?.[this.objectType] || {};
+    const cfg = this.buildingConfig || window.ObjectConfig?.internalTypes?.[this.objectType] || window.ObjectConfig?.placeableTypes?.[this.objectType] || window.ObjectConfig?.levelTypes?.[this.objectType] || {};
     const shouldExplode = cfg.onDeath === 'explode' && cfg.explosion;
     
     if (shouldExplode && window.EntityManager) {

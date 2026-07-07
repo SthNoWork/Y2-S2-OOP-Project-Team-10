@@ -140,8 +140,16 @@ function _buildVisual(scene, cfg, x, y, bodyW, bodyH, scaleX, scaleY, type) {
   }
 
   let obj;
-  if (type === 'plane') {
-    obj = new Plane(scene, x, y, cfg.imageKey, cfg.startFrame);
+  if (type === 'plane' && window.Plane) {
+    obj = new window.Plane(scene, x, y, cfg.imageKey, cfg.startFrame);
+  } else if (type === 'player' && window.Player) {
+    obj = new window.Player(scene, x, y, cfg.imageKey, cfg.startFrame);
+  } else if (type === 'pillbox' && window.Pillbox) {
+    obj = new window.Pillbox(scene, x, y, cfg.imageKey, cfg.startFrame);
+  } else if (type === 'mortar' && window.Mortar) {
+    obj = new window.Mortar(scene, x, y, cfg.imageKey, cfg.startFrame);
+  } else if ((window.ObjectConfig?.placeableTypes?.[type] || window.ObjectConfig?.levelTypes?.[type]) && window.Building) {
+    obj = new window.Building(scene, x, y, cfg.imageKey, cfg.startFrame);
   } else {
     obj = scene.add.sprite(x, y, cfg.imageKey, cfg.startFrame);
   }
